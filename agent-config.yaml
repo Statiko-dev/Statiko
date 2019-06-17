@@ -1,0 +1,64 @@
+# Authorization token
+# Can also be passed with environmental variable PLATFORM_AUTH
+auth: ""
+
+# Port the server is listening on (must be a string)
+# Defaults to 3000 if not set
+# Can also be passed with environmental variable PORT
+port: "3000"
+
+# Configuration for the nginx webserver
+nginx:
+  # Path where the nginx config is stored
+  configPath: "/etc/nginx/"
+  # Shell commands to start/stop/restart(reload) nginx
+  commands:
+    # Can also be passed with environmental variable PLATFORM_NGINX_START
+    start: "service nginx start"
+    # Can also be passed with environmental variable PLATFORM_NGINX_STOP
+    stop: "service nginx stop"
+    # Can also be passed with environmental variable PLATFORM_NGINX_RESTART
+    restart: "[[ $(service nginx status) ]] && service nginx reload || service nginx restart"
+
+# Path
+# Use a folder inside /mnt (e.g. /mnt/data/) for Azure VMs to leverage the locally-attached SSD
+# Can also be passed with environmental variable PLATFORM_APP_ROOT
+appRoot: "/data/"
+
+# Azure Key Vault
+azureKeyVault:
+  # Name of the Key Vault
+  # Can also be passed with environmental variable AZURE_KEYVAULT_NAME
+  name: ""
+
+  # Service Principal to access the Key Vault
+  servicePrincipal:
+    # Can also be passed with environmental variable AZURE_TENANT_ID
+    tenantId: ""
+    # Can also be passed with environmental variable AZURE_CLIENT_ID
+    clientId: ""
+    # Can also be passed with environmental variable AZURE_CLIENT_SECRET
+    clientSecret: ""
+
+# Azure Storage
+azureStorage:
+  # Storage account name
+  # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
+  account: ""
+  # Container name
+  # Can also be passed with environmental variable AZURE_STORAGE_CONTAINER
+  container: ""
+  # SAS token
+  # Can also be passed with environmental variable AZURE_STORAGE_SAS_TOKEN
+  sasToken: ""
+
+# Code signing public key
+codesignKey: "/etc/smplatform/codesign.pub"
+
+# TLS
+tls:
+  # Using TLS is strongly recommended
+  enabled: yes
+  certificate: "/etc/smplatform/node-public.crt"
+  key: "/etc/smplatform/node-private.key"
+  dhparams: "/etc/smplatform/node-dhparams.pem"

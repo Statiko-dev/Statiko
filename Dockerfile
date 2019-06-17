@@ -1,0 +1,44 @@
+#
+# Builder stage
+#
+FROM gobuffalo/buffalo:v0.14.5 as builder
+
+RUN mkdir -p /src
+WORKDIR /src
+
+ADD . .
+ENV GO111MODULE=on
+RUN go get && \
+    buffalo build \
+        --environment production \
+        --output /bin/app
+
+#
+# Runtime
+#
+
+FROM ubuntu:18.04
+
+# Configuration for the smplatform app
+ENV GO_ENV=production ADDR=0.0.0.0 PORT=3000
+
+# Install dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        supervisor \
+        nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Supervisord configuration
+COPY container/supervisord.conf /etc/supervisor/conf.d/smplatform.conf
+COPY container/init.sh /usr/local/bin/init.sh
+
+# Copy app
+COPY --from=builder /bin/app /usr/local/bin/smplatform
+
+# Expose ports
+EXPOSE 80 443 4000
+
+# Start supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

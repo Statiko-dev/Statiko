@@ -1,0 +1,125 @@
+# Docker
+trigger:
+  - master
+
+resources:
+  - repo: self
+
+variables:
+  # Buffalo
+  BUFFALO_VERSION: "0.14.5"
+
+  # Go
+  GOVERSION: "1.12"
+  GOROOT: '/usr/local/go$(GOVERSION)'
+  GOPATH: '/home/vsts/go'
+
+  # Container registry service connection established during pipeline creation
+  dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
+  imageRepository: 'italypaleale/smplatform'
+  containerRegistry: 'hub.docker.com'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+
+stages:
+  # Binaries for Linux (amd64 and arm64)
+  - stage: Build
+    displayName: Build binaries for Linux (amd64 and arm64)
+    jobs:
+      - job: Build
+        displayName: Build binaries for Linux (amd64 and arm64)
+        pool:
+          vmImage: ubuntu-16.04
+        steps:
+          # Install required packages
+          - script: |
+              sudo apt-get update
+              sudo apt-get install -y \
+                build-essential \
+                autoconf \
+                libtool \
+                cmake \
+                pkg-config \
+                git \
+                automake \
+                autogen \
+                ca-certificates \
+                clang \
+                llvm-dev \
+                libtool \
+                libxml2-dev \
+                uuid-dev \
+                libssl-dev \
+                swig \
+                patch \
+                make \
+                xz-utils \
+                cpio \
+                gcc-5-aarch64-linux-gnu \
+                g++-5-aarch64-linux-gnu \
+                libc6-dev-arm64-cross \
+                sqlite
+            displayName: "Install required packages"
+          # Set up go environment and Buffalo
+          - script: |
+              # Add to GOBIN to PATH
+              echo '##vso[task.prependpath]$(GOBIN)'
+              echo '##vso[task.prependpath]$(GOROOT)/bin'
+
+              # Fetch Buffalo's binary
+              cd /tmp
+              wget https://github.com/gobuffalo/buffalo/releases/download/v$(BUFFALO_VERSION)/buffalo_$(BUFFALO_VERSION)_linux_amd64.tar.gz
+              tar -xvzf buffalo_$(BUFFALO_VERSION)_linux_amd64.tar.gz
+              sudo mv buffalo /usr/local/bin/buffalo
+            displayName: "Set up go environment and Buffalo"
+          # Fetch go dependencies
+          - script: |
+              # App's dependencies
+              GO111MODULE=on go get
+            displayName: "Fetch go dependencies"
+          # Build amd64
+          - script: |
+              which buffalo
+              echo "$(Build.ArtifactStagingDirectory)"
+              GO111MODULE=on \
+                buffalo build \
+                  --environment production \
+                  --output $(Build.ArtifactStagingDirectory)/smplatform_linux-amd64
+            displayName: "Build amd64"
+          # Build arm64
+          - script: |
+              CC=aarch64-linux-gnu-gcc-5 \
+              CXX=aarch64-linux-gnu-g++-5 \
+              GO111MODULE=on \
+              GOOS=linux \
+              GOARCH=arm64 \
+              CGO_ENABLED=1 \
+                buffalo build \
+                  --environment production \
+                  --output $(Build.ArtifactStagingDirectory)/smplatform_linux-arm64
+            displayName: "Build arm64"
+          # Publish binaries as artifacts
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish build artifacts'
+
+
+  # Docker image
+  - stage: Docker
+    displayName: Build and publish Docker image
+    dependsOn: [] # Run in parallel
+    jobs:  
+      - job: Docker
+        displayName: Build and publish Docker image
+        pool:
+          vmImage: ubuntu-16.04
+        steps:
+          - task: Docker@2
+            displayName: Build and push an image to container registry
+            inputs:
+              command: buildAndPush
+              repository: $(imageRepository)
+              dockerfile: $(dockerfilePath)
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                latest
+                $(tag)

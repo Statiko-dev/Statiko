@@ -1,0 +1,33 @@
+create_table("sites") {
+  t.Column("id", "string", {})
+  t.Column("client_caching", "boolean", {})
+  t.Column("tls_certificate", "string", {})
+
+  t.Index("id", {"unique": true})
+}
+
+create_table("domains") {
+  t.Column("id", "string", {})
+  t.Column("site_id", "string", {})
+  t.Column("domain", "string", {})
+  t.Column("is_default", "boolean", {})
+
+  t.Index("id", {"unique": true})
+  t.Index("site_id", {})
+  t.Index("domain", {"unique": true})
+}
+
+create_table("deployments") {
+  t.Column("id", "string", {})
+  t.Column("site_id", "string", {})
+  t.Column("app_name", "string", {})
+  t.Column("app_version", "string", {})
+  t.Column("status", "int", {})
+  t.Column("error", "string", {null: true})
+
+  t.Index("id", {"unique": true})
+}
+
+add_index("deployments", ["site_id", "status"], {})
+add_index("deployments", ["app_name", "app_version"], {})
+add_index("deployments", "updated_at", {})

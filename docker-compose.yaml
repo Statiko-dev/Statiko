@@ -1,0 +1,19 @@
+version: "3.6"
+
+services:
+  smplatform:
+    image: italypaleale/smplatform:latest
+    restart: always
+    container_name: smplatform
+    volumes:
+      - /platform/etc:/etc/smplatform
+      - /platform/data:/data
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3030:3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
