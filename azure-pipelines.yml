@@ -22,7 +22,6 @@ variables:
   tag: '$(Build.BuildId)'
 
 stages:
-  # Binaries for Linux (amd64 and arm64)
   - stage: Build
     displayName: Build SMPlatform
     jobs:
@@ -81,7 +80,7 @@ stages:
               GO111MODULE=on \
                 buffalo build \
                   --environment production \
-                  --output $(Build.SourcesDirectory)/bin/smplatform_linux_amd64
+                  --output bin/smplatform_linux_amd64
             displayName: "Build amd64"
           # Build arm64
           - script: |
@@ -93,7 +92,7 @@ stages:
               CGO_ENABLED=1 \
                 buffalo build \
                   --environment production \
-                  --output $(Build.SourcesDirectory)/bin/smplatform_linux_arm64
+                  --output bin/smplatform_linux_arm64
               
               pwd
               echo $(Build.SourcesDirectory)
@@ -110,6 +109,11 @@ stages:
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
+          - script: |
+              pwd
+              echo $(Build.SourcesDirectory)
+              ls -al bin
+              ls -al $(Build.SourcesDirectory)/bin
           # Build and push Docker image to container registry
           - task: Docker@2
             displayName: Build and push Docker image to container registry
