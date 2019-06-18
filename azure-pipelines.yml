@@ -18,13 +18,13 @@ variables:
   dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
   imageRepository: 'italypaleale/smplatform'
   containerRegistry: 'hub.docker.com'
-  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-copy-binary'
   tag: '$(Build.BuildId)'
 
 stages:
   # Binaries for Linux (amd64 and arm64)
   - stage: Build
-    displayName: Build binaries for Linux (amd64 and arm64)
+    displayName: Build SMPlatform
     jobs:
       - job: Build
         displayName: Build binaries for Linux (amd64 and arm64)
@@ -65,7 +65,6 @@ stages:
               # Add to GOBIN to PATH
               echo '##vso[task.prependpath]$(GOBIN)'
               echo '##vso[task.prependpath]$(GOROOT)/bin'
-
               # Fetch Buffalo's binary
               cd /tmp
               wget https://github.com/gobuffalo/buffalo/releases/download/v$(BUFFALO_VERSION)/buffalo_$(BUFFALO_VERSION)_linux_amd64.tar.gz
@@ -79,12 +78,10 @@ stages:
             displayName: "Fetch go dependencies"
           # Build amd64
           - script: |
-              which buffalo
-              echo "$(Build.ArtifactStagingDirectory)"
               GO111MODULE=on \
                 buffalo build \
                   --environment production \
-                  --output $(Build.ArtifactStagingDirectory)/smplatform_linux-amd64
+                  --output bin/smplatform_linux_amd64
             displayName: "Build amd64"
           # Build arm64
           - script: |
@@ -96,25 +93,19 @@ stages:
               CGO_ENABLED=1 \
                 buffalo build \
                   --environment production \
-                  --output $(Build.ArtifactStagingDirectory)/smplatform_linux-arm64
+                  --output bin/smplatform_linux_arm64
             displayName: "Build arm64"
+          # Copy binaries to the artifacts staging directory
+          - task: CopyFiles@2
+            inputs:
+              contents: 'bin/**'
+              targetFolder: $(Build.ArtifactStagingDirectory)
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
-
-
-  # Docker image
-  - stage: Docker
-    displayName: Build and publish Docker image
-    dependsOn: [] # Run in parallel
-    jobs:  
-      - job: Docker
-        displayName: Build and publish Docker image
-        pool:
-          vmImage: ubuntu-16.04
-        steps:
+          # Build and push Docker image to container registry
           - task: Docker@2
-            displayName: Build and push an image to container registry
+            displayName: Build and push Docker image to container registry
             inputs:
               command: buildAndPush
               repository: $(imageRepository)

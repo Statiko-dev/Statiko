@@ -1,0 +1,25 @@
+FROM ubuntu:18.04
+
+# Configuration for the smplatform app
+ENV GO_ENV=production ADDR=0.0.0.0 PORT=3000
+
+# Install dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        supervisor \
+        nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Supervisord configuration
+COPY container/supervisord.conf /etc/supervisor/conf.d/smplatform.conf
+COPY container/init.sh /usr/local/bin/init.sh
+
+# Copy app
+COPY bin/smplatform_linux_amd64 /usr/local/bin/smplatform
+
+# Expose ports
+EXPOSE 80 443 4000
+
+# Start supervisor
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
