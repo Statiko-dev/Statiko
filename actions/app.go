@@ -87,9 +87,11 @@ func App() *buffalo.App {
 
 		// Authorization middleware
 		app.Use(AuthMiddleware)
-		app.Middleware.Skip(AuthMiddleware, routesContainer.StatusHandler)
+		// Skip for /info and /status
+		app.Middleware.Skip(AuthMiddleware, routesContainer.InfoHandler, routesContainer.StatusHandler)
 
 		// Routes
+		app.GET("/info", routesContainer.InfoHandler)
 		app.GET("/status", routesContainer.StatusHandler)
 
 		app.POST("/adopt", routesContainer.AdoptHandler)

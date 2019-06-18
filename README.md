@@ -42,7 +42,14 @@ apt-get install -y build-essential autoconf libtool cmake pkg-config git automak
 ### Compile the application
 
 ````sh
-GO111MODULE=on buffalo build --environment production --output bin/smplatform_linux_amd64
+# Set Build ID number
+BUILD_ID="123"
+
+GO111MODULE=on \
+  buffalo build \
+    --environment production \
+    --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+    --output bin/smplatform_linux_amd64
 ````
 
 ### Cross-compile for arm64
@@ -57,5 +64,17 @@ apt-get install -y gcc-5-aarch64-linux-gnu g++-5-aarch64-linux-gnu libc6-dev-arm
 Build the app:
 
 ````sh
-CC=aarch64-linux-gnu-gcc-5 CXX=aarch64-linux-gnu-g++-5 GO111MODULE=on GOOS=linux GOARCH=arm64 CGO_ENABLED=1 buffalo build --environment production --output bin/smplatform_linux_arm64
+# Set Build ID number
+BUILD_ID="123"
+
+CC=aarch64-linux-gnu-gcc-5 \
+CXX=aarch64-linux-gnu-g++-5 \
+GO111MODULE=on \
+GOOS=linux \
+GOARCH=arm64 \
+CGO_ENABLED=1 \
+  buffalo build \
+  --environment production \
+  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+  --output bin/smplatform_linux_arm64
 ````
