@@ -94,6 +94,11 @@ stages:
                 buffalo build \
                   --environment production \
                   --output $(Build.SourcesDirectory)/bin/smplatform_linux_arm64
+              
+              pwd
+              echo $(Build.SourcesDirectory)
+              ls -al bin
+              ls -al $(Build.SourcesDirectory)/bin
             displayName: "Build arm64"
           # Copy binaries to the artifacts staging directory
           - task: CopyFiles@2
