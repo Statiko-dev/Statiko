@@ -81,7 +81,7 @@ stages:
               GO111MODULE=on \
                 buffalo build \
                   --environment production \
-                  --output bin/smplatform_linux_amd64
+                  --output $(Build.SourcesDirectory)/bin/smplatform_linux_amd64
             displayName: "Build amd64"
           # Build arm64
           - script: |
@@ -93,10 +93,11 @@ stages:
               CGO_ENABLED=1 \
                 buffalo build \
                   --environment production \
-                  --output bin/smplatform_linux_arm64
+                  --output $(Build.SourcesDirectory)/bin/smplatform_linux_arm64
             displayName: "Build arm64"
           # Copy binaries to the artifacts staging directory
           - task: CopyFiles@2
+            displayName: Copy binaries to the artifacts staging directory
             inputs:
               sourceFolder: 'bin/'
               contents: '**/*'
