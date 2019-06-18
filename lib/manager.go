@@ -92,15 +92,17 @@ func (m *Manager) Init() error {
 }
 
 // InitAppRoot creates a new, empty app root folder
-func (m *Manager) InitAppRoot() error {
+func (m *Manager) InitAppRoot(reset bool) error {
 	// Ensure the app root folder exists
 	if err := EnsureFolder(m.appRoot); err != nil {
 		return err
 	}
 
-	// If folder isn't empty, clean it
-	if err := RemoveContents(m.appRoot); err != nil {
-		return err
+	// If folder isn't empty, clean it if we are resetting the folder
+	if reset {
+		if err := RemoveContents(m.appRoot); err != nil {
+			return err
+		}
 	}
 
 	// Create /approot/cache
@@ -133,14 +135,17 @@ func (m *Manager) CreateFolders(site string) error {
 		return err
 	}
 
-	// /approot/sites/{site}/tls
-	if err := EnsureFolder(m.appRoot + "sites/" + site + "/tls"); err != nil {
-		return err
-	}
+	// Skip the tls folder for the _default site
+	if site != "_default" {
+		// /approot/sites/{site}/tls
+		if err := EnsureFolder(m.appRoot + "sites/" + site + "/tls"); err != nil {
+			return err
+		}
 
-	// Clean the tls directory
-	if err := RemoveContents(m.appRoot + "sites/" + site + "/tls"); err != nil {
-		return err
+		// Clean the tls directory
+		if err := RemoveContents(m.appRoot + "sites/" + site + "/tls"); err != nil {
+			return err
+		}
 	}
 
 	// /approot/sites/{site}/www

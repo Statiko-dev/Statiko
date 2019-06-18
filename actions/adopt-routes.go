@@ -47,7 +47,7 @@ func (rts *Routes) AdoptHandler(c buffalo.Context) error {
 	}
 
 	// Initialize the app root
-	if err := rts.appManager.InitAppRoot(); err != nil {
+	if err := rts.appManager.InitAppRoot(true); err != nil {
 		return err
 	}
 

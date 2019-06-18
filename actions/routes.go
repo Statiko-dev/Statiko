@@ -132,6 +132,16 @@ func (rts *Routes) syncState() error {
 		return err
 	}
 
+	// Ensure that the appRoot is created (but do not reset it)
+	if err := rts.appManager.InitAppRoot(false); err != nil {
+		return err
+	}
+
+	// Ensure the folder for the default site exists
+	if err := rts.appManager.CreateFolders("_default"); err != nil {
+		return err
+	}
+
 	// Restart Nginx server
 	if err := rts.ngConfig.RestartServer(); err != nil {
 		rts.log.Fatalln("[syncState] Error while restarting Nginx:", err)
