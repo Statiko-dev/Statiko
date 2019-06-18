@@ -71,40 +71,54 @@ func (rts *Routes) Init() error {
 	}
 
 	// At startup, we need to cancel all pending deployments in the database (because the app that was processing them is dead!)
-	rts.removePendingDeployments()
+	if err := rts.removePendingDeployments(); err != nil {
+		return err
+	}
 
 	// Also at startup, sync the system's state
-	rts.syncState()
+	if err := rts.syncState(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 // Removes all pending deployments from the database, marking them as failed
-func (rts *Routes) removePendingDeployments() {
+func (rts *Routes) removePendingDeployments() error {
 	count, err := models.DB.RawQuery("UPDATE deployments SET status = ? WHERE status = ?", models.DeploymentStatusFailed, models.DeploymentStatusRunning).ExecWithCount()
 	if err != nil {
 		// On the very first launch, the table might not exist
 		if err.Error() == "no such table: deployments" {
 			rts.log.Println("[removePendingDeployments] Datatabase has not been initialized yet")
+			return nil
 		} else {
-			// Otherwise, return
-			rts.log.Fatalln("[removePendingDeployments] Error while updating pending deployments in database", err)
-			return
+			// Otherwise, return error
+			rts.log.Fatalln("[removePendingDeployments] Error while updating pending deployments in database:", err)
+			return err
 		}
 	}
 	if count > 0 {
 		rts.log.Printf("[removePendingDeployments] Canceled %d pending deployments\n", count)
 	}
+
+	return nil
 }
 
 // Ensures the system is in the correct state
 // For now, this is limited to ensuring the configuration for Nginx is correct
-func (rts *Routes) syncState() {
+func (rts *Routes) syncState() error {
 	// Get records from the database
 	sites := []models.Site{}
 	if err := models.DB.Eager().All(&sites); err != nil {
-		rts.log.Fatalln("[syncState] Error while querying database", err)
-		return
+		// On the very first launch, the table might not exist
+		if err.Error() == "unable to fetch records: sqlite select many: no such table: sites" {
+			rts.log.Println("[syncState] Datatabase has not been initialized yet")
+			return nil
+		} else {
+			// Otherwise, return error
+			rts.log.Fatalln("[syncState] Error while querying database:", err)
+			return err
+		}
 	}
 
 	// Re-map to the original JSON structure
@@ -114,13 +128,15 @@ func (rts *Routes) syncState() {
 
 	// Sync all sites
 	if err := rts.ngConfig.SyncConfiguration(sites); err != nil {
-		rts.log.Fatalln("[syncState] Error while syncing Nginx configuration", err)
-		return
+		rts.log.Fatalln("[syncState] Error while syncing Nginx configuration:", err)
+		return err
 	}
 
 	// Restart Nginx server
 	if err := rts.ngConfig.RestartServer(); err != nil {
-		rts.log.Fatalln("[syncState] Error while restarting Nginx", err)
-		return
+		rts.log.Fatalln("[syncState] Error while restarting Nginx:", err)
+		return err
 	}
+
+	return nil
 }
