@@ -77,14 +77,22 @@ stages:
             displayName: "Fetch go dependencies"
           # Build amd64
           - script: |
+              BUILD_ID=$(Build.BuildNumber)
+              BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+              COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
+
               GO111MODULE=on \
                 buffalo build \
                   --environment production \
-                  --ldflags "-X buildinfo.BuildID='$(Build.BuildNumber)' -X buildinfo.BuildTime='$(date -u +'%Y-%m-%dT%H:%M:%S')' -X buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+                  --ldflags "-X buildinfo.BuildID=BUILD_ID -X buildinfo.BuildTime=BUILD_TIME -X buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_amd64
             displayName: "Build amd64"
           # Build arm64
           - script: |
+              BUILD_ID=$(Build.BuildNumber)
+              BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+              COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
+
               CC=aarch64-linux-gnu-gcc-5 \
               CXX=aarch64-linux-gnu-g++-5 \
               GO111MODULE=on \
@@ -93,7 +101,7 @@ stages:
               CGO_ENABLED=1 \
                 buffalo build \
                   --environment production \
-                  --ldflags "-X buildinfo.BuildID='$(Build.BuildNumber)' -X buildinfo.BuildTime='$(date -u +'%Y-%m-%dT%H:%M:%S')' -X buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+                  --ldflags "-X buildinfo.BuildID=BUILD_ID -X buildinfo.BuildTime=BUILD_TIME -X buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_arm64
             displayName: "Build arm64"
           # Copy binaries to the artifacts staging directory
