@@ -93,11 +93,6 @@ stages:
                 buffalo build \
                   --environment production \
                   --output bin/smplatform_linux_arm64
-              
-              pwd
-              echo $(Build.SourcesDirectory)
-              ls -al bin
-              ls -al $(Build.SourcesDirectory)/bin
             displayName: "Build arm64"
           # Copy binaries to the artifacts staging directory
           - task: CopyFiles@2
@@ -109,11 +104,6 @@ stages:
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
-          - script: |
-              pwd
-              echo $(Build.SourcesDirectory)
-              ls -al bin
-              ls -al $(Build.SourcesDirectory)/bin
           # Build and push Docker image to container registry
           - task: Docker@2
             displayName: Build and push Docker image to container registry
