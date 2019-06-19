@@ -19,7 +19,7 @@ variables:
   imageRepository: 'italypaleale/smplatform'
   containerRegistry: 'hub.docker.com'
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-copy-binary'
-  dockerTag: '$(Build.BuildName)'
+  dockerTag: '$(Build.BuildNumber)'
   testDockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-test'
   testImageRepository: 'smplatform-test'
 
