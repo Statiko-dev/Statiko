@@ -1,0 +1,19 @@
+{
+  "name": "smplatform.e2e-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "",
+  "private": true,
+  "scripts": {
+    "test": "mocha suite/*.test.js"
+  },
+  "author": "Alessandro Segala (@ItalyPaleAle)",
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "mocha": "^6.1.4",
+    "supertest": "^4.0.2"
+  },
+  "devDependencies": {
+    "eslint": "^5.16.0"
+  }
+}
