@@ -84,7 +84,7 @@ stages:
               GO111MODULE=on \
                 buffalo build \
                   --environment production \
-                  --ldflags "-X buildinfo.BuildID=BUILD_ID -X buildinfo.BuildTime=BUILD_TIME -X buildinfo.CommitHash=$COMMIT_HASH" \
+                  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_amd64
             displayName: "Build amd64"
           # Build arm64
@@ -101,7 +101,7 @@ stages:
               CGO_ENABLED=1 \
                 buffalo build \
                   --environment production \
-                  --ldflags "-X buildinfo.BuildID=BUILD_ID -X buildinfo.BuildTime=BUILD_TIME -X buildinfo.CommitHash=$COMMIT_HASH" \
+                  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_arm64
             displayName: "Build arm64"
           # Copy binaries to the artifacts staging directory
