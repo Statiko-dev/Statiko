@@ -19,7 +19,9 @@ variables:
   imageRepository: 'italypaleale/smplatform'
   containerRegistry: 'hub.docker.com'
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-copy-binary'
-  tag: '$(Build.BuildId)'
+  dockerTag: '$(Build.BuildName)'
+  testDockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-test'
+  testImageRepository: 'smplatform-test'
 
 stages:
   - stage: Build
@@ -114,15 +116,32 @@ stages:
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
-          # Build and push Docker image to container registry
+          # Build Docker image
           - task: Docker@2
-            displayName: Build and push Docker image to container registry
+            displayName: Build Docker image
             inputs:
-              command: buildAndPush
-              buildContext: $(Build.SourcesDirectory)
+              command: build
               repository: $(imageRepository)
               dockerfile: $(dockerfilePath)
               containerRegistry: $(dockerRegistryServiceConnection)
               tags: |
                 latest
-                $(tag)
+                $(dockerTag)
+          # Build Docker test image
+          - task: Docker@2
+            displayName: Build Docker test image
+            inputs:
+              command: build
+              buildContext: $(Build.SourcesDirectory)/e2e-test
+              repository: $(testImageRepository)
+              dockerfile: $(testDockerfilePath)
+          # Push Docker image to container registry
+          - task: Docker@2
+            displayName: Push Docker image to container registry
+            inputs:
+              command: push
+              repository: $(imageRepository)
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                latest
+                $(dockerTag)
