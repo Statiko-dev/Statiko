@@ -64,7 +64,7 @@ func RequestHealth(domain string, httpClient *http.Client, ch chan<- SiteHealth)
 	var responseSize int
 
 	// Build the request object
-	reqURL, _ := url.Parse("https://127.0.0.1")
+	reqURL, _ := url.Parse("https://localhost")
 	req := http.Request{
 		Method: "GET",
 		// URL is always localhost as we're connecting to the nginx server

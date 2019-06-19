@@ -26,7 +26,7 @@ Buffalo ships with a command that will watch your application and automatically 
 GO111MODULE=on ADDR=0.0.0.0 PORT=3000 buffalo dev
 ````
 
-If you point your browser to [http://127.0.0.1:3000](http://127.0.0.1:3000) you should see a "Welcome to Buffalo!" page.
+If you point your browser to [http://localhost:3000](http://localhost:3000) you should see a "Welcome to Buffalo!" page.
 
 **Congratulations!** You now have your Buffalo application up and running.
 
