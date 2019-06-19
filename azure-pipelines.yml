@@ -121,6 +121,7 @@ stages:
             displayName: Build Docker image
             inputs:
               command: build
+              buildContext: $(Build.SourcesDirectory)
               repository: $(imageRepository)
               dockerfile: $(dockerfilePath)
               containerRegistry: $(dockerRegistryServiceConnection)
@@ -135,6 +136,8 @@ stages:
               buildContext: $(Build.SourcesDirectory)/e2e-test
               repository: $(testImageRepository)
               dockerfile: $(testDockerfilePath)
+          # Run tests
+          # TODO
           # Push Docker image to container registry
           - task: Docker@2
             displayName: Push Docker image to container registry
