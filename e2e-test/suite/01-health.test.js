@@ -29,9 +29,6 @@ const utils = require('../lib/utils')
 const fsReaddir = promisify(fs.readdir)
 const fsReadFile = promisify(fs.readFile)
 
-// Debug
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
-
 // Read URLs from env vars
 const nodeUrl = process.env.NODE_URL || 'https://localhost:3000'
 const nginxUrl = process.env.NGINX_URL || 'https://localhost'
