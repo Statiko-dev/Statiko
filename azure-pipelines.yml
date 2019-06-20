@@ -135,6 +135,8 @@ stages:
               buildContext: $(Build.SourcesDirectory)/e2e-test
               repository: $(testImageRepository)
               dockerfile: $(testDockerfilePath)
+              tags: |
+                latest
           # Run end-to-end tests
           - script: |
               docker run \
