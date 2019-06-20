@@ -10,7 +10,7 @@ RUN apt-get update \
     && rm -v "node-v$NODE_VERSION-linux-x64.tar.gz"
 
 # Add the CA
-COPY e2e-test/misc/ca.crt /usr/local/share/ca-certificates/italypaleale-ci.crt
+COPY misc/ca.crt /usr/local/share/ca-certificates/italypaleale-ci.crt
 RUN update-ca-certificates
 
 # Set workdir
