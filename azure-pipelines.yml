@@ -128,15 +128,12 @@ stages:
                 latest
                 $(dockerTag)
           # Build Docker test image
-          - task: Docker@2
+          - script: |
+              docker build \
+                -f $(testDockerfilePath) \
+                -t $(testImageRepository) \
+                $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image
-            inputs:
-              command: build
-              buildContext: $(Build.SourcesDirectory)/e2e-test
-              repository: $(testImageRepository)
-              dockerfile: $(testDockerfilePath)
-              tags: |
-                latest
           # Run end-to-end tests
           - script: |
               docker run \
