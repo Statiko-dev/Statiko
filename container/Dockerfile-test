@@ -12,6 +12,7 @@ RUN apt-get update \
 # Add the CA
 COPY misc/ca.crt /usr/local/share/ca-certificates/italypaleale-ci.crt
 RUN update-ca-certificates
+ENV NODE_EXTRA_CA_CERTS /usr/local/share/ca-certificates/italypaleale-ci.crt
 
 # Set workdir
 WORKDIR /test
