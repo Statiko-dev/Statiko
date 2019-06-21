@@ -144,9 +144,13 @@ stages:
                 -e "NODE_URL=https://smplatform.local:3000" \
                 -e "NGINX_URL=https://smplatform.local" \
                 --add-host "smplatform.local:127.0.0.1" \
-                --add-host "app1.local:127.0.0.1" \
-                --add-host "app2.local:127.0.0.1" \
-                --add-host "app3.local:127.0.0.1" \
+                --add-host "site1.local:127.0.0.1" \
+                --add-host "site1-alias.local:127.0.0.1" \
+                --add-host "mysite.local:127.0.0.1" \
+                --add-host "site2.local:127.0.0.1" \
+                --add-host "site2-alias.local:127.0.0.1" \
+                --add-host "site3.local:127.0.0.1" \
+                --add-host "site3-alias.local:127.0.0.1" \
                 $(testImageRepository)
             displayName:  Run end-to-end tests
           # Push Docker image to container registry
