@@ -3,13 +3,14 @@ FROM ubuntu:18.04
 # Configuration for the smplatform app
 ENV GO_ENV=production ADDR=0.0.0.0 PORT=3000
 
-# Install dependencies
+# Install dependencies and create folders
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         supervisor \
         nginx \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /etc/smplatform /data
 
 # Supervisord configuration
 COPY container/supervisord.conf /etc/supervisor/conf.d/smplatform.conf

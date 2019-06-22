@@ -1,4 +1,3 @@
-# Docker
 trigger:
   - master
 
@@ -19,7 +18,9 @@ variables:
   imageRepository: 'italypaleale/smplatform'
   containerRegistry: 'hub.docker.com'
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-copy-binary'
-  tag: '$(Build.BuildId)'
+  dockerTag: '$(Build.BuildNumber)'
+  testDockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-test'
+  testImageRepository: 'smplatform-test'
 
 stages:
   - stage: Build
@@ -114,15 +115,51 @@ stages:
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
-          # Build and push Docker image to container registry
+          # Build Docker image
           - task: Docker@2
-            displayName: Build and push Docker image to container registry
+            displayName: Build Docker image
             inputs:
-              command: buildAndPush
+              command: build
               buildContext: $(Build.SourcesDirectory)
               repository: $(imageRepository)
               dockerfile: $(dockerfilePath)
               containerRegistry: $(dockerRegistryServiceConnection)
               tags: |
                 latest
-                $(tag)
+                $(dockerTag)
+          # Build Docker test image
+          - script: |
+              docker build \
+                -f $(testDockerfilePath) \
+                -t $(testImageRepository) \
+                $(Build.SourcesDirectory)/e2e-test
+            displayName: Build Docker test image
+          # Run end-to-end tests
+          - script: |
+              docker run \
+                --rm \
+                -v $(pwd)/e2e-test/container_etc:/etc/smplatform \
+                -e "AZURE_STORAGE_SAS_TOKEN=$(AZURE_STORAGE_SAS_TOKEN)" \
+                -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
+                -e "NODE_URL=https://smplatform.local:3000" \
+                -e "NGINX_URL=https://smplatform.local" \
+                --add-host "smplatform.local:127.0.0.1" \
+                --add-host "site1.local:127.0.0.1" \
+                --add-host "site1-alias.local:127.0.0.1" \
+                --add-host "mysite.local:127.0.0.1" \
+                --add-host "site2.local:127.0.0.1" \
+                --add-host "site2-alias.local:127.0.0.1" \
+                --add-host "site3.local:127.0.0.1" \
+                --add-host "site3-alias.local:127.0.0.1" \
+                $(testImageRepository)
+            displayName:  Run end-to-end tests
+          # Push Docker image to container registry
+          - task: Docker@2
+            displayName: Push Docker image to container registry
+            inputs:
+              command: push
+              repository: $(imageRepository)
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                latest
+                $(dockerTag)
