@@ -93,6 +93,9 @@ describe('SMPlatform node', function() {
 
         // Check the data directory
         await sharedTests.checkDataDirectory(sites)
+
+        // Check the Nginx configuration
+        await sharedTests.checkNginxConfig(sites)
     })
 
     it('Nginx is up', function() {

@@ -64,6 +64,43 @@ async function checkDataDirectory(sites) {
     }
 }
 
+// Checks that the Nginx configuration is correct
+async function checkNginxConfig(sites) {
+    // We always expect the default site and app
+    const expectSites = ['_default']
+
+    // Add all expected sites 
+    if (sites) {
+        Object.entries(sites).forEach((el) => {
+            const [, site] = el
+            expectSites.push(site.ID)
+        })
+    }
+
+    // Check the conf.d folder
+    assert(await utils.fileExists('/etc/nginx/conf.d/_default.conf'))
+    assert.deepStrictEqual(
+        (await fsReaddir('/etc/nginx/conf.d')).sort(),
+        (expectSites.map((el) => el + '.conf')).sort()
+    )
+
+    // Check if the configuration for the default site is correct
+    assert.equal(
+        (await fsReadFile('/etc/nginx/conf.d/_default.conf', 'utf8')).trim(),
+        (await fsReadFile('fixtures/nginx-default-site.conf', 'utf8')).trim()
+    )
+
+    // Check if the configuration file for all other sites is correct
+    if (sites) {
+        if (sites.site1) {
+            assert.equal(
+                (await fsReadFile('/etc/nginx/conf.d/' + sites.site1.ID + '.conf', 'utf8')).trim(),
+                (await fsReadFile('fixtures/nginx-site1.conf', 'utf8')).trim().replace(/\{\{siteid\}\}/g, sites.site1.ID)
+            )
+        }
+    }
+}
+
 // Repeated tests
 const tests = {
     checkDataDirectory: (sites) => {
@@ -92,17 +129,6 @@ const tests = {
 
     checkNginxConfig: (sites) => {
         return async function() {
-            // We always expect the default site and app
-            const expectSites = ['_default']
-
-            // Add all expected sites 
-            if (sites) {
-                Object.entries(sites).forEach((el) => {
-                    const [, site] = el
-                    expectSites.push(site.ID)
-                })
-            }
-
             // Check if filesystem is in order
             assert(await utils.folderExists('/etc/nginx'))
             assert(await utils.folderExists('/etc/nginx/conf.d'))
@@ -112,22 +138,15 @@ const tests = {
                 (await fsReaddir('/etc/nginx')).sort(),
                 ['conf.d', 'mime.types', 'nginx.conf']
             )
-            assert(await utils.fileExists('/etc/nginx/conf.d/_default.conf'))
-            assert.deepStrictEqual(
-                (await fsReaddir('/etc/nginx/conf.d')).sort(),
-                (expectSites.map((el) => el + '.conf')).sort()
-            )
-
-            // Check if the configuration for the default site is correct
-            assert.equal(
-                (await fsReadFile('/etc/nginx/conf.d/_default.conf', 'utf8')).trim(),
-                (await fsReadFile('fixtures/nginx-default-site.conf', 'utf8')).trim()
-            )
+            
+            // Run the rest of the tests checking all config
+            await checkNginxConfig(sites)
         }
     }
 }
 
 module.exports = {
     checkDataDirectory,
+    checkNginxConfig,
     tests
 }
