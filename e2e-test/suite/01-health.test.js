@@ -50,7 +50,7 @@ describe('SMPlatform health', function() {
             .get('/info')
             .expect('Content-Type', /json/)
             .expect(200)
-        
+
         assert(response.body)
         assert(Object.keys(response.body).length == 3)
         assert(response.body.authMethod == 'sharedkey')
@@ -64,7 +64,7 @@ describe('SMPlatform health', function() {
             .get('/info')
             .expect('Content-Type', /json/)
             .expect(200)
-        
+
         assert(response.body)
         assert(Object.keys(response.body).length == 3)
         assert(response.body.authMethod == 'sharedkey')

@@ -67,8 +67,21 @@ const folderExists = async (path) => {
     return stat && stat.isDirectory()
 }
 
+/**
+ * Returns a promise that resolves after a certain number of ms
+ * 
+ * @param {number} time - Time to wait in ms
+ * @returns {Promise<void>}
+ */
+const waitPromise = (time) => {
+    return new Promise((resolve) => {
+        setTimeout(resolve, time || 0)
+    })
+}
+
 module.exports = {
     pathExists,
     fileExists,
     folderExists,
+    waitPromise
 }

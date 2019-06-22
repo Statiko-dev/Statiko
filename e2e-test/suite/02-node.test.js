@@ -22,6 +22,7 @@ const assert = require('assert')
 const request = require('supertest')
 const validator = require('validator')
 
+const utils = require('../shared/utils')
 const sitesData = require('../shared/sites-data')
 const sharedTests = require('../shared/shared-tests')
 
@@ -54,7 +55,7 @@ describe('SMPlatform node', function() {
             .set('Authorization', auth)
             .expect('Content-Type', /json/)
             .expect(200)
-        
+
         assert(response.body)
         assert.deepStrictEqual(response.body, {message: 'Adopted'})
     })
@@ -76,13 +77,13 @@ describe('SMPlatform node', function() {
             .send(sitesData.site1)
             .expect('Content-Type', /json/)
             .expect(200)
-        
+
         assert(response.body)
         assert.deepStrictEqual(Object.keys(response.body).sort(), ['ID', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
         assert(validator.isUUID(response.body.ID))
         assert(validator.isISO8601(response.body.createdAt, {strict: true}))
         assert(validator.isISO8601(response.body.updatedAt, {strict: true}))
-        assert.strictEqual(response.body.clientCaching, true)
+        assert.strictEqual(response.body.clientCaching, sitesData.site1.clientCaching)
         assert.strictEqual(response.body.tlsCertificate, sitesData.site1.tlsCertificate)
         assert.strictEqual(response.body.domain, sitesData.site1.domain)
         assert.deepStrictEqual(response.body.aliases.sort(), sitesData.site1.aliases.sort())
@@ -90,6 +91,9 @@ describe('SMPlatform node', function() {
         // Store site
         siteIds.site1 = response.body.ID
         sites[response.body.ID] = response.body
+
+        // Wait a few moments for the server to finish restarting
+        await utils.waitPromise(1500)
 
         // Check the data directory
         await sharedTests.checkDataDirectory(sites)
@@ -101,6 +105,77 @@ describe('SMPlatform node', function() {
     it('Nginx is up', function() {
         return nginxRequest
             .get('/')
+            .expect(403) // This should fail with a 403
+    })
+
+    it('Site1 is up', async function() {
+        await nginxRequest
+            .get('/')
+            .set('Host', 'site1.local')
+            .expect(403) // This should fail with a 403
+
+        await nginxRequest
+            .get('/')
+            .set('Host', 'site1-alias.local')
+            .expect(403) // This should fail with a 403
+
+        await nginxRequest
+            .get('/')
+            .set('Host', 'mysite.local')
+            .expect(403) // This should fail with a 403
+    })
+
+    it('Create site 2', async function() {
+        // This operation can take some time
+        this.timeout(30 * 1000)
+        this.slow(15 * 1000)
+
+        const response = await nodeRequest
+            .post('/site')
+            .set('Authorization', auth)
+            .send(sitesData.site2)
+            .expect('Content-Type', /json/)
+            .expect(200)
+
+        assert(response.body)
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['ID', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
+        assert(validator.isUUID(response.body.ID))
+        assert(validator.isISO8601(response.body.createdAt, {strict: true}))
+        assert(validator.isISO8601(response.body.updatedAt, {strict: true}))
+        assert.strictEqual(response.body.clientCaching, sitesData.site2.clientCaching)
+        assert.strictEqual(response.body.tlsCertificate, sitesData.site2.tlsCertificate)
+        assert.strictEqual(response.body.domain, sitesData.site2.domain)
+        assert.deepStrictEqual(response.body.aliases.sort(), sitesData.site2.aliases.sort())
+
+        // Store site
+        siteIds.site2 = response.body.ID
+        sites[response.body.ID] = response.body
+
+        // Wait a few moments for the server to finish restarting
+        await utils.waitPromise(1500)
+
+        // Check the data directory
+        await sharedTests.checkDataDirectory(sites)
+
+        // Check the Nginx configuration
+        await sharedTests.checkNginxConfig(sites)
+    })
+
+    it('Nginx is up', function() {
+        return nginxRequest
+            .get('/')
+            .expect(403) // This should fail with a 403
+    })
+
+    it('Site2 is up', async function() {
+        await nginxRequest
+            .get('/')
+            .set('Host', 'site2.local')
+            .expect(403) // This should fail with a 403
+
+        await nginxRequest
+            .get('/')
+            .set('Host', 'site2-alias.local')
             .expect(403) // This should fail with a 403
     })
 })
