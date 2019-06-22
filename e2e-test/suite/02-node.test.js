@@ -27,15 +27,15 @@ const sitesData = require('../shared/sites-data')
 const sharedTests = require('../shared/shared-tests')
 
 // Read URLs from env vars
-const nodeUrl = process.env.NODE_URL || 'https://localhost:3000'
-const nginxUrl = process.env.NGINX_URL || 'https://localhost'
+const nodeUrl = process.env.NODE_URL || 'localhost:3000'
+//const nginxUrl = process.env.NGINX_URL || 'localhost'
 
 // Auth header
 const auth = 'hello world'
 
 // Supertest instances
-const nodeRequest = request(nodeUrl)
-const nginxRequest = request(nginxUrl)
+const nodeRequest = request('https://' + nodeUrl)
+//const nginxRequest = request('https://' + nginxUrl)
 
 // Site ids
 const siteIds = {}
@@ -102,28 +102,9 @@ describe('SMPlatform node', function() {
         await sharedTests.checkNginxConfig(sites)
     })
 
-    it('Nginx is up', function() {
-        return nginxRequest
-            .get('/')
-            .expect(403) // This should fail with a 403
-    })
+    it('Nginx is up', sharedTests.tests.checkNginxStatus())
 
-    it('Site1 is up', async function() {
-        await nginxRequest
-            .get('/')
-            .set('Host', 'site1.local')
-            .expect(403) // This should fail with a 403
-
-        await nginxRequest
-            .get('/')
-            .set('Host', 'site1-alias.local')
-            .expect(403) // This should fail with a 403
-
-        await nginxRequest
-            .get('/')
-            .set('Host', 'mysite.local')
-            .expect(403) // This should fail with a 403
-    })
+    it('Site 1 is up', sharedTests.tests.checkNginxSite(sitesData.site1))
 
     it('Create site 2', async function() {
         // This operation can take some time
@@ -161,21 +142,7 @@ describe('SMPlatform node', function() {
         await sharedTests.checkNginxConfig(sites)
     })
 
-    it('Nginx is up', function() {
-        return nginxRequest
-            .get('/')
-            .expect(403) // This should fail with a 403
-    })
+    it('Nginx is up', sharedTests.tests.checkNginxStatus())
 
-    it('Site2 is up', async function() {
-        await nginxRequest
-            .get('/')
-            .set('Host', 'site2.local')
-            .expect(403) // This should fail with a 403
-
-        await nginxRequest
-            .get('/')
-            .set('Host', 'site2-alias.local')
-            .expect(403) // This should fail with a 403
-    })
+    it('Site 2 is up', sharedTests.tests.checkNginxSite(sitesData.site2))
 })

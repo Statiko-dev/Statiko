@@ -24,12 +24,12 @@ const request = require('supertest')
 const sharedTests = require('../shared/shared-tests')
 
 // Read URLs from env vars
-const nodeUrl = process.env.NODE_URL || 'https://localhost:3000'
-const nginxUrl = process.env.NGINX_URL || 'https://localhost'
+const nodeUrl = process.env.NODE_URL || 'localhost:3000'
+const nginxUrl = process.env.NGINX_URL || 'localhost'
 
 // Supertest instances
-const nodeRequest = request(nodeUrl)
-const nginxRequest = request(nginxUrl)
+const nodeRequest = request('https://' + nodeUrl)
+const nginxRequest = request('https://' + nginxUrl)
 
 // Check that the platform has been started correctly
 describe('SMPlatform health', function() {
@@ -39,11 +39,7 @@ describe('SMPlatform health', function() {
             .expect(404) // This should correctly return 404
     })
 
-    it('Nginx is up', function() {
-        return nginxRequest
-            .get('/')
-            .expect(403) // This should fail with a 403
-    })
+    it('Nginx is up', sharedTests.tests.checkNginxStatus())
 
     it('Get node info from /info', async function() {
         const response = await nodeRequest

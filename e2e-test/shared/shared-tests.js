@@ -19,12 +19,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 const assert = require('assert')
 const promisify = require('util').promisify
 const fs = require('fs')
+const request = require('supertest')
 
 const utils = require('./utils')
 
 // Promisified methods
 const fsReaddir = promisify(fs.readdir)
 const fsReadFile = promisify(fs.readFile)
+
+// Supertest instances
+// Read URLs from env vars
+const nginxUrl = process.env.NGINX_URL || 'localhost'
+const nginxRequest = request('https://' + nginxUrl)
 
 // This function can be called to check the status of the data directory on the filesystem
 // It checks that sites, apps, and certificates are correct
@@ -44,7 +50,7 @@ async function checkDataDirectory(sites) {
     // Apps
     assert(await utils.folderExists('/data/apps/_default'))
     assert.deepStrictEqual((await fsReaddir('/data/apps')).sort(), expectApps.sort())
-    assert((await fsReaddir('/data/apps/_default')).length == 0)
+    assert((await fsReaddir('/data/apps/_default')).length == 1)
 
     // Sites
     assert.deepStrictEqual((await fsReaddir('/data/sites')).sort(), expectSites.sort())
@@ -55,7 +61,7 @@ async function checkDataDirectory(sites) {
         assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/www'))
         if (expectSites[i] == '_default') {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'www'])
-            assert((await fsReaddir('/data/sites/' + expectSites[i] + '/www')).length == 0)
+            assert((await fsReaddir('/data/sites/' + expectSites[i] + '/www')).length == 1)
         }
         else {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])
@@ -101,6 +107,44 @@ async function checkNginxConfig(sites) {
     }
 }
 
+// Checks that a site is correctly configured on Nginx and it respons to queries
+async function checkNginxSite(site) {
+    // Test the base site, with TLS
+    await nginxRequest
+        .get('/')
+        .set('Host', site.domain)
+        .expect(403) // This should fail with a 403
+
+    // Without TLS, should redirect
+    await request('http://' + nginxUrl)
+        .get('/hello')
+        .set('Host', site.domain)
+        .expect(301)
+        .expect('Location', 'https://' + site.domain + '/hello')
+
+    // Test aliases, which should all redirect
+    const promises = site.aliases.map((el) => {
+        return Promise.resolve()
+            .then(() => {
+                // With TLS
+                return request('https://' + nginxUrl)
+                    .get('/hello')
+                    .set('Host', el)
+                    .expect(301)
+                    .expect('Location', 'https://' + site.domain + '/hello')
+            })
+            .then(() => {
+                // Without TLS
+                return request('http://' + nginxUrl)
+                    .get('/hello')
+                    .set('Host', el)
+                    .expect(301)
+                    .expect('Location', 'https://' + site.domain + '/hello')
+            })
+    })
+    await Promise.all(promises)
+}
+
 // Repeated tests
 const tests = {
     checkDataDirectory: (sites) => {
@@ -142,11 +186,30 @@ const tests = {
             // Run the rest of the tests checking all config
             await checkNginxConfig(sites)
         }
+    },
+
+    checkNginxStatus: () => {
+        return function() {
+            return nginxRequest
+                .get('/')
+                .expect(404) // This should fail with a 404
+                .expect('Content-Type', 'text/html') // Should return the default app
+                .then((response) => {
+                    assert(/<title>Welcome to SMPlatform<\/title>/.test(response.text))
+                })
+        }
+    },
+
+    checkNginxSite: (site) => {
+        return async function() {
+            await checkNginxSite(site)
+        }
     }
 }
 
 module.exports = {
     checkDataDirectory,
     checkNginxConfig,
+    checkNginxSite,
     tests
 }

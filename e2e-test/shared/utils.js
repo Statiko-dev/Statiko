@@ -33,7 +33,8 @@ const pathExists = async (path) => {
     try {
         const stat = await fsStat(path)
         return stat
-    } catch (err) {
+    }
+    catch (err) {
         if (err.code == 'ENOENT') {
             return null
         }
