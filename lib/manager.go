@@ -33,6 +33,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/gobuffalo/packr/v2"
+
 	"smplatform/appconfig"
 )
 
@@ -53,6 +55,7 @@ type Manager struct {
 	codeSignKey *rsa.PublicKey
 	akv         *AzureKeyVaultCertificate
 	log         *log.Logger
+	box         *packr.Box
 }
 
 // Init the object
@@ -88,6 +91,9 @@ func (m *Manager) Init() error {
 		return err
 	}
 
+	// Packr
+	m.box = packr.New("Default app", "../default-app")
+
 	return nil
 }
 
@@ -119,6 +125,18 @@ func (m *Manager) InitAppRoot(reset bool) error {
 	if err := EnsureFolder(m.appRoot + "apps/_default"); err != nil {
 		return err
 	}
+
+	// Write the default website page
+	welcome, err := m.box.Find("smplatform-welcome.html")
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(m.appRoot + "apps/_default/smplatform-welcome.html")
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	f.Write(welcome)
 
 	// Create /approot/sites
 	if err := EnsureFolder(m.appRoot + "sites"); err != nil {
