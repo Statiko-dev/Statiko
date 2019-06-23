@@ -49,7 +49,7 @@ async function checkDataDirectory(sites) {
     if (sites) {
         Object.entries(sites).forEach((el) => {
             const [, site] = el
-            expectSites.push(site.ID)
+            expectSites.push(site.id)
         })
     }
 
@@ -85,7 +85,7 @@ async function checkNginxConfig(sites) {
     if (sites) {
         Object.entries(sites).forEach((el) => {
             const [, site] = el
-            expectSites.push(site.ID)
+            expectSites.push(site.id)
         })
     }
 
@@ -106,8 +106,8 @@ async function checkNginxConfig(sites) {
     if (sites) {
         if (sites.site1) {
             assert.equal(
-                (await fsReadFile('/etc/nginx/conf.d/' + sites.site1.ID + '.conf', 'utf8')).trim(),
-                (await fsReadFile('fixtures/nginx-site1.conf', 'utf8')).trim().replace(/\{\{siteid\}\}/g, sites.site1.ID)
+                (await fsReadFile('/etc/nginx/conf.d/' + sites.site1.id + '.conf', 'utf8')).trim(),
+                (await fsReadFile('fixtures/nginx-site1.conf', 'utf8')).trim().replace(/\{\{siteid\}\}/g, sites.site1.id)
             )
         }
     }
