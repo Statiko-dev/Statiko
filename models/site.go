@@ -26,7 +26,7 @@ import (
 // Site is the model for a site definition
 type Site struct {
 	// Built-in and required
-	ID        uuid.UUID `db:"id"`
+	ID        uuid.UUID `json:"id" db:"id"`
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 

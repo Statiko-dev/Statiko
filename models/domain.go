@@ -26,9 +26,9 @@ import (
 // There's a 1:many relationship between sites and domains
 type Domain struct {
 	// Built-in and required
-	ID        uuid.UUID `db:"id"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID        uuid.UUID `json:"id" db:"id"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 
 	// Links
 	Site   Site      `belongs_to:"site"`
