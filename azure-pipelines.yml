@@ -143,8 +143,8 @@ stages:
                 -v $(pwd)/e2e-test/container_etc:/etc/smplatform \
                 -e "AZURE_STORAGE_SAS_TOKEN=$(AZURE_STORAGE_SAS_TOKEN)" \
                 -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
-                -e "NODE_URL=https://smplatform.local:3000" \
-                -e "NGINX_URL=https://smplatform.local" \
+                -e "NODE_URL=smplatform.local:3000" \
+                -e "NGINX_URL=smplatform.local" \
                 --add-host "smplatform.local:127.0.0.1" \
                 $(testImageRepository)
             displayName:  Run end-to-end tests
