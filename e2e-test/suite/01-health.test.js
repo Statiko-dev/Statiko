@@ -19,30 +19,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 'use strict'
 
 const assert = require('assert')
-const request = require('supertest')
 
-const sharedTests = require('../shared/shared-tests')
-
-// Read URLs from env vars
-const nodeUrl = process.env.NODE_URL || 'localhost:3000'
-const nginxUrl = process.env.NGINX_URL || 'localhost'
-
-// Supertest instances
-const nodeRequest = request('https://' + nodeUrl)
-const nginxRequest = request('https://' + nginxUrl)
+const shared = require('../shared/shared-tests')
 
 // Check that the platform has been started correctly
-describe('SMPlatform health', function() {
+describe('Health check', function() {
     it('Node is up', function() {
-        return nodeRequest
+        return shared.nodeRequest
             .get('/')
             .expect(404) // This should correctly return 404
     })
 
-    it('Nginx is up', sharedTests.tests.checkNginxStatus())
+    it('Nginx is up', shared.tests.checkNginxStatus())
 
     it('Get node info from /info', async function() {
-        const response = await nodeRequest
+        const response = await shared.nodeRequest
             .get('/info')
             .expect('Content-Type', /json/)
             .expect(200)
@@ -56,7 +47,7 @@ describe('SMPlatform health', function() {
     })
 
     it('Get node info via proxy', async function() {
-        const response = await nginxRequest
+        const response = await shared.nginxRequest
             .get('/info')
             .expect('Content-Type', /json/)
             .expect(200)
@@ -68,9 +59,9 @@ describe('SMPlatform health', function() {
         assert(response.body.hostname)
     })
 
-    it('Check platform data directory', sharedTests.tests.checkDataDirectory())
+    it('Check platform data directory', shared.tests.checkDataDirectory())
 
-    it('Check platform config directory', sharedTests.tests.checkConfigDirectory())
+    it('Check platform config directory', shared.tests.checkConfigDirectory())
 
-    it('Check nginx configuration', sharedTests.tests.checkNginxConfig())
+    it('Check nginx configuration', shared.tests.checkNginxConfig())
 })

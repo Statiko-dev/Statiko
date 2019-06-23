@@ -33,5 +33,11 @@ module.exports = {
         aliases: [
             'site2-alias.local'
         ]
+    },
+    site3: {
+        domain: 'site3.local',
+        tlsCertificate: 'site3',
+        clientCaching: true,
+        aliases: []
     }
 }

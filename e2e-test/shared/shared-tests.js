@@ -27,9 +27,15 @@ const utils = require('./utils')
 const fsReaddir = promisify(fs.readdir)
 const fsReadFile = promisify(fs.readFile)
 
-// Supertest instances
+// Auth header
+const auth = 'hello world'
+
 // Read URLs from env vars
+const nodeUrl = process.env.NODE_URL || 'localhost:3000'
 const nginxUrl = process.env.NGINX_URL || 'localhost'
+
+// Supertest instances
+const nodeRequest = request('https://' + nodeUrl)
 const nginxRequest = request('https://' + nginxUrl)
 
 // This function can be called to check the status of the data directory on the filesystem
@@ -145,6 +151,22 @@ async function checkNginxSite(site) {
     await Promise.all(promises)
 }
 
+// Checks that the cache directory has the correct data
+async function checkCacheDirectory(sites) {
+    // TLS Certificates in cache
+    if (sites) {
+        for (const k in sites) {
+            if (!sites.hasOwnProperty(k)) {
+                continue
+            }
+
+            await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.cert.pem')
+            await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.key.pem')
+            await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.dhparams.pem')
+        }
+    }
+}
+
 // Repeated tests
 const tests = {
     checkDataDirectory: (sites) => {
@@ -208,8 +230,25 @@ const tests = {
 }
 
 module.exports = {
+    auth,
+
+    nodeUrl,
+    nodeRequest,
+    nginxUrl,
+    nginxRequest,
+
     checkDataDirectory,
     checkNginxConfig,
     checkNginxSite,
-    tests
+    checkCacheDirectory,
+
+    tests,
+
+    // Read/write properties
+
+    // Site ids
+    siteIds: {},
+
+    // Configured sites
+    sites: {}
 }
