@@ -40,8 +40,8 @@ describe('Sites', function() {
             .expect(200)
 
         assert(response.body)
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['ID', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
-        assert(validator.isUUID(response.body.ID))
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['id', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
+        assert(validator.isUUID(response.body.id))
         assert(validator.isISO8601(response.body.createdAt, {strict: true}))
         assert(validator.isISO8601(response.body.updatedAt, {strict: true}))
         assert.strictEqual(response.body.clientCaching, sitesData.site1.clientCaching)
@@ -50,8 +50,8 @@ describe('Sites', function() {
         assert.deepStrictEqual(response.body.aliases.sort(), sitesData.site1.aliases.sort())
 
         // Store site
-        shared.siteIds.site1 = response.body.ID
-        shared.sites[response.body.ID] = response.body
+        shared.siteIds.site1 = response.body.id
+        shared.sites[response.body.id] = response.body
 
         // Wait a few moments for the server to finish restarting
         await utils.waitPromise(1500)
@@ -83,8 +83,8 @@ describe('Sites', function() {
             .expect(200)
 
         assert(response.body)
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['ID', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
-        assert(validator.isUUID(response.body.ID))
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['id', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
+        assert(validator.isUUID(response.body.id))
         assert(validator.isISO8601(response.body.createdAt, {strict: true}))
         assert(validator.isISO8601(response.body.updatedAt, {strict: true}))
         assert.strictEqual(response.body.clientCaching, sitesData.site2.clientCaching)
@@ -93,8 +93,8 @@ describe('Sites', function() {
         assert.deepStrictEqual(response.body.aliases.sort(), sitesData.site2.aliases.sort())
 
         // Store site
-        shared.siteIds.site2 = response.body.ID
-        shared.sites[response.body.ID] = response.body
+        shared.siteIds.site2 = response.body.id
+        shared.sites[response.body.id] = response.body
 
         // Wait a few moments for the server to finish restarting
         await utils.waitPromise(1500)
@@ -126,8 +126,8 @@ describe('Sites', function() {
             .expect(200)
 
         assert(response.body)
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['ID', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
-        assert(validator.isUUID(response.body.ID))
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['id', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
+        assert(validator.isUUID(response.body.id))
         assert(validator.isISO8601(response.body.createdAt, {strict: true}))
         assert(validator.isISO8601(response.body.updatedAt, {strict: true}))
         assert.strictEqual(response.body.clientCaching, sitesData.site3.clientCaching)
@@ -136,8 +136,8 @@ describe('Sites', function() {
         assert.deepStrictEqual(response.body.aliases.sort(), sitesData.site3.aliases.sort())
 
         // Store site
-        shared.siteIds.site3 = response.body.ID
-        shared.sites[response.body.ID] = response.body
+        shared.siteIds.site3 = response.body.id
+        shared.sites[response.body.id] = response.body
 
         // Wait a few moments for the server to finish restarting
         await utils.waitPromise(1500)
@@ -156,6 +156,19 @@ describe('Sites', function() {
 
     it('Site 3 is up', shared.tests.checkNginxSite(sitesData.site3))
 
+    it('Domain or alias already exists', async function() {
+        let response = await shared.nodeRequest
+            .post('/site')
+            .set('Authorization', shared.auth)
+            .send(sitesData.exists1)
+            .expect(409)
+        response = await shared.nodeRequest
+            .post('/site')
+            .set('Authorization', shared.auth)
+            .send(sitesData.exists2)
+            .expect(409)
+    })
+
     it('List sites', async function() {
         const response = await shared.nodeRequest
             .get('/site')
@@ -167,18 +180,42 @@ describe('Sites', function() {
         assert(response.body.length == 3)
         for (let i = 0; i < response.body.length; i++) {
             const el = response.body[i]
-            assert(el.ID)
+            assert(el.id)
 
-            const site = shared.sites[el.ID]
+            const site = shared.sites[el.id]
             assert(site)
-            assert.deepStrictEqual(Object.keys(el).sort(), ['ID', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
-            assert(validator.isUUID(el.ID))
+            assert.deepStrictEqual(Object.keys(el).sort(), ['id', 'createdAt', 'updatedAt', 'clientCaching', 'tlsCertificate', 'domain', 'aliases'].sort()) 
+            assert(validator.isUUID(el.id))
             assert(validator.isISO8601(el.createdAt, {strict: true}))
             assert(validator.isISO8601(el.updatedAt, {strict: true}))
             assert.strictEqual(el.clientCaching, site.clientCaching)
             assert.strictEqual(el.tlsCertificate, site.tlsCertificate)
             assert.strictEqual(el.domain, site.domain)
             assert.deepStrictEqual(el.aliases.sort(), site.aliases.sort())
+        }
+    })
+
+    it('Status', async function() {
+        const response = await shared.nodeRequest
+            .get('/status')
+            .expect('Content-Type', /json/)
+            .expect(200)
+        
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['apps', 'health'])
+        assert(response.body.apps.length == Object.keys(shared.sites).length)
+
+        for (let i = 0; i < response.body.apps.length; i++) {
+            const el = response.body.apps[i]
+            assert.deepStrictEqual(Object.keys(el).sort(), ['appName', 'appVersion', 'domain', 'id', 'updated'])
+            
+            const site = shared.sites[el.id]
+            assert(site)
+            assert(el.domain == site.domain)
+
+            // No apps deployed
+            assert(el.appName === null)
+            assert(el.appVersion === null)
+            assert(el.updated === null)
         }
     })
 })

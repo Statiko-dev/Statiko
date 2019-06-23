@@ -39,5 +39,19 @@ module.exports = {
         tlsCertificate: 'site3',
         clientCaching: true,
         aliases: []
+    },
+
+    // Erroring
+    exists1: {
+        domain: 'site3.local',
+        tlsCertificate: 'site3',
+        clientCaching: true,
+        aliases: ['not-existing.com']
+    },
+    exists2: {
+        domain: 'not-existing.com',
+        tlsCertificate: 'site3',
+        clientCaching: true,
+        aliases: ['site3.local']
     }
 }
