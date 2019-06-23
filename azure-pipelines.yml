@@ -89,6 +89,7 @@ stages:
                   --output bin/smplatform_linux_amd64
             displayName: "Build amd64"
           # Build arm64
+          # Only run on master
           - script: |
               BUILD_ID=$(Build.BuildNumber)
               BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
@@ -105,6 +106,7 @@ stages:
                   --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_arm64
             displayName: "Build arm64"
+            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
           # Copy binaries to the artifacts staging directory
           - task: CopyFiles@2
             displayName: Copy binaries to the artifacts staging directory
@@ -147,7 +149,9 @@ stages:
                 $(testImageRepository)
             displayName:  Run end-to-end tests
           # Push Docker image to container registry
+          # Only run on master
           - task: Docker@2
+            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
             displayName: Push Docker image to container registry
             inputs:
               command: push
