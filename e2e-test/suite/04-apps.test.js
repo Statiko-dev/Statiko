@@ -50,5 +50,10 @@ describe('Apps', function() {
         assert.strictEqual(response.body.version, appData.app1.version)
         assert.strictEqual(response.body.deploymentError, null)
         assert.strictEqual(response.body.status, 'running')
+
+        // Wait for app to be deployed
+        await shared.waitForDeployment(sitesData.site1.domain, appData.app1)
     })
+
+    it('App 1 is up', shared.tests.checkNginxSite(sitesData.site1, appData.app1))
 })

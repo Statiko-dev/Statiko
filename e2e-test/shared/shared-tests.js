@@ -114,40 +114,77 @@ async function checkNginxConfig(sites) {
 }
 
 // Checks that a site is correctly configured on Nginx and it respons to queries
-async function checkNginxSite(site) {
+async function checkNginxSite(site, appDeployed) {
+    // If an app has been deployed, it should return 200
+    // Otherwise, a 403 is expected
+    const statusCode = (appDeployed) ? 200 : 403
+
     // Test the base site, with TLS
-    await nginxRequest
+    const result = await nginxRequest
         .get('/')
         .set('Host', site.domain)
-        .expect(403) // This should fail with a 403
+        .expect(statusCode)
+    
+    // If an app has been deployed
+    if (appDeployed) {
+        assert(result.text)
+        assert(/text\/html/i.test(result.type))
+
+        // Ensure the contents match
+        const indexHash = utils.md5String(result.text)
+        assert.strictEqual(indexHash, appDeployed.contents['/'])
+
+        // Check the other files (if any)
+        const promises = []
+        for (const key in appDeployed.contents) {
+            if (appDeployed.contents.hasOwnProperty(key)) {
+                if (key == '/') {
+                    continue
+                }
+                
+                const p = nginxRequest
+                    .get(key)
+                    .set('Host', site.domain)
+                    .expect(200)
+                    .expect(/text\/html/i)
+                    .then((res) => {
+                        assert(res.text)
+                        // Ensure the contents match
+                        assert.strictEqual(utils.md5String(res.text), appDeployed.contents[key])
+                    })
+                promises.push(p)
+            }
+        }
+    }
 
     // Without TLS, should redirect
-    await request('http://' + nginxUrl)
-        .get('/hello')
+    const p = request('http://' + nginxUrl)
+        .get('/__hello')
         .set('Host', site.domain)
         .expect(301)
-        .expect('Location', 'https://' + site.domain + '/hello')
+        .expect('Location', 'https://' + site.domain + '/__hello')
+    const promises = [p]
 
     // Test aliases, which should all redirect
-    const promises = site.aliases.map((el) => {
-        return Promise.resolve()
-            .then(() => {
-                // With TLS
-                return request('https://' + nginxUrl)
-                    .get('/hello')
-                    .set('Host', el)
-                    .expect(301)
-                    .expect('Location', 'https://' + site.domain + '/hello')
-            })
-            .then(() => {
-                // Without TLS
-                return request('http://' + nginxUrl)
-                    .get('/hello')
-                    .set('Host', el)
-                    .expect(301)
-                    .expect('Location', 'https://' + site.domain + '/hello')
-            })
+    site.aliases.map((el) => {
+        // With TLS
+        const p1 = request('https://' + nginxUrl)
+            .get('/__hello')
+            .set('Host', el)
+            .expect(301)
+            .expect('Location', 'https://' + site.domain + '/__hello')
+        
+        // Without TLS
+        const p2 = request('http://' + nginxUrl)
+            .get('/__hello')
+            .set('Host', el)
+            .expect(301)
+            .expect('Location', 'https://' + site.domain + '/__hello')
+        
+        promises.push(p1, p2)
     })
+
+    // Run in parallel
     await Promise.all(promises)
 }
 
@@ -165,6 +202,45 @@ async function checkCacheDirectory(sites) {
             await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.dhparams.pem')
         }
     }
+}
+
+// Waits for an app to be deployed, with a timeout of ~20 seconds
+async function waitForDeployment(domain, appData) {
+    // Wait 20 seconds max (40 times, every 500ms)
+    let t = 40
+    while (t--) {
+        // Wait 0.5 seconds
+        await utils.waitPromise(500)
+
+        const response = await nodeRequest
+            .get('/status/')
+            .expect('Content-Type', /json/)
+            .expect(200)
+        assert(response.body)
+        assert(response.body.apps)
+        assert(Array.isArray(response.body.apps))
+
+        // Check that the app matching site1 is deployed
+        let found = null
+        for (let i = 0; i < response.body.apps.length; i++) {
+            const app = response.body.apps[i]
+            if (app && app.domain && app.domain == domain) {
+                found = app
+                break
+            }
+        }
+
+        // We should have found one app
+        assert(found)
+
+        // Ensure app has been deployed, or keep waiting
+        if (found.appName == appData.app && found.appVersion == appData.version && found.updated) {
+            return
+        }
+    }
+
+    // If we're here, app didn't get deployed
+    throw Error('Timeout reached: app not deployed')
 }
 
 // Repeated tests
@@ -222,9 +298,9 @@ const tests = {
         }
     },
 
-    checkNginxSite: (site) => {
+    checkNginxSite: (site, appDeployed) => {
         return async function() {
-            await checkNginxSite(site)
+            await checkNginxSite(site, appDeployed)
         }
     }
 }
@@ -241,6 +317,7 @@ module.exports = {
     checkNginxConfig,
     checkNginxSite,
     checkCacheDirectory,
+    waitForDeployment,
 
     tests,
 

@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 const fs = require('fs')
 const promisify = require('util').promisify
+const crypto = require('crypto')
 
 // Promisified methods
 const fsStat = promisify(fs.stat)
@@ -72,7 +73,7 @@ const folderExists = async (path) => {
  * Returns a promise that resolves after a certain number of ms
  * 
  * @param {number} time - Time to wait in ms
- * @returns {Promise<void>}
+ * @returns {Promise<void>} Promise that resolves after the delay
  */
 const waitPromise = (time) => {
     return new Promise((resolve) => {
@@ -80,9 +81,20 @@ const waitPromise = (time) => {
     })
 }
 
+/**
+ * Returns the MD5 digest of a string
+ * 
+ * @param {string} str - String to digest
+ * @returns {string} MD5 digest
+ */
+const md5String = (str) => {
+    return crypto.createHash('md5').update(str).digest('hex')
+}
+
 module.exports = {
     pathExists,
     fileExists,
     folderExists,
-    waitPromise
+    waitPromise,
+    md5String
 }
