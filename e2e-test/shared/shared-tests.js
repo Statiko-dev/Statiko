@@ -40,23 +40,26 @@ const nginxRequest = request('https://' + nginxUrl)
 
 // This function can be called to check the status of the data directory on the filesystem
 // It checks that sites, apps, and certificates are correct
-async function checkDataDirectory(sites) {
+async function checkDataDirectory(sites, apps) {
     // We always expect the default site and app
     const expectSites = ['_default']
+    let appsArray = []
     const expectApps = ['_default']
 
     // Add all expected sites 
     if (sites) {
-        Object.entries(sites).forEach((el) => {
-            const [, site] = el
+        Object.values(sites).map((site) => {
             expectSites.push(site.id)
         })
     }
 
-    // Apps
-    assert(await utils.folderExists('/data/apps/_default'))
-    assert.deepStrictEqual((await fsReaddir('/data/apps')).sort(), expectApps.sort())
-    assert((await fsReaddir('/data/apps/_default')).length == 1)
+    // Add all expected apps
+    if (apps) {
+        appsArray = Object.values(apps)
+        appsArray.map((app) => {
+            expectApps.push(app.app + '-' + app.version)
+        })
+    }
 
     // Sites
     assert.deepStrictEqual((await fsReaddir('/data/sites')).sort(), expectSites.sort())
@@ -72,6 +75,27 @@ async function checkDataDirectory(sites) {
         else {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])
             assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/tls'))
+        }
+    }
+
+    // Apps
+    assert(await utils.folderExists('/data/apps/_default'))
+    assert.deepStrictEqual((await fsReaddir('/data/apps')).sort(), expectApps.sort())
+
+    for (let i = 0; i < expectApps.length; i++) {
+        if (expectApps[i] == '_default') {
+            assert((await fsReaddir('/data/apps/_default')).length == 1)
+        }
+        else {
+            // Check all files and their md5 hash
+            assert((await fsReaddir('/data/apps/' + expectApps[i])).length == Object.keys(appsArray[i - 1].contents).length)
+            for (const file in appsArray[i - 1].contents) {
+                if (appsArray[i - 1].contents.hasOwnProperty(file)) {
+                    const hash = appsArray[i - 1].contents[file]
+                    const content = await fsReadFile('/data/apps/' + expectApps[i] + '/' + file)
+                    assert.strictEqual(hash, utils.md5String(content))
+                }
+            }
         }
     }
 }
@@ -132,25 +156,24 @@ async function checkNginxSite(site, appDeployed) {
 
         // Ensure the contents match
         const indexHash = utils.md5String(result.text)
-        assert.strictEqual(indexHash, appDeployed.contents['/'])
+        assert.strictEqual(indexHash, appDeployed.contents['index.html'])
 
         // Check the other files (if any)
         const promises = []
         for (const key in appDeployed.contents) {
             if (appDeployed.contents.hasOwnProperty(key)) {
-                if (key == '/') {
+                if (key == 'index.html') {
                     continue
                 }
                 
                 const p = nginxRequest
-                    .get(key)
+                    .get('/' + key)
                     .set('Host', site.domain)
                     .expect(200)
-                    .expect(/text\/html/i)
                     .then((res) => {
-                        assert(res.text)
+                        assert(res.body)
                         // Ensure the contents match
-                        assert.strictEqual(utils.md5String(res.text), appDeployed.contents[key])
+                        assert.strictEqual(utils.md5String(res.body), appDeployed.contents[key])
                     })
                 promises.push(p)
             }
@@ -189,7 +212,7 @@ async function checkNginxSite(site, appDeployed) {
 }
 
 // Checks that the cache directory has the correct data
-async function checkCacheDirectory(sites) {
+async function checkCacheDirectory(sites, apps) {
     // TLS Certificates in cache
     if (sites) {
         for (const k in sites) {
@@ -200,6 +223,17 @@ async function checkCacheDirectory(sites) {
             await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.cert.pem')
             await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.key.pem')
             await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.dhparams.pem')
+        }
+    }
+
+    // Cached apps' bundles
+    if (apps) {
+        for (const k in apps) {
+            if (!apps.hasOwnProperty(k)) {
+                continue
+            }
+
+            await utils.fileExists('/data/cache/' + apps[k].app + '-' + apps[k].version + '.tar.bz2')
         }
     }
 }
@@ -245,8 +279,12 @@ async function waitForDeployment(domain, appData) {
 
 // Repeated tests
 const tests = {
-    checkDataDirectory: (sites) => {
+    checkDataDirectory: (sites, apps) => {
         return async function() {
+            // This operation can take some time
+            this.timeout(8 * 1000)
+            this.slow(4 * 1000)
+    
             // Test basic filesystem
             assert(await utils.folderExists('/data'))
             assert(await utils.folderExists('/data/apps'))
@@ -255,7 +293,7 @@ const tests = {
             assert.deepStrictEqual(await fsReaddir('/data'), ['apps', 'cache', 'sites'])
 
             // Check the data directory
-            await checkDataDirectory(sites)
+            await checkDataDirectory(sites, apps)
         }
     },
 
@@ -327,5 +365,8 @@ module.exports = {
     siteIds: {},
 
     // Configured sites
-    sites: {}
+    sites: {},
+
+    // Deployed apps
+    apps: {}
 }
