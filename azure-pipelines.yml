@@ -155,12 +155,22 @@ stages:
             inputs:
               buildType: current
               artifactName: drop
-              itemPattern: 'drop/**'
-              downloadPath: 'bin/'
+              downloadPath: '$(Build.ArtifactStagingDirectory)'
+          # Copy binaries from the artifacts staging directory
+          - task: CopyFiles@2
+            displayName: Copy binaries from the artifacts staging directory
+            inputs:
+              sourceFolder: '$(Build.ArtifactStagingDirectory)/drop'
+              contents: '**/*'
+              targetFolder: 'bin/'
           - script: |
               pwd
+              echo "root"
               ls -al
+              echo "bin folder"
               ls -al bin
+              echo "artifacts staging folder"
+              ls -al $(Build.ArtifactStagingDirectory)
           # Build Docker image
           - task: Docker@2
             displayName: Build Docker image
