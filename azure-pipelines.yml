@@ -163,14 +163,6 @@ stages:
               sourceFolder: '$(Build.ArtifactStagingDirectory)/drop'
               contents: '**/*'
               targetFolder: 'bin/'
-          - script: |
-              pwd
-              echo "root"
-              ls -al
-              echo "bin folder"
-              ls -al bin
-              echo "artifacts staging folder"
-              ls -al $(Build.ArtifactStagingDirectory)
           # Build Docker image
           - task: Docker@2
             displayName: Build Docker image
@@ -182,6 +174,75 @@ stages:
               containerRegistry: $(dockerRegistryServiceConnection)
               arguments: |
                 --build-arg ARCH=amd64
+              tags: |
+                latest
+                $(dockerTag)
+          # Build Docker test image
+          - script: |
+              docker build \
+                -f $(testDockerfilePath) \
+                -t $(testImageRepository) \
+                $(Build.SourcesDirectory)/e2e-test
+            displayName: Build Docker test image
+          # Run end-to-end tests
+          - script: |
+              docker run \
+                --rm \
+                -v $(pwd)/e2e-test/container_etc:/etc/smplatform \
+                -e "AZURE_STORAGE_SAS_TOKEN=$(AZURE_STORAGE_SAS_TOKEN)" \
+                -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
+                -e "NODE_URL=smplatform.local:3000" \
+                -e "NGINX_URL=smplatform.local" \
+                --add-host "smplatform.local:127.0.0.1" \
+                $(testImageRepository)
+            displayName:  Run end-to-end tests
+          # Push Docker image to container registry
+          # Only run on master
+          - task: Docker@2
+            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
+            displayName: Push Docker image to container registry
+            inputs:
+              command: push
+              repository: $(imageRepository)
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                latest
+                $(dockerTag)
+  
+  # Build Docker container and run test for armhf
+  - stage: armhf
+    displayName: Containerize and test on armhf
+    dependsOn: build
+    jobs:
+      - job: armhf
+        displayName: Containerize and test on armhf
+        pool: armhf
+        steps:
+          # Download build artifacts from previous stage
+          - task: DownloadBuildArtifacts@0
+            displayName: Download build artifacts
+            inputs:
+              buildType: current
+              artifactName: drop
+              downloadPath: '$(Build.ArtifactStagingDirectory)'
+          # Copy binaries from the artifacts staging directory
+          - task: CopyFiles@2
+            displayName: Copy binaries from the artifacts staging directory
+            inputs:
+              sourceFolder: '$(Build.ArtifactStagingDirectory)/drop'
+              contents: '**/*'
+              targetFolder: 'bin/'
+          # Build Docker image
+          - task: Docker@2
+            displayName: Build Docker image
+            inputs:
+              command: build
+              buildContext: $(Build.SourcesDirectory)
+              repository: $(imageRepository)
+              dockerfile: $(dockerfilePath)
+              containerRegistry: $(dockerRegistryServiceConnection)
+              arguments: |
+                --build-arg ARCH=armhf
               tags: |
                 latest
                 $(dockerTag)
