@@ -6,7 +6,7 @@ resources:
 
 variables:
   # Buffalo
-  BUFFALO_VERSION: "0.14.5"
+  BUFFALO_VERSION: "0.14.6"
 
   # Go
   GOVERSION: "1.12"
