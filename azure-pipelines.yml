@@ -23,11 +23,11 @@ variables:
   testImageRepository: 'smplatform-test'
 
 stages:
-  - stage: Build
-    displayName: Build SMPlatform
+  - stage: build
+    displayName: Build SMPlatform artifacts
     jobs:
-      - job: Build
-        displayName: Build binaries for Linux (amd64, arm64, armhf)
+      - job: build
+        displayName: Build artifacts for Linux (amd64, arm64, armhf)
         pool:
           vmImage: ubuntu-16.04
         steps:
@@ -105,7 +105,7 @@ stages:
                   --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_arm64
             displayName: "Build arm64"
-            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
+            #condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
           # Build armhf
           # Only run on master
           - script: |
@@ -125,7 +125,7 @@ stages:
                   --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_armhf
             displayName: "Build armhf"
-            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
+            #condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
           # Copy binaries to the artifacts staging directory
           - task: CopyFiles@2
             displayName: Copy binaries to the artifacts staging directory
@@ -136,6 +136,28 @@ stages:
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
+
+  # Build Docker container and run test for amd64
+  - stage: amd64
+    displayName: Containerize and test on amd64
+    dependsOn: build
+    jobs:
+      - job: amd64
+        displayName: Containerize and test on amd64
+        pool:
+          vmImage: ubuntu-16.04
+        steps:
+          # Download build artifacts from previous stage
+          - task: DownloadBuildArtifacts@0
+            displayName: Download build artifacts
+            inputs:
+              buildType: current
+              itemPattern: 'drop/**'
+              downloadPath: 'bin/'
+          - script: |
+              pwd
+              ls -al
+              ls -al bin
           # Build Docker image
           - task: Docker@2
             displayName: Build Docker image
@@ -145,6 +167,8 @@ stages:
               repository: $(imageRepository)
               dockerfile: $(dockerfilePath)
               containerRegistry: $(dockerRegistryServiceConnection)
+              arguments: |
+                --build-arg ARCH=amd64
               tags: |
                 latest
                 $(dockerTag)
