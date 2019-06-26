@@ -27,7 +27,7 @@ stages:
     displayName: Build SMPlatform
     jobs:
       - job: Build
-        displayName: Build binaries for Linux (amd64 and arm64)
+        displayName: Build binaries for Linux (amd64, arm64, armhf)
         pool:
           vmImage: ubuntu-16.04
         steps:
@@ -36,6 +36,8 @@ stages:
               sudo apt-get update
               sudo apt-get install -y \
                 build-essential \
+                crossbuild-essential-armhf \
+                crossbuild-essential-arm64 \
                 autoconf \
                 libtool \
                 cmake \
@@ -55,9 +57,6 @@ stages:
                 make \
                 xz-utils \
                 cpio \
-                gcc-5-aarch64-linux-gnu \
-                g++-5-aarch64-linux-gnu \
-                libc6-dev-arm64-cross \
                 sqlite
             displayName: "Install required packages"
           # Set up go environment and Buffalo
@@ -106,6 +105,26 @@ stages:
                   --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_arm64
             displayName: "Build arm64"
+            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
+          # Build armhf
+          # Only run on master
+          - script: |
+              BUILD_ID=$(Build.BuildNumber)
+              BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+              COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
+
+              CC=arm-linux-gnueabihf-gcc-5 \
+              CXX=arm-linux-gnueabihf-g++-5 \
+              GO111MODULE=on \
+              GOOS=linux \
+              GOARCH=arm \
+              GOARM=7 \
+              CGO_ENABLED=1 \
+                buffalo build \
+                  --environment production \
+                  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
+                  --output bin/smplatform_linux_armhf
+            displayName: "Build armhf"
             condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
           # Copy binaries to the artifacts staging directory
           - task: CopyFiles@2
