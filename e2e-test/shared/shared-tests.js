@@ -20,6 +20,7 @@ const assert = require('assert')
 const promisify = require('util').promisify
 const fs = require('fs')
 const request = require('supertest')
+const validator = require('validator')
 
 const utils = require('./utils')
 
@@ -37,6 +38,66 @@ const nginxUrl = process.env.NGINX_URL || 'localhost'
 // Supertest instances
 const nodeRequest = request('https://' + nodeUrl)
 const nginxRequest = request('https://' + nginxUrl)
+
+// Checks the /status page
+async function checkStatus(sites, apps) {
+    if (!apps) {
+        apps = {}
+    }
+
+    // Request all sites
+    const response = await nodeRequest
+        .get('/status')
+        .expect('Content-Type', /json/)
+        .expect(200)
+    assert.deepStrictEqual(Object.keys(response.body).sort(), ['apps', 'health'])
+
+    // Check the apps object
+    assert(response.body.apps.length == Object.keys(sites).length)
+    for (let i = 0; i < response.body.apps.length; i++) {
+        const el = response.body.apps[i]
+        assert.deepStrictEqual(Object.keys(el).sort(), ['appName', 'appVersion', 'domain', 'id', 'updated'])
+        
+        const site = sites[el.id]
+        assert(site)
+        assert(el.domain == site.domain)
+
+        // If there's an app deployed
+        if (apps[site.domain]) {
+            assert(el.appName === apps[site.domain].app)
+            assert(el.appVersion === apps[site.domain].version)
+            assert(validator.isISO8601(el.updated, {strict: true}))
+        }
+        else {
+            assert(el.appName === null)
+            assert(el.appVersion === null)
+            assert(el.updated === null)
+        }
+    }
+
+    // If we have apps deployed, we need to check health too
+    if (apps && Object.keys(apps).length) {
+        assert(Array.isArray(response.body.health))
+        assert(response.body.health.length === Object.keys(apps).length)
+
+        const keys = []
+        for (let i = 0; i < response.body.health.length; i++) {
+            const el = response.body.health[i]
+
+            assert.deepStrictEqual(Object.keys(el).sort(), ['domain', 'error', 'size', 'status', 'time'])
+            assert(el.status === 200)
+            assert(!el.error)
+            assert(el.size > 1)
+            assert(el.domain)
+            assert(validator.isISO8601(el.time, {strict: true}))
+
+            keys.push(el.domain)
+        }
+
+        // Check if we had all the correct apps
+        assert.deepStrictEqual(keys.sort(), Object.keys(apps).sort())
+    }
+}
 
 // This function can be called to check the status of the data directory on the filesystem
 // It checks that sites, apps, and certificates are correct
@@ -279,6 +340,12 @@ async function waitForDeployment(domain, appData) {
 
 // Repeated tests
 const tests = {
+    checkStatus: (sites, apps) => {
+        return async function() {
+            await checkStatus(sites, apps)
+        }
+    },
+
     checkDataDirectory: (sites, apps) => {
         return async function() {
             // This operation can take some time
@@ -351,6 +418,7 @@ module.exports = {
     nginxUrl,
     nginxRequest,
 
+    checkStatus,
     checkDataDirectory,
     checkNginxConfig,
     checkNginxSite,

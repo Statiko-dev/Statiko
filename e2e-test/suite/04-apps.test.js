@@ -137,4 +137,6 @@ describe('Apps', function() {
     it('Check platform data directory', shared.tests.checkDataDirectory(shared.sites, shared.apps))
 
     it('App 3 is up', shared.tests.checkNginxSite(sitesData.site3, appData.app3))
+
+    it('Status', shared.tests.checkStatus(shared.sites, shared.apps))
 })

@@ -157,12 +157,12 @@ describe('Sites', function() {
     it('Site 3 is up', shared.tests.checkNginxSite(sitesData.site3))
 
     it('Domain or alias already exists', async function() {
-        let response = await shared.nodeRequest
+        await shared.nodeRequest
             .post('/site')
             .set('Authorization', shared.auth)
             .send(sitesData.exists1)
             .expect(409)
-        response = await shared.nodeRequest
+        await shared.nodeRequest
             .post('/site')
             .set('Authorization', shared.auth)
             .send(sitesData.exists2)
@@ -195,27 +195,5 @@ describe('Sites', function() {
         }
     })
 
-    it('Status', async function() {
-        const response = await shared.nodeRequest
-            .get('/status')
-            .expect('Content-Type', /json/)
-            .expect(200)
-        
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['apps', 'health'])
-        assert(response.body.apps.length == Object.keys(shared.sites).length)
-
-        for (let i = 0; i < response.body.apps.length; i++) {
-            const el = response.body.apps[i]
-            assert.deepStrictEqual(Object.keys(el).sort(), ['appName', 'appVersion', 'domain', 'id', 'updated'])
-            
-            const site = shared.sites[el.id]
-            assert(site)
-            assert(el.domain == site.domain)
-
-            // No apps deployed
-            assert(el.appName === null)
-            assert(el.appVersion === null)
-            assert(el.updated === null)
-        }
-    })
+    it('Status', shared.tests.checkStatus(shared.sites, shared.apps))
 })
