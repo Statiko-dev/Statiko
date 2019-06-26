@@ -105,7 +105,7 @@ stages:
                   --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   --output bin/smplatform_linux_arm64
             displayName: "Build arm64"
-            #condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
+            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
           # Build armhf
           # Only run on master
           - script: |
@@ -136,6 +136,8 @@ stages:
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
+            inputs:
+              artifactName: drop
 
   # Build Docker container and run test for amd64
   - stage: amd64
@@ -152,6 +154,7 @@ stages:
             displayName: Download build artifacts
             inputs:
               buildType: current
+              artifactName: drop
               itemPattern: 'drop/**'
               downloadPath: 'bin/'
           - script: |
