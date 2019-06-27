@@ -151,11 +151,11 @@ stages:
             amd64:
               AGENT_POOL: 'Hosted Ubuntu 1604'
               BUILD_ARCH: amd64
-              NODEJS_ARCH: x64
+              NODE_ARCH: x64
             armhf:
               AGENT_POOL: 'armhf'
               BUILD_ARCH: armhf
-              NODEJS_ARCH: armv7l
+              NODE_ARCH: armv7l
         pool: $(AGENT_POOL)
         steps:
           # Download build artifacts from previous stage
@@ -191,7 +191,7 @@ stages:
               docker build \
                 -f $(testDockerfilePath) \
                 -t $(testImageRepository) \
-                --build-arg ARCH=$(NODEJS_ARCH) \
+                --build-arg NODE_ARCH=$(NODE_ARCH) \
                 $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image
           # Run end-to-end tests
