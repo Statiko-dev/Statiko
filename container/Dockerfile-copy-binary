@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
 # Configuration for the smplatform app
-ENV GO_ENV=production ADDR=0.0.0.0 PORT=3000
+ENV GO_ENV=production PORT=3000
 
 # Install dependencies and create folders
 RUN apt-get update \
