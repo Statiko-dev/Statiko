@@ -1,7 +1,7 @@
 ## Starting the Application
 
 ````sh
-GO111MODULE=on ADDR=0.0.0.0 PORT=3000 go run main.go
+GO111MODULE=on PORT=3000 go run main.go
 ````
 
 ## Building for production
@@ -20,10 +20,9 @@ apt-get install -y build-essential autoconf libtool cmake pkg-config git automak
 BUILD_ID="123"
 
 GO111MODULE=on \
-  buffalo build \
-    --environment production \
-    --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
-    --output bin/smplatform_linux_amd64
+  go build \
+    -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+    -o bin/smplatform_linux_amd64
 ````
 
 ### Cross-compile for arm64/armhf on Ubuntu
@@ -47,10 +46,9 @@ GO111MODULE=on \
 GOOS=linux \
 GOARCH=arm64 \
 CGO_ENABLED=1 \
-  buffalo build \
-  --environment production \
-  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
-  --output bin/smplatform_linux_arm64
+  go build \
+    -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+    -o bin/smplatform_linux_arm64
 ````
 
 Build the app for armhf:
@@ -66,10 +64,9 @@ GOOS=linux \
 GOARCH=arm \
 GOARM=7 \
 CGO_ENABLED=1 \
-  buffalo build \
-  --environment production \
-  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
-  --output bin/smplatform_linux_armhf
+  go build \
+    -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+    -o bin/smplatform_linux_armhf
 ````
 
 ### Cross-compile for arm64/armhf on Debian
@@ -97,10 +94,9 @@ GO111MODULE=on \
 GOOS=linux \
 GOARCH=arm64 \
 CGO_ENABLED=1 \
-  buffalo build \
-  --environment production \
-  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
-  --output bin/smplatform_linux_arm64
+  go build \
+    -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+    -o bin/smplatform_linux_arm64
 ````
 
 Build for armhf:
@@ -116,8 +112,7 @@ GOOS=linux \
 GOARCH=arm \
 GOARM=7 \
 CGO_ENABLED=1 \
-  buffalo build \
-  --environment production \
-  --ldflags "-X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
-  --output bin/smplatform_linux_armhf
+  go build \
+    -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+    -o bin/smplatform_linux_armhf
 ````

@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"time"
@@ -35,6 +36,11 @@ func main() {
 	// Seed rand
 	rand.Seed(time.Now().UnixNano())
 
+	// If we're in production mode, set Gin to "release" mode
+	if appconfig.ENV == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	// Start gin
 	router := gin.Default()
 
@@ -48,6 +54,7 @@ func main() {
 	}
 
 	// Enable TLS if necessary
+	protocol := "http"
 	if appconfig.Config.GetBool("tls.enabled") {
 		tlsCertFile := appconfig.Config.GetString("tls.certificate")
 		tlsKeyFile := appconfig.Config.GetString("tls.key")
@@ -60,6 +67,7 @@ func main() {
 			MinVersion:   tls.VersionTLS12,
 		}
 		server.TLSConfig = tlsConfig
+		protocol = "https"
 	}
 
 	// Connect to the database
@@ -99,5 +107,6 @@ func main() {
 	}
 
 	// Start the server
+	fmt.Printf("Starting server on %s://%s\n", protocol, server.Addr)
 	server.ListenAndServe()
 }

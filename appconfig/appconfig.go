@@ -21,26 +21,36 @@ import (
 	"os"
 
 	"github.com/spf13/viper"
+
+	"smplatform/buildinfo"
 )
 
 type appConfig struct {
 	logger *log.Logger
 }
 
-// ENV is used to help switch settings based on where the
-// application is being run. Default is "development".
+// ENV is used to help switch settings based on where the application is being run
 var ENV string
 
 // Load itializes the object
 func (c *appConfig) Load() error {
+	// Logger
+	c.logger = log.New(os.Stdout, "appconfig: ", log.Ldate|log.Ltime|log.LUTC)
+
 	// Set environment
 	ENV = os.Getenv("GO_ENV")
 	if len(ENV) < 1 {
-		// Default is "development"
-		ENV = "development"
+		// Check if we have something hardcoded at build-time
+		if len(buildinfo.ENV) > 0 {
+			ENV = buildinfo.ENV
+		} else {
+			// Fallback to "development"
+			ENV = "development"
+		}
 	}
+	c.logger.Printf("Environment: %s\n", ENV)
 
-	c.logger = log.New(os.Stdout, "appconfig: ", log.Ldate|log.Ltime|log.LUTC)
+	// Load configuration
 	c.logger.Println("Loading configuration")
 
 	// Look for a config file named node-config.(json|yaml|toml|...)

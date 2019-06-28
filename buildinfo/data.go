@@ -21,4 +21,5 @@ var (
 	BuildID    string
 	CommitHash string
 	BuildTime  string
+	ENV        string
 )
