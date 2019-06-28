@@ -24,8 +24,8 @@ import (
 	"text/template"
 
 	"smplatform/appconfig"
-	"smplatform/lib"
-	"smplatform/models"
+	"smplatform/db"
+	"smplatform/utils"
 
 	"github.com/gobuffalo/packr/v2"
 	"github.com/gofrs/uuid"
@@ -66,12 +66,12 @@ func (n *NginxConfig) Init() error {
 // ResetConfiguration resets the nginx configuration so there's only the default website
 func (n *NginxConfig) ResetConfiguration() error {
 	// Ensure the folder exists
-	if err := lib.EnsureFolder(n.nginxConfPath); err != nil {
+	if err := utils.EnsureFolder(n.nginxConfPath); err != nil {
 		return err
 	}
 
 	// Clear the contents of the folder
-	if err := lib.RemoveContents(n.nginxConfPath); err != nil {
+	if err := utils.RemoveContents(n.nginxConfPath); err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (n *NginxConfig) ResetConfiguration() error {
 	}
 
 	// Create the conf.d folder for websites
-	if err := lib.EnsureFolder(n.nginxConfPath + "conf.d"); err != nil {
+	if err := utils.EnsureFolder(n.nginxConfPath + "conf.d"); err != nil {
 		return err
 	}
 
@@ -98,7 +98,7 @@ func (n *NginxConfig) ResetConfiguration() error {
 }
 
 // SyncConfiguration ensures that the configuration for the webserver matches the desired state
-func (n *NginxConfig) SyncConfiguration(sites []models.Site) error {
+func (n *NginxConfig) SyncConfiguration(sites []db.Site) error {
 	// First, reset the configuration
 	err := n.ResetConfiguration()
 	if err != nil {
@@ -117,8 +117,8 @@ func (n *NginxConfig) SyncConfiguration(sites []models.Site) error {
 }
 
 // ConfigureSite creates the configuration for a website
-func (n *NginxConfig) ConfigureSite(site *models.Site) error {
-	if err := n.writeConfigurationFile("conf.d/"+site.ID.String()+".conf", "site.conf", site); err != nil {
+func (n *NginxConfig) ConfigureSite(site *db.Site) error {
+	if err := n.writeConfigurationFile("conf.d/"+site.SiteID.String()+".conf", "site.conf", site); err != nil {
 		return err
 	}
 

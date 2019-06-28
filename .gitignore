@@ -1,24 +1,11 @@
-**/*.log
-**/*.sqlite
-bin/
-tmp/
+# Development
+test.db*
+
+# Packr
 *-packr.go
-public/assets/
-.grifter/
-.env
-**/.DS_Store
-*.pid
-coverage
-coverage.data
-.console_history
-.sass-cache/*
-.jhw-cache/
-jhw.*
-*.sublime*
-node_modules/
-dist/
-generated/
-.vendor/
+
+# Compiled binaries
+bin/
 
 # TODO file
 TODO.md
