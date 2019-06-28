@@ -14,12 +14,17 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package buildinfo
+package utils
 
-// These variables will be set at build time
-var (
-	BuildID    string
-	CommitHash string
-	BuildTime  string
-	ENV        string
+import (
+	"github.com/jinzhu/gorm"
 )
+
+// TruncateTable deletes all records from a table, within a transaction
+func TruncateTable(db *gorm.DB, table string) error {
+	db.Exec("DELETE FROM " + table)
+	if db.Error != nil {
+		return db.Error
+	}
+	return nil
+}

@@ -18,68 +18,87 @@ package main
 
 import (
 	"crypto/tls"
-	"log"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"time"
 
-	"github.com/gobuffalo/buffalo/servers"
+	"github.com/gin-gonic/gin"
 
-	"smplatform/actions"
 	"smplatform/appconfig"
+	"smplatform/db"
+	"smplatform/middlewares"
+	"smplatform/routes"
+	"smplatform/startup"
 )
 
-func getServer() (servers.Server, error) {
-	server := &http.Server{}
-
-	var buffaloServer servers.Server
-	if appconfig.Config.GetBool("tls.enabled") {
-		tlsCertFile := appconfig.Config.GetString("tls.certificate")
-		tlsKeyFile := appconfig.Config.GetString("tls.key")
-		cer, err := tls.LoadX509KeyPair(tlsCertFile, tlsKeyFile)
-		if err != nil {
-			return nil, err
-		}
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cer},
-			MinVersion:   tls.VersionTLS12,
-		}
-		server.TLSConfig = tlsConfig
-
-		buffaloServer = servers.WrapTLS(server, tlsCertFile, tlsKeyFile)
-	} else {
-		buffaloServer = servers.Wrap(server)
-	}
-
-	return buffaloServer, nil
-}
-
-// main is the starting point for your Buffalo application.
-// You can feel free and add to this `main` method, change
-// what it does, etc...
-// All we ask is that, at some point, you make sure to
-// call `app.Serve()`, unless you don't want to start your
-// application that is. :)
 func main() {
 	// Seed rand
 	rand.Seed(time.Now().UnixNano())
 
-	// Load app's config
-	if err := appconfig.Config.Init(); err != nil {
-		return
+	// If we're in production mode, set Gin to "release" mode
+	if appconfig.ENV == "production" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Create a http server and wrap it to become a Buffalo server
-	buffaloServer, err := getServer()
-	if err != nil {
-		log.Fatal(err)
-		return
+	// Start gin
+	router := gin.Default()
+
+	// Connect to the database
+	db.Init()
+
+	// Perform some cleanup
+	// First, remove all pending deployments from the database
+	if err := startup.RemovePendingDeployments(); err != nil {
+		panic(err)
 	}
 
-	// Start app
-	app := actions.App()
-	if err := app.Serve(buffaloServer); err != nil {
-		log.Fatal(err)
-		return
+	// Second, sync the state
+	if err := startup.SyncState(); err != nil {
+		panic(err)
+	}
+
+	// Add routes
+	router.GET("/status", routes.StatusHandler)
+	router.GET("/info", routes.InfoHandler)
+
+	// Routes that require authorization
+	{
+		authorized := router.Group("/")
+		authorized.Use(middlewares.Auth())
+		authorized.POST("/adopt", routes.AdoptHandler)
+		authorized.POST("/site", routes.CreateSiteHandler)
+		authorized.GET("/site", routes.ListSiteHandler)
+		authorized.GET("/site/:site", routes.ShowSiteHandler)
+		authorized.DELETE("/site/:site", routes.DeleteSiteHandler)
+		authorized.POST("/site/:site/deploy", routes.DeployHandler)
+	}
+
+	// HTTP Server
+	server := &http.Server{
+		Addr:           "0.0.0.0:" + appconfig.Config.GetString("port"),
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	// Start the server
+	if appconfig.Config.GetBool("tls.enabled") {
+		fmt.Printf("Starting server on https://%s\n", server.Addr)
+		tlsCertFile := appconfig.Config.GetString("tls.certificate")
+		tlsKeyFile := appconfig.Config.GetString("tls.key")
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+		server.TLSConfig = tlsConfig
+		if err := server.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
+			panic(err)
+		}
+	} else {
+		fmt.Printf("Starting server on http://%s\n", server.Addr)
+		if err := server.ListenAndServe(); err != nil {
+			panic(err)
+		}
 	}
 }

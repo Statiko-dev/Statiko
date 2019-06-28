@@ -14,12 +14,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package buildinfo
+package appconfig
 
-// These variables will be set at build time
-var (
-	BuildID    string
-	CommitHash string
-	BuildTime  string
-	ENV        string
-)
+// Config is a singleton for appConfig
+var Config *appConfig
+
+func init() {
+	// Initialize the singleton
+	Config = &appConfig{}
+	if err := Config.Load(); err != nil {
+		panic(err)
+	}
+}

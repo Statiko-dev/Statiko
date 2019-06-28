@@ -14,12 +14,26 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package buildinfo
+package middlewares
 
-// These variables will be set at build time
-var (
-	BuildID    string
-	CommitHash string
-	BuildTime  string
-	ENV        string
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"smplatform/appconfig"
 )
+
+// Auth middleware that checks the Authorization header in the request
+func Auth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Check the Authorization header, and stop invalid requests
+		auth := c.GetHeader("Authorization")
+		if len(auth) == 0 || auth != appconfig.Config.GetString("auth") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "Invalid Authorization header",
+			})
+			return
+		}
+	}
+}

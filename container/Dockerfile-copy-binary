@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
 # Configuration for the smplatform app
-ENV GO_ENV=production ADDR=0.0.0.0 PORT=3000
+ENV GO_ENV=production PORT=3000
 
 # Install dependencies and create folders
 RUN apt-get update \
@@ -14,7 +14,6 @@ RUN apt-get update \
 
 # Supervisord configuration
 COPY container/supervisord.conf /etc/supervisor/conf.d/smplatform.conf
-COPY container/init.sh /usr/local/bin/init.sh
 
 # Copy app
 COPY bin/smplatform_linux_amd64 /usr/local/bin/smplatform

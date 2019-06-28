@@ -5,7 +5,7 @@
   "main": "",
   "private": true,
   "scripts": {
-    "test": "mocha suite/*.test.js"
+    "test": "npx mocha suite/*.test.js"
   },
   "author": "Alessandro Segala (@ItalyPaleAle)",
   "license": "GPL-3.0-only",

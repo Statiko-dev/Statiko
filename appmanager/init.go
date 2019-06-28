@@ -14,12 +14,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package buildinfo
+package appmanager
 
-// These variables will be set at build time
-var (
-	BuildID    string
-	CommitHash string
-	BuildTime  string
-	ENV        string
-)
+// Instance is a singleton for Manager
+var Instance *Manager
+
+func init() {
+	// Initialize the singleton
+	Instance = &Manager{}
+	if err := Instance.Init(); err != nil {
+		panic(err)
+	}
+}

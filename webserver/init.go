@@ -14,12 +14,15 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package buildinfo
+package webserver
 
-// These variables will be set at build time
-var (
-	BuildID    string
-	CommitHash string
-	BuildTime  string
-	ENV        string
-)
+// Instance is a singleton for NginxConfig
+var Instance *NginxConfig
+
+func init() {
+	// Initialize the singleton
+	Instance = &NginxConfig{}
+	if err := Instance.Init(); err != nil {
+		panic(err)
+	}
+}

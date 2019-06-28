@@ -36,7 +36,7 @@ describe('Adopt node', function() {
             .expect(200)
 
         assert(response.body)
-        assert.deepStrictEqual(response.body, {message: 'Adopted'})
+        assert.deepStrictEqual(response.body, {message: 'adopted'})
     })
 
     it('Check platform data directory', shared.tests.checkDataDirectory(shared.sites))
