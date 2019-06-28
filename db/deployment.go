@@ -38,14 +38,14 @@ type Deployment struct {
 
 	// Links
 	Site   Site      `json:"-" gorm:"foreignkey:SiteID;association_foreignkey:SiteID"`
-	SiteID uuid.UUID `json:"siteId"`
+	SiteID uuid.UUID `json:"site"`
 
 	// Fields
-	AppName    string    `json:"app"`
-	AppVersion string    `json:"version"`
-	Status     int       `json:"-"`
-	Error      string    `json:"deploymentError"`
-	Time       time.Time `json:"time"`
+	AppName    string     `json:"app"`
+	AppVersion string     `json:"version"`
+	Status     int        `json:"-"`
+	Error      *string    `json:"deploymentError"`
+	Time       *time.Time `json:"time"`
 
 	// Alias for representing the status as string
 	StatusStr string `json:"status" gorm:"-"`

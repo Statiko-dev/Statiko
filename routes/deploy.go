@@ -41,13 +41,15 @@ func updateDeployment(deployment *db.Deployment, deploymentError error) {
 	// If there's an error, log it too
 	if deploymentError != nil {
 		status = db.DeploymentStatusFailed
-		deployment.Error = deploymentError.Error()
+		deployment.Error = new(string)
+		*deployment.Error = deploymentError.Error()
 		logger.Println("[updateDeployment] deployment failed with error", deploymentError)
 	}
 
 	// Update the database
+	now := time.Now()
+	deployment.Time = &now
 	deployment.Status = status
-	deployment.Time = time.Now()
 	err := db.Connection.Save(deployment).Error
 	if err != nil {
 		logger.Println("[updateDeployment] database update failed with error", err)
