@@ -187,7 +187,8 @@ stages:
                 --build-arg ARCH=$(BUILD_ARCH)
               tags: |
                 latest
-                $(dockerTag)
+                latest-linux-$(BUILD_ARCH)
+                $(dockerTag)-linux-$(BUILD_ARCH)
           # Build Docker test image
           - script: |
               docker build \
