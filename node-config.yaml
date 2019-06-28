@@ -5,7 +5,7 @@ auth: ""
 # Database location
 # Most users should leave this to the default value
 # Can also be passed with environmental variable PLATFORM_DB
-db: "/etc/smplatform/data.pub"
+db: "/etc/smplatform/data.db"
 
 # Port the server is listening on (must be a string)
 # Defaults to 3000 if not set
