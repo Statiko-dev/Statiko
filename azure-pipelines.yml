@@ -17,17 +17,17 @@ variables:
   dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
   imageRepository: 'italypaleale/smplatform'
   containerRegistry: 'hub.docker.com'
-  dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-copy-binary'
+  dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile'
   dockerTag: '$(Build.BuildNumber)'
   testDockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-test'
   testImageRepository: 'smplatform-test'
 
 stages:
-  - stage: Build
-    displayName: Build SMPlatform
+  - stage: build
+    displayName: Build SMPlatform artifacts
     jobs:
-      - job: Build
-        displayName: Build binaries for Linux (amd64, arm64, armhf)
+      - job: build
+        displayName: Build artifacts for Linux (amd64, arm64, armhf)
         pool:
           vmImage: ubuntu-16.04
         steps:
@@ -138,6 +138,41 @@ stages:
           # Publish binaries as artifacts
           - task: PublishBuildArtifacts@1
             displayName: 'Publish build artifacts'
+            inputs:
+              artifactName: drop
+  # Build Docker container and run test for amd64
+  - stage: docker
+    displayName: Containerize and test
+    dependsOn: build
+    jobs:
+      - job: docker
+        displayName: Containerize and test
+        strategy:
+          matrix:
+            amd64:
+              AGENT_POOL: 'Hosted Ubuntu 1604'
+              BUILD_ARCH: amd64
+              NODE_ARCH: x64
+            armhf:
+              AGENT_POOL: 'armhf'
+              BUILD_ARCH: armhf
+              NODE_ARCH: armv7l
+        pool: $(AGENT_POOL)
+        steps:
+          # Download build artifacts from previous stage
+          - task: DownloadBuildArtifacts@0
+            displayName: Download build artifacts
+            inputs:
+              buildType: current
+              artifactName: drop
+              downloadPath: '$(Build.ArtifactStagingDirectory)'
+          # Copy binaries from the artifacts staging directory
+          - task: CopyFiles@2
+            displayName: Copy binaries from the artifacts staging directory
+            inputs:
+              sourceFolder: '$(Build.ArtifactStagingDirectory)/drop'
+              contents: '**/*'
+              targetFolder: 'bin/'
           # Build Docker image
           - task: Docker@2
             displayName: Build Docker image
@@ -147,6 +182,8 @@ stages:
               repository: $(imageRepository)
               dockerfile: $(dockerfilePath)
               containerRegistry: $(dockerRegistryServiceConnection)
+              arguments: |
+                --build-arg ARCH=$(BUILD_ARCH)
               tags: |
                 latest
                 $(dockerTag)
@@ -155,6 +192,7 @@ stages:
               docker build \
                 -f $(testDockerfilePath) \
                 -t $(testImageRepository) \
+                --build-arg NODE_ARCH=$(NODE_ARCH) \
                 $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image
           # Run end-to-end tests
