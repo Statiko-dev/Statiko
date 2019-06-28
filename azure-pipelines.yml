@@ -69,7 +69,7 @@ stages:
               cd /tmp
               curl -LO "https://github.com/gobuffalo/packr/releases/download/v$(PACKR_VERSION)/packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
               tar xzf "packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
-              mv packr2 /usr/local/bin
+              sudo mv packr2 /usr/local/bin
             displayName: "Set up go environment"
           # Fetch go dependencies
           - script: |
