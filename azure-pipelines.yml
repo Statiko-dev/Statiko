@@ -140,6 +140,7 @@ stages:
             displayName: 'Publish build artifacts'
             inputs:
               artifactName: drop
+  
   # Build Docker container and run test for amd64
   - stage: docker
     displayName: Containerize and test
@@ -217,5 +218,5 @@ stages:
               repository: $(imageRepository)
               containerRegistry: $(dockerRegistryServiceConnection)
               tags: |
-                latest
-                $(dockerTag)
+                latest-linux-$(BUILD_ARCH)
+                $(dockerTag)-linux-$(BUILD_ARCH)
