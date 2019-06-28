@@ -28,11 +28,11 @@ import (
 
 // NodeApps contains the current list of apps defined
 type NodeApps struct {
-	SiteID     uuid.UUID  `json:"id" db:"site_id"`
-	Domain     string     `json:"domain" db:"domain"`
-	AppName    *string    `json:"appName" db:"app_name"`
-	AppVersion *string    `json:"appVersion" db:"app_version"`
-	Updated    *time.Time `json:"updated" db:"updated"`
+	SiteID     uuid.UUID  `json:"id"`
+	Domain     string     `json:"domain"`
+	AppName    *string    `json:"appName"`
+	AppVersion *string    `json:"appVersion"`
+	Updated    *time.Time `json:"updated" gorm:"column:time"`
 }
 
 // SiteHealth contains the results of the health checks for each individual app

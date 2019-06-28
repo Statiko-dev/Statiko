@@ -38,7 +38,7 @@ describe('Apps', function() {
             .send(appData.app1)
             .expect('Content-Type', /json/)
             .expect(200)
-        
+
         assert(response)
         assert.deepStrictEqual(Object.keys(response.body).sort(), ['id', 'site', 'app', 'version', 'deploymentError', 'status', 'time'].sort()) 
         assert(validator.isUUID(response.body.id))

@@ -308,7 +308,7 @@ async function waitForDeployment(domain, appData) {
         await utils.waitPromise(500)
 
         const response = await nodeRequest
-            .get('/status/')
+            .get('/status')
             .expect('Content-Type', /json/)
             .expect(200)
         assert(response.body)
