@@ -44,32 +44,6 @@ func main() {
 	// Start gin
 	router := gin.Default()
 
-	// HTTP Server
-	server := &http.Server{
-		Addr:           "0.0.0.0:" + appconfig.Config.GetString("port"),
-		Handler:        router,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-
-	// Enable TLS if necessary
-	protocol := "http"
-	if appconfig.Config.GetBool("tls.enabled") {
-		tlsCertFile := appconfig.Config.GetString("tls.certificate")
-		tlsKeyFile := appconfig.Config.GetString("tls.key")
-		cer, err := tls.LoadX509KeyPair(tlsCertFile, tlsKeyFile)
-		if err != nil {
-			panic(err)
-		}
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cer},
-			MinVersion:   tls.VersionTLS12,
-		}
-		server.TLSConfig = tlsConfig
-		protocol = "https"
-	}
-
 	// Connect to the database
 	db.Init()
 
@@ -85,12 +59,6 @@ func main() {
 	}
 
 	// Add routes
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
-
 	router.GET("/status", routes.StatusHandler)
 	router.GET("/info", routes.InfoHandler)
 
@@ -106,7 +74,31 @@ func main() {
 		authorized.POST("/site/:site/deploy", routes.DeployHandler)
 	}
 
+	// HTTP Server
+	server := &http.Server{
+		Addr:           "0.0.0.0:" + appconfig.Config.GetString("port"),
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
 	// Start the server
-	fmt.Printf("Starting server on %s://%s\n", protocol, server.Addr)
-	server.ListenAndServe()
+	if appconfig.Config.GetBool("tls.enabled") {
+		fmt.Printf("Starting server on https://%s\n", server.Addr)
+		tlsCertFile := appconfig.Config.GetString("tls.certificate")
+		tlsKeyFile := appconfig.Config.GetString("tls.key")
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+		server.TLSConfig = tlsConfig
+		if err := server.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
+			panic(err)
+		}
+	} else {
+		fmt.Printf("Starting server on http://%s\n", server.Addr)
+		if err := server.ListenAndServe(); err != nil {
+			panic(err)
+		}
+	}
 }
