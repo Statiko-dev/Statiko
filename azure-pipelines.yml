@@ -6,9 +6,12 @@ resources:
 
 variables:
   # Go
-  GOVERSION: "1.12"
+  GOVERSION: '1.12'
   GOROOT: '/usr/local/go$(GOVERSION)'
   GOPATH: '/home/vsts/go'
+
+  # Packr
+  PACKR_VERSION: '2.5.1'
 
   # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
@@ -61,12 +64,22 @@ stages:
               # Add to GOBIN to PATH
               echo '##vso[task.prependpath]$(GOBIN)'
               echo '##vso[task.prependpath]$(GOROOT)/bin'
+
+              # Install packr2
+              cd /tmp
+              curl -LO "https://github.com/gobuffalo/packr/releases/download/v$(PACKR_VERSION)/packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
+              tar xzf "packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
+              mv packr2 /usr/local/bin
             displayName: "Set up go environment"
           # Fetch go dependencies
           - script: |
               # App's dependencies
               GO111MODULE=on go get
             displayName: "Fetch go dependencies"
+          # Run packr
+          - script: |
+              /usr/local/bin/packr2
+            displayName: "Run packr"
           # Build amd64
           - script: |
               BUILD_ID=$(Build.BuildNumber)
