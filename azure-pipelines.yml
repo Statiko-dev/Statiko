@@ -221,3 +221,11 @@ stages:
               tags: |
                 latest-linux-$(BUILD_ARCH)
                 $(dockerTag)-linux-$(BUILD_ARCH)
+          # Post-build cleanup
+          - script: |
+              # Delete files from disk
+              rm -rf $(Agent.BuildDirectory)
+              rm -rf $(Build.SourcesDirectory)
+              rm -rf $(Build.ArtifactStagingDirectory)
+              # Remove Docker images
+              docker rmi $(docker images -q)
