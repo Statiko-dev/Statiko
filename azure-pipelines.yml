@@ -245,6 +245,7 @@ stages:
           # Run end-to-end tests
           - bash: |
               set -e
+
               docker run \
                 --rm \
                 -v $(pwd)/e2e-test/container_etc:/etc/smplatform \
@@ -259,11 +260,11 @@ stages:
               echo "Check if we have coverage files"
               ls -al coverage
             displayName:  Run end-to-end tests
-            condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
+            condition: and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))
           # Push Docker image to container registry
           # Only run on master
           - task: Docker@2
-            condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
             displayName: Push Docker image to container registry
             inputs:
               command: push
