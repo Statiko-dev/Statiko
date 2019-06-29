@@ -104,7 +104,7 @@ stages:
                   -c \
                   -tags e2etests \
                   -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
-                  -o e2e-test/bin/smplatform_linux_amd64.test
+                  -o bin/smplatform_linux_amd64.test
             displayName: "Build amd64 with coverage"
           # Build arm64
           # Only run on master
@@ -204,17 +204,30 @@ stages:
                 latest
                 latest-linux-$(BUILD_ARCH)
                 $(dockerTag)-linux-$(BUILD_ARCH)
-          # Build Docker test image
+          # Build Docker test image with coverage
+          # Run this on amd64 only
           - script: |
-              [[ $(BUILD_ARCH) = "amd64" ]] && DOCKERFILE=$(coverageDockerfilePath) || DOCKERFILE=$(testDockerfilePath)
-              
+              mkdir e2e-test/bin
+              cp bin/*.test e2e-test/bin
               docker build \
-                -f ${DOCKERFILE} \
+                -f $(coverageDockerfilePath) \
+                -t $(testImageRepository) \
+                --build-arg ARCH=$(BUILD_ARCH) \
+                --build-arg NODE_ARCH=$(NODE_ARCH) \
+                $(Build.SourcesDirectory)/e2e-test
+            displayName: Build Docker test image with coverage
+            condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
+          # Build Docker test image
+          # Run this not on amd64
+          - script: |
+              docker build \
+                -f $(testDockerfilePath) \
                 -t $(testImageRepository) \
                 --build-arg ARCH=$(BUILD_ARCH) \
                 --build-arg NODE_ARCH=$(NODE_ARCH) \
                 $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image
+            condition: and(succeeded(), ne(variables['BUILD_ARCH'], 'amd64'))
           # Run end-to-end tests
           - script: |
               docker run \
