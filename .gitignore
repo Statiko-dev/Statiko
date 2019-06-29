@@ -34,7 +34,7 @@ TODO.md
 *.out
 
 ### Go Patch ###
-/vendor/
+#/vendor/
 /Godeps/
 
 ### Linux ###
