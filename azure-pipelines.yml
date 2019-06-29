@@ -266,7 +266,7 @@ stages:
             displayName: Publish test results
             inputs:
               testRunner: JUnit
-              testResultsFiles: e2e-tests/results/junit.xml'
+              testResultsFiles: e2e-tests/results/junit.xml
             condition: and(succeededOrFailed(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))
           # Get coverage tools
           # Run this on amd64 only
@@ -284,7 +284,8 @@ stages:
           - bash: |
               set -e
               cd $(Build.SourcesDirectory)
-              ./utils/gocov convert e2e-test/results/coverage.out | gocov-xml > e2e-test/results/coverage.xml
+              chmod +x ./utils/gocov*
+              ./utils/gocov convert e2e-test/results/coverage.out | ./utils/gocov-xml > e2e-test/results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Publish coverage results
