@@ -224,8 +224,9 @@ stages:
           # Post-build cleanup
           - script: |
               # Delete files from disk
-              rm -rf $(Agent.BuildDirectory)
-              rm -rf $(Build.SourcesDirectory)
-              rm -rf $(Build.ArtifactStagingDirectory)
+              rm -rvf $(Agent.BuildDirectory) || true
+              rm -rvf $(Build.SourcesDirectory) || true
+              rm -rvf $(Build.ArtifactStagingDirectory) || true
               # Remove Docker images
-              docker rmi $(docker images -q)
+              docker rmi -f $(docker images -q) || true
+            displayName: "Post-build cleanup"

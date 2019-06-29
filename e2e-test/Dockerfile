@@ -2,7 +2,7 @@ FROM italypaleale/smplatform:latest
 
 # Install Node.js which is necessary for running tests, with dependencies
 ARG NODE_ARCH
-ENV NODE_ARCH=$NODE_ARCH NODE_VERSION=12.4.0
+ENV NODE_ARCH=$NODE_ARCH NODE_VERSION=12.5.0
 RUN apt-get update \
     && apt-get install -y curl \
     && rm -rf /var/lib/apt/lists/* \
