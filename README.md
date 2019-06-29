@@ -35,6 +35,7 @@ packr2
 
 # Build
 GO111MODULE=on \
+GOFLAGS=-mod=vendor \
   go build \
     -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
     -o bin/smplatform_linux_amd64
@@ -62,6 +63,7 @@ packr2
 CC=aarch64-linux-gnu-gcc-5 \
 CXX=aarch64-linux-gnu-g++-5 \
 GO111MODULE=on \
+GOFLAGS=-mod=vendor \
 GOOS=linux \
 GOARCH=arm64 \
 CGO_ENABLED=1 \
@@ -83,6 +85,7 @@ packr2
 CC=arm-linux-gnueabihf-gcc-5 \
 CXX=arm-linux-gnueabihf-g++-5 \
 GO111MODULE=on \
+GOFLAGS=-mod=vendor \
 GOOS=linux \
 GOARCH=arm \
 GOARM=7 \
@@ -118,6 +121,7 @@ packr2
 CC=aarch64-linux-gnu-gcc-6 \
 CXX=aarch64-linux-gnu-g++-6 \
 GO111MODULE=on \
+GOFLAGS=-mod=vendor \
 GOOS=linux \
 GOARCH=arm64 \
 CGO_ENABLED=1 \
@@ -139,6 +143,7 @@ packr2
 CC=arm-linux-gnueabihf-gcc-6 \
 CXX=arm-linux-gnueabihf-g++-6 \
 GO111MODULE=on \
+GOFLAGS=-mod=vendor \
 GOOS=linux \
 GOARCH=arm \
 GOARM=7 \
