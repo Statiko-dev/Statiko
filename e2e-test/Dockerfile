@@ -26,10 +26,8 @@ COPY . .
 # Install dependencies (from package-lock.json)
 RUN npm ci
 
-# Move the test binary
-# Then configure supervisord to run as daemon
-RUN mv bin/smplatform_linux_${ARCH} /usr/local/bin/smplatform \
-    && sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisor/conf.d/smplatform.conf
+# Configure supervisord to run as daemon
+RUN sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisor/conf.d/smplatform.conf
 
 # When the container starts, start supervisord, then run tests
 CMD supervisord -c /etc/supervisor/supervisord.conf && sleep 8 && npm test && supervisorctl stop all && sleep 2
