@@ -1,9 +1,6 @@
 # Development
 test.db*
 
-# Packr
-*-packr.go
-
 # Compiled binaries
 bin/
 e2e-test/bin/

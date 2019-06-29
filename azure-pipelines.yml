@@ -10,9 +10,6 @@ variables:
   GOROOT: '/usr/local/go$(GOVERSION)'
   GOPATH: '/home/vsts/go'
 
-  # Packr
-  PACKR_VERSION: '2.5.1'
-
   # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
   imageRepository: 'italypaleale/smplatform'
@@ -67,17 +64,7 @@ stages:
               # Add to GOBIN to PATH
               echo '##vso[task.prependpath]$(GOBIN)'
               echo '##vso[task.prependpath]$(GOROOT)/bin'
-
-              # Install packr2
-              cd /tmp
-              curl -LO "https://github.com/gobuffalo/packr/releases/download/v$(PACKR_VERSION)/packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
-              tar xzf "packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
-              sudo mv packr2 /usr/local/bin
             displayName: "Set up go environment"
-          # Run packr
-          - bash: |
-              /usr/local/bin/packr2
-            displayName: "Run packr"
           # Build amd64
           - bash: |
               set -e
@@ -268,7 +255,7 @@ stages:
           - task: UniversalPackages@0
             inputs:
               command: download
-              downloadDirectory: $(Build.SourcesDirectory)/utils/
+              downloadDirectory: $(Sytem.DefaultWorkingDirectory)/utils/
               vstsFeed: go-binaries
               vstsFeedPackage: 'coverage-linux-amd64'
               vstsPackageVersion: 1.0.0
@@ -278,8 +265,7 @@ stages:
           # Run this on amd64 only
           - bash: |
               set -e
-              cd $(Build.SourcesDirectory)
-              chmod +x ./utils/gocov*
+              chmod +x utils/gocov*
               ./utils/gocov convert e2e-test/results/coverage.out | ./utils/gocov-xml > e2e-test/results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
