@@ -182,6 +182,7 @@ stages:
               buildType: current
               artifactName: drop
               downloadPath: '$(Build.ArtifactStagingDirectory)'
+              condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
           # Copy binaries from the artifacts staging directory
           - task: CopyFiles@2
             displayName: Copy binaries from the artifacts staging directory
@@ -189,6 +190,7 @@ stages:
               sourceFolder: '$(Build.ArtifactStagingDirectory)/drop'
               contents: '**/*'
               targetFolder: 'bin/'
+            condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
           # Build Docker image
           - task: Docker@2
             displayName: Build Docker image
@@ -204,6 +206,7 @@ stages:
                 latest
                 latest-linux-$(BUILD_ARCH)
                 $(dockerTag)-linux-$(BUILD_ARCH)
+            condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
           # Build Docker test image with coverage
           # Run this on amd64 only
           - script: |
@@ -227,7 +230,7 @@ stages:
                 --build-arg NODE_ARCH=$(NODE_ARCH) \
                 $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image
-            condition: and(succeeded(), ne(variables['BUILD_ARCH'], 'amd64'))
+            condition: and(succeeded(), ne(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
           # Run end-to-end tests
           - script: |
               docker run \
@@ -244,6 +247,7 @@ stages:
               echo "Check if we have coverage files"
               ls -al coverage
             displayName:  Run end-to-end tests
+            condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
           # Push Docker image to container registry
           # Only run on master
           - task: Docker@2
