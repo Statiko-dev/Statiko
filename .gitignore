@@ -8,6 +8,9 @@ test.db*
 bin/
 e2e-test/bin/
 
+# Test results
+e2e-test/results/
+
 # TODO file
 TODO.md
 

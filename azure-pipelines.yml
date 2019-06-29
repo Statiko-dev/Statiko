@@ -232,7 +232,7 @@ stages:
             displayName: Build Docker test image with coverage
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Build Docker test image
-          # Run this not on amd64
+          # Run this on archs different from amd64
           - bash: |
               docker build \
                 -f $(testDockerfilePath) \
@@ -261,6 +261,13 @@ stages:
               ls -al coverage
             displayName:  Run end-to-end tests
             condition: and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))
+          # Publish test results
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            inputs:
+              testRunner: JUnit
+              testResultsFiles: e2e-tests/results/junit.xml'
+            condition: and(succeededOrFailed(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))
           # Push Docker image to container registry
           # Only run on master
           - task: Docker@2

@@ -5,12 +5,14 @@
   "main": "",
   "private": true,
   "scripts": {
-    "test": "npx mocha suite/*.test.js"
+    "test": "npx mocha suite/*.test.js",
+    "test-ci": "npx mocha --reporter mocha-junit-reporter --reporter-options mochaFile=results/junit.xml suite/*.test.js"
   },
   "author": "Alessandro Segala (@ItalyPaleAle)",
   "license": "GPL-3.0-only",
   "dependencies": {
     "mocha": "^6.1.4",
+    "mocha-junit-reporter": "^1.23.0",
     "supertest": "^4.0.2",
     "validator": "^11.0.0"
   },

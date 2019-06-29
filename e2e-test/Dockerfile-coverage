@@ -31,7 +31,11 @@ RUN npm ci
 RUN mv bin/smplatform_linux_${ARCH}.test /usr/local/bin/smplatform.test \
     && chmod +x /usr/local/bin/smplatform.test \
     && sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisor/conf.d/smplatform.conf \
-    && sed -i 's/\/usr\/local\/bin\/smplatform/\/usr\/local\/bin\/smplatform.test -test.run "^TestRunMain$" -test.coverprofile=\/coverage\/coverage.out/' /etc/supervisor/conf.d/smplatform.conf 
+    && sed -i 's/\/usr\/local\/bin\/smplatform/\/usr\/local\/bin\/smplatform.test -test.run "^TestRunMain$" -test.coverprofile=\/results\/coverage.out/' /etc/supervisor/conf.d/smplatform.conf 
 
 # When the container starts, start supervisord, then run tests
-CMD supervisord -c /etc/supervisor/supervisord.conf && sleep 8 && npm test && supervisorctl stop all && sleep 2
+CMD supervisord -c /etc/supervisor/supervisord.conf \
+    && sleep 8 \
+    && npm run test-ci \
+    && supervisorctl stop all \
+    && sleep 2
