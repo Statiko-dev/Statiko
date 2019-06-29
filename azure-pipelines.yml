@@ -20,6 +20,7 @@ variables:
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile'
   dockerTag: '$(Build.BuildNumber)'
   testDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile'
+  coverageDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile-coverage'
   testImageRepository: 'smplatform-test'
 
 stages:
@@ -91,6 +92,20 @@ stages:
                   -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
                   -o bin/smplatform_linux_amd64
             displayName: "Build amd64"
+          # Build amd64 with coverage
+          - script: |
+              BUILD_ID=$(Build.BuildNumber)
+              BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+              COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
+
+              GO111MODULE=on \
+                go test \
+                  -coverpkg=smplatform/... \
+                  -c \
+                  -tags e2etests \
+                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+                  -o e2e-test/bin/smplatform_linux_amd64.test
+            displayName: "Build amd64 with coverage"
           # Build arm64
           # Only run on master
           - script: |
@@ -191,9 +206,12 @@ stages:
                 $(dockerTag)-linux-$(BUILD_ARCH)
           # Build Docker test image
           - script: |
+              [[ $(BUILD_ARCH) = "amd64" ]] && DOCKERFILE=$(coverageDockerfilePath) || DOCKERFILE=$(testDockerfilePath)
+              
               docker build \
-                -f $(testDockerfilePath) \
+                -f ${DOCKERFILE} \
                 -t $(testImageRepository) \
+                --build-arg ARCH=$(BUILD_ARCH) \
                 --build-arg NODE_ARCH=$(NODE_ARCH) \
                 $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image
@@ -202,12 +220,16 @@ stages:
               docker run \
                 --rm \
                 -v $(pwd)/e2e-test/container_etc:/etc/smplatform \
+                -v $(pwd)/coverage:/coverage \
                 -e "AZURE_STORAGE_SAS_TOKEN=$(AZURE_STORAGE_SAS_TOKEN)" \
                 -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
                 -e "NODE_URL=smplatform.local:3000" \
                 -e "NGINX_URL=smplatform.local" \
                 --add-host "smplatform.local:127.0.0.1" \
                 $(testImageRepository)
+              
+              echo "Check if we have coverage files"
+              ls -al coverage
             displayName:  Run end-to-end tests
           # Push Docker image to container registry
           # Only run on master
@@ -230,3 +252,5 @@ stages:
               # Remove Docker images
               docker rmi -f $(docker images -q) || true
             displayName: "Post-build cleanup"
+            # This step always runs, even if the pipeline failed
+            condition: always()

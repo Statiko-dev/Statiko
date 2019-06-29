@@ -17,10 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -83,6 +87,21 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
+	// Handle graceful shutdown on SIGINT
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		s := make(chan os.Signal, 1)
+		signal.Notify(s, os.Interrupt, syscall.SIGTERM)
+		<-s
+
+		// We received an interrupt signal, shut down.
+		if err := server.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			fmt.Printf("HTTP server shutdown error: %v\n", err)
+		}
+		close(idleConnsClosed)
+	}()
+
 	// Start the server
 	if appconfig.Config.GetBool("tls.enabled") {
 		fmt.Printf("Starting server on https://%s\n", server.Addr)
@@ -92,13 +111,15 @@ func main() {
 			MinVersion: tls.VersionTLS12,
 		}
 		server.TLSConfig = tlsConfig
-		if err := server.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != nil {
+		if err := server.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != http.ErrServerClosed {
 			panic(err)
 		}
 	} else {
 		fmt.Printf("Starting server on http://%s\n", server.Addr)
-		if err := server.ListenAndServe(); err != nil {
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			panic(err)
 		}
 	}
+
+	<-idleConnsClosed
 }

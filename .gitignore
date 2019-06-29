@@ -6,6 +6,7 @@ test.db*
 
 # Compiled binaries
 bin/
+e2e-test/bin/
 
 # TODO file
 TODO.md
