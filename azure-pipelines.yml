@@ -19,7 +19,7 @@ variables:
   containerRegistry: 'hub.docker.com'
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile'
   dockerTag: '$(Build.BuildNumber)'
-  testDockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile-test'
+  testDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile'
   testImageRepository: 'smplatform-test'
 
 stages:
