@@ -30,6 +30,7 @@ RUN npm ci
 RUN sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisor/conf.d/smplatform.conf
 
 # When the container starts, start supervisord, then run tests
+ENV MOCHA_FILE=/results/${ARCH}.xml
 CMD supervisord -c /etc/supervisor/supervisord.conf \
     && sleep 8 \
     && npm run test-ci \
