@@ -241,6 +241,10 @@ stages:
                 -e "NGINX_URL=smplatform.local" \
                 --add-host "smplatform.local:127.0.0.1" \
                 $(testImageRepository)
+              echo "Current directory: $(pwd)"
+              ls -al .
+              ls -al e2e-test
+              ls -al e2e-test/results
             displayName:  Run end-to-end tests
             condition: and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))
           # Publish test results
