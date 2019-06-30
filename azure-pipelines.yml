@@ -255,7 +255,7 @@ stages:
           - task: UniversalPackages@0
             inputs:
               command: download
-              downloadDirectory: $(Sytem.DefaultWorkingDirectory)/utils/
+              downloadDirectory: $(System.DefaultWorkingDirectory)/bin/
               vstsFeed: go-binaries
               vstsFeedPackage: 'coverage-linux-amd64'
               vstsPackageVersion: 1.0.0
@@ -265,11 +265,7 @@ stages:
           # Run this on amd64 only
           - bash: |
               set -e
-              echo "Current directory: $(pwd)"
-              ls -al .
-              ls -al utils
-              chmod +x utils/gocov*
-              ./utils/gocov convert e2e-test/results/coverage.out | ./utils/gocov-xml > e2e-test/results/coverage.xml
+              ./bin/gocov convert e2e-test/results/coverage.out | ./bin/gocov-xml > e2e-test/results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Publish coverage results
