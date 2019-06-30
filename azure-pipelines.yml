@@ -10,9 +10,6 @@ variables:
   GOROOT: '/usr/local/go$(GOVERSION)'
   GOPATH: '/home/vsts/go'
 
-  # Packr
-  PACKR_VERSION: '2.5.1'
-
   # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
   imageRepository: 'italypaleale/smplatform'
@@ -67,22 +64,7 @@ stages:
               # Add to GOBIN to PATH
               echo '##vso[task.prependpath]$(GOBIN)'
               echo '##vso[task.prependpath]$(GOROOT)/bin'
-
-              # Install packr2
-              cd /tmp
-              curl -LO "https://github.com/gobuffalo/packr/releases/download/v$(PACKR_VERSION)/packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
-              tar xzf "packr_$(PACKR_VERSION)_linux_amd64.tar.gz"
-              sudo mv packr2 /usr/local/bin
             displayName: "Set up go environment"
-          # Fetch go dependencies
-          - bash: |
-              # App's dependencies
-              GO111MODULE=on go get
-            displayName: "Fetch go dependencies"
-          # Run packr
-          - bash: |
-              /usr/local/bin/packr2
-            displayName: "Run packr"
           # Build amd64
           - bash: |
               set -e
@@ -92,6 +74,7 @@ stages:
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               GO111MODULE=on \
+              GOFLAGS=-mod=vendor \
                 go build \
                   -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
                   -o bin/smplatform_linux_amd64
@@ -105,6 +88,7 @@ stages:
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               GO111MODULE=on \
+              GOFLAGS=-mod=vendor \
                 go test \
                   -coverpkg=smplatform/... \
                   -c \
@@ -124,6 +108,7 @@ stages:
               CC=aarch64-linux-gnu-gcc-5 \
               CXX=aarch64-linux-gnu-g++-5 \
               GO111MODULE=on \
+              GOFLAGS=-mod=vendor \
               GOOS=linux \
               GOARCH=arm64 \
               CGO_ENABLED=1 \
@@ -144,6 +129,7 @@ stages:
               CC=arm-linux-gnueabihf-gcc-5 \
               CXX=arm-linux-gnueabihf-g++-5 \
               GO111MODULE=on \
+              GOFLAGS=-mod=vendor \
               GOOS=linux \
               GOARCH=arm \
               GOARM=7 \
@@ -269,7 +255,7 @@ stages:
           - task: UniversalPackages@0
             inputs:
               command: download
-              downloadDirectory: $(Build.SourcesDirectory)/utils/
+              downloadDirectory: $(System.DefaultWorkingDirectory)/bin/
               vstsFeed: go-binaries
               vstsFeedPackage: 'coverage-linux-amd64'
               vstsPackageVersion: 1.0.0
@@ -279,9 +265,10 @@ stages:
           # Run this on amd64 only
           - bash: |
               set -e
-              cd $(Build.SourcesDirectory)
-              chmod +x ./utils/gocov*
-              ./utils/gocov convert e2e-test/results/coverage.out | ./utils/gocov-xml > e2e-test/results/coverage.xml
+              chmod +x ./bin/gocov*
+              sudo chmod 0777 e2e-test/results
+              sudo chmod 0666 e2e-test/results/*
+              ./bin/gocov convert e2e-test/results/coverage.out | ./bin/gocov-xml > e2e-test/results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Publish coverage results
