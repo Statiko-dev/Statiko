@@ -269,10 +269,11 @@ stages:
               echo "PWD is $(pwd)"
               ls -al .
               ls -al bin
-              ls -al /results
+              ls -al e2e-test
+              ls -al e2e-test/results
 
               chmod +x ./bin/gocov*
-              ./bin/gocov convert /results/coverage.out | ./bin/gocov-xml > /results/coverage.xml
+              ./bin/gocov convert e2e-test/results/coverage.out | ./bin/gocov-xml > e2e-test/results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Publish coverage results
