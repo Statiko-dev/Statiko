@@ -265,7 +265,7 @@ stages:
           # Run this on amd64 only
           - bash: |
               set -e
-              ./bin/gocov convert e2e-test/results/coverage.out | ./bin/gocov-xml > e2e-test/results/coverage.xml
+              ./bin/gocov convert /results/coverage.out | ./bin/gocov-xml > /results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Publish coverage results
