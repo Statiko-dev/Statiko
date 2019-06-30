@@ -265,14 +265,9 @@ stages:
           # Run this on amd64 only
           - bash: |
               set -e
-              
-              echo "PWD is $(pwd)"
-              ls -al .
-              ls -al bin
-              ls -al e2e-test
-              ls -al e2e-test/results
-
               chmod +x ./bin/gocov*
+              sudo chmod 0777 e2e-test/results
+              sudo chmod 0666 e2e-test/results/*
               ./bin/gocov convert e2e-test/results/coverage.out | ./bin/gocov-xml > e2e-test/results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
