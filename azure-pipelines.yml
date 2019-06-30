@@ -265,6 +265,13 @@ stages:
           # Run this on amd64 only
           - bash: |
               set -e
+              
+              echo "PWD is $(pwd)"
+              ls -al .
+              ls -al bin
+              ls -al /results
+
+              chmod +x ./bin/gocov*
               ./bin/gocov convert /results/coverage.out | ./bin/gocov-xml > /results/coverage.xml
             displayName: Convert coverage results
             condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
