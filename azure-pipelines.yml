@@ -235,7 +235,7 @@ stages:
                 --rm \
                 -v $(pwd)/e2e-test/container_etc:/etc/smplatform \
                 -v $(pwd)/e2e-test/results:/results \
-                -e "AZURE_STORAGE_SAS_TOKEN=$(AZURE_STORAGE_SAS_TOKEN)" \
+                -e "AZURE_STORAGE_KEY=$(AZURE_STORAGE_KEY)" \
                 -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
                 -e "NODE_URL=smplatform.local:3000" \
                 -e "NGINX_URL=smplatform.local" \
