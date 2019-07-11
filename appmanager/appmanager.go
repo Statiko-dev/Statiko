@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package appmanager
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/rsa"
@@ -29,10 +30,11 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/http"
+	"net/url"
 	"os"
-	"time"
 
+	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
+	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gobuffalo/packr/v2"
 
 	"smplatform/appconfig"
@@ -48,16 +50,16 @@ type Manager struct {
 	// Nginx configuration directory
 	nginxConfPath string
 
-	// Azure Storage account and SAS token
-	azureStorageBaseURL  string
-	azureStorageSASToken string
+	// Azure Storage client
+	azureStoragePipeline azpipeline.Pipeline
+	azureStorageURL      string
 
 	// Internals
-	httpClient  *http.Client
 	codeSignKey *rsa.PublicKey
 	akv         *azurekeyvault.Certificate
 	log         *log.Logger
 	box         *packr.Box
+	ctx         context.Context
 }
 
 // Init the object
@@ -70,18 +72,26 @@ func (m *Manager) Init() error {
 	m.nginxConfPath = appconfig.Config.GetString("nginx.configPath")
 
 	// Get Azure Storage configuration
-	m.azureStorageBaseURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s/",
-		appconfig.Config.GetString("azureStorage.account"),
-		appconfig.Config.GetString("azureStorage.container"))
-	m.azureStorageSASToken = appconfig.Config.GetString("azureStorage.sasToken")
+	azureStorageAccount := appconfig.Config.GetString("azureStorage.account")
+	azureStorageKey := appconfig.Config.GetString("azureStorage.key")
+	azureStorageContainer := appconfig.Config.GetString("azureStorage.container")
+	m.azureStorageURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s/", azureStorageAccount, azureStorageContainer)
 
-	// HTTP client with a timeout
-	m.httpClient = &http.Client{Timeout: 30 * time.Second}
+	// Azure Storage pipeline
+	m.ctx = context.Background()
+	credential, err := azblob.NewSharedKeyCredential(azureStorageAccount, azureStorageKey)
+	if err != nil {
+		return err
+	}
+	m.azureStoragePipeline = azblob.NewPipeline(credential, azblob.PipelineOptions{
+		Retry: azblob.RetryOptions{
+			MaxTries: 3,
+		},
+	})
 
 	// Initialize the Azure Key Vault client
-	ctx := context.Background()
 	m.akv = &azurekeyvault.Certificate{
-		Ctx:       ctx,
+		Ctx:       m.ctx,
 		VaultName: appconfig.Config.GetString("azureKeyVault.name"),
 	}
 	if err := m.akv.Init(); err != nil {
@@ -269,24 +279,28 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	archiveName := bundle + "-" + version + ".tar.bz2"
 
 	// Get the signature
-	URL := m.azureStorageBaseURL + archiveName + ".sig" + m.azureStorageSASToken
-	resp, err := m.httpClient.Get(URL)
+	u, err := url.Parse(m.azureStorageURL + archiveName + ".sig")
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 399 {
-		b, _ := ioutil.ReadAll(resp.Body)
-		return errors.New(string(b))
+	blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
+	resp, err := blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+	if err != nil {
+		return err
 	}
+
 	// Signature is encoded as base64
-	signatureB64, err := ioutil.ReadAll(resp.Body)
+	signatureB64 := &bytes.Buffer{}
+	reader := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
+	_, err = signatureB64.ReadFrom(reader)
+	defer reader.Close()
 	if err != nil {
 		return err
 	}
+
 	// Hash should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
 	signature := make([]byte, 513)
-	len, err := base64.StdEncoding.Decode(signature, signatureB64)
+	len, err := base64.StdEncoding.Decode(signature, signatureB64.Bytes())
 	if err != nil {
 		return err
 	}
@@ -295,20 +309,20 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	}
 
 	// Get the archive
-	URL = m.azureStorageBaseURL + archiveName + m.azureStorageSASToken
-	resp, err = m.httpClient.Get(URL)
+	u, err = url.Parse(m.azureStorageURL + archiveName)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 399 {
-		b, _ := ioutil.ReadAll(resp.Body)
-		return errors.New(string(b))
+	blobURL = azblob.NewBlobURL(*u, m.azureStoragePipeline)
+	resp, err = blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+	if err != nil {
+		return err
 	}
+	body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
 
 	// The stream is split between two readers: one for the hashing, one for writing the stream to disk
 	h := sha256.New()
-	tee := io.TeeReader(resp.Body, h)
+	tee := io.TeeReader(body, h)
 
 	// Write to disk (this also makes the stream proceed so the hash is calculated)
 	out, err := os.Create(m.appRoot + "cache/" + archiveName)
@@ -435,16 +449,17 @@ func (m *Manager) GetTLSCertificate(site string, tlsCertificate string) error {
 		// We pre-generated this as it can take a very long time, and it needs to be the same in every server
 		// Request the file
 		m.log.Println("Request dhparams file from object storage: " + tlsCertificate)
-		resp, err := m.httpClient.Get(m.azureStorageBaseURL + "dhparams/" + tlsCertificate + ".pem" + m.azureStorageSASToken)
+		u, err := url.Parse(m.azureStorageURL + "dhparams/" + tlsCertificate + ".pem")
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode >= 399 {
-			b, _ := ioutil.ReadAll(resp.Body)
-			return errors.New(string(b))
+		blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
+		resp, err := blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+		if err != nil {
+			return err
 		}
-		dhparams, err := ioutil.ReadAll(resp.Body)
+		body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
+		dhparams, err := ioutil.ReadAll(body)
 		if err != nil {
 			return err
 		}

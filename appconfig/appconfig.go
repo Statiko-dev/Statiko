@@ -81,8 +81,8 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("azureKeyVault.servicePrincipal.clientId", "AZURE_CLIENT_ID")
 	viper.BindEnv("azureKeyVault.servicePrincipal.clientSecret", "AZURE_CLIENT_SECRET")
 	viper.BindEnv("azureStorage.account", "AZURE_STORAGE_ACCOUNT")
+	viper.BindEnv("azureStorage.key", "AZURE_STORAGE_KEY")
 	viper.BindEnv("azureStorage.container", "AZURE_STORAGE_CONTAINER")
-	viper.BindEnv("azureStorage.sasToken", "AZURE_STORAGE_SAS_TOKEN")
 
 	// Load config file
 	err := viper.ReadInConfig()

@@ -1,5 +1,6 @@
 # Development
 test.db*
+e2e-test/container_etc/data.db
 
 # Compiled binaries
 bin/
