@@ -33,7 +33,7 @@ import (
 	"smplatform/db"
 	"smplatform/middlewares"
 	"smplatform/routes"
-	"smplatform/startup"
+	"smplatform/sync"
 )
 
 func main() {
@@ -51,14 +51,8 @@ func main() {
 	// Connect to the database
 	db.Init()
 
-	// Perform some cleanup
-	// First, remove all pending deployments from the database
-	if err := startup.RemovePendingDeployments(); err != nil {
-		panic(err)
-	}
-
-	// Second, sync the state
-	if err := startup.SyncState(); err != nil {
+	// Sync the state
+	if err := sync.Run(); err != nil {
 		panic(err)
 	}
 

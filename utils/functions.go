@@ -54,6 +54,17 @@ func RequestJSON(client *http.Client, url string, target interface{}) error {
 	return nil
 }
 
+/*// KeysOfMap returns the list of keys of a map
+func KeysOfMap(m map[string]interface{}) (keys []string) {
+	keys = make([]string, len(m))
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+	return
+}*/
+
 // RemoveContents remove all contents within a directory
 // Source: https://stackoverflow.com/a/33451503/192024
 func RemoveContents(dir string) error {

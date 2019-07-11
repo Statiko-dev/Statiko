@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package startup
+package sync
 
 import (
 	"log"
@@ -29,5 +29,5 @@ var (
 // Init method for the package
 func init() {
 	// Initialize the logger
-	logger = log.New(os.Stdout, "startup: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(os.Stdout, "sync: ", log.Ldate|log.Ltime|log.LUTC)
 }
