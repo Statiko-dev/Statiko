@@ -198,41 +198,6 @@ func (n *NginxConfig) ExistingConfiguration(sites []state.SiteState) (ConfigData
 	return existing, updated, nil
 }
 
-// ResetConfiguration resets the nginx configuration so there's only the default website
-func (n *NginxConfig) ResetConfiguration() error {
-	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
-	// Ensure the folder exists
-	if err := utils.EnsureFolder(nginxConfPath); err != nil {
-		return err
-	}
-
-	// Clear the contents of the folder
-	if err := utils.RemoveContents(nginxConfPath); err != nil {
-		return err
-	}
-
-	// Basic webserver configuration
-	/*if err := n.writeConfigurationFile("nginx.conf", "nginx.conf", nil); err != nil {
-		return err
-	}
-
-	if err := n.writeConfigurationFile("mime.types", "mime.types", nil); err != nil {
-		return err
-	}
-
-	// Create the conf.d folder for websites
-	if err := utils.EnsureFolder(nginxConfPath + "conf.d"); err != nil {
-		return err
-	}
-
-	// Default website configuration
-	if err := n.writeConfigurationFile("conf.d/_default.conf", "default-site.conf", nil); err != nil {
-		return err
-	}*/
-
-	return nil
-}
-
 // SyncConfiguration ensures that the configuration for the webserver matches the desired state
 func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
