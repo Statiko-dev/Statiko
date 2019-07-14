@@ -23,7 +23,7 @@ import (
 // Init loads the state from the store
 func (m *Manager) Init() error {
 	// Debug: use a pre-defined state
-	sites := make([]SiteState, 3)
+	sites := make([]SiteState, 4)
 	tls1 := "site1"
 	time1 := time.Unix(1562821787, 0)
 	sites[0] = SiteState{
@@ -60,6 +60,17 @@ func (m *Manager) Init() error {
 		App: &SiteApp{
 			Name:    "app3",
 			Version: "200",
+			Time:    &time3,
+		},
+	}
+	sites[3] = SiteState{
+		ClientCaching:  false,
+		TLSCertificate: &tls3,
+		Domain:         "site4.local",
+		Aliases:        nil,
+		App: &SiteApp{
+			Name:    "app2",
+			Version: "1.2.0",
 			Time:    &time3,
 		},
 	}

@@ -132,11 +132,11 @@ func (m *Manager) SyncState(sites []state.SiteState) (bool, error) {
 // SyncApps ensures that we have the correct apps
 func (m *Manager) SyncApps(sites []state.SiteState) error {
 	// Channels used by the worker pool to fetch apps in parallel
-	jobs := make(chan *state.SiteApp, 1)
-	errs := make(chan error, 100)
+	jobs := make(chan *state.SiteApp, 4)
+	errs := make(chan error, 4)
 
-	// Spin up 2 backround workers
-	for w := 1; w <= 1; w++ {
+	// Spin up 3 backround workers
+	for w := 1; w <= 3; w++ {
 		go m.workerStageApp(w, jobs, errs)
 	}
 
@@ -146,11 +146,26 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 		app := s.App
 
 		// Check if the jobs channel is full
-		// TODO: CHECK BOTH jobs and err, and process errs if necessary
 		for len(jobs) == cap(jobs) {
-			// Channel was full, but might not be by now
+			// Pause this thread until the channel is not at capacity anymore
 			fmt.Println("Channel jobs is full, sleeping for a second")
 			time.Sleep(time.Second)
+		}
+
+		// Check if the err channel is full
+		if len(errs) == cap(errs) {
+			// Process all errors, if any
+			fmt.Println("Channel errs is full, processing errors")
+			for i := 0; i < requested; i++ {
+				e := <-errs
+				fmt.Println("Error:", e)
+				if e != nil {
+					return e
+				}
+			}
+
+			// We've processed all errors
+			requested = 0
 		}
 
 		// If there's no app, skip this
@@ -474,7 +489,7 @@ func writeData(data []byte, path string) error {
 	return f.Close()
 }
 
-// GetTLSCertificate requests the TLS certificate for an app
+// GetTLSCertificate requests the TLS certificate for a site
 func (m *Manager) GetTLSCertificate(site string, tlsCertificate string) error {
 	// Check if we have the file in cache
 	cachePathCert := m.appRoot + "cache/" + tlsCertificate + ".cert.pem"
