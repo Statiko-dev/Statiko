@@ -126,6 +126,120 @@ func (m *Manager) SyncState(sites []state.SiteState) (bool, error) {
 		return false, err
 	}
 
+	// Sync site folders too
+	u, err := m.SyncSiteFolders(sites)
+	if err != nil {
+		return false, err
+	}
+	updated = updated || u
+
+	return updated, nil
+}
+
+// Creates a folder if it doesn't exist already
+func ensureFolderWithUpdated(path string) (updated bool, err error) {
+	updated = false
+	exists := false
+	exists, err = utils.FolderExists(path)
+	if err != nil {
+		return
+	}
+	if !exists {
+		err = utils.EnsureFolder(path)
+		if err != nil {
+			return
+		}
+		updated = true
+	}
+	return
+}
+
+// SyncSiteFolders ensures that we have the correct folders in the site directory, and TLS certificates are present
+func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
+	updated := false
+
+	var u bool
+	var err error
+
+	// Folder for the default site
+	// /approot/sites/_default
+	u, err = ensureFolderWithUpdated(m.appRoot + "sites/_default")
+	if err != nil {
+		return false, err
+	}
+	updated = updated || u
+
+	// Activate the default site
+	// /approot/sites/_default/www
+	if err := m.ActivateApp("_default", "_default"); err != nil {
+		return false, err
+	}
+
+	// Iterate through the sites list
+	for _, s := range sites {
+		// /approot/sites/{site}
+		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
+		if err != nil {
+			return false, err
+		}
+		updated = updated || u
+
+		// /approot/sites/{site}/tls
+		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain + "/tls")
+		if err != nil {
+			return false, err
+		}
+		updated = updated || u
+
+		// Check if the TLS certs are in place, if needed
+		if s.TLSCertificate != nil {
+			needTLS := false
+			// If we just created the folder, the certs definitely don't exist yet
+			if u {
+				needTLS = true
+			} else {
+				var e bool
+
+				e, err = utils.PathExists(m.appRoot + "sites/" + s.Domain + "/tls/certificate.pem")
+				if err != nil {
+					return false, err
+				}
+				needTLS = needTLS || !e
+
+				e, err = utils.PathExists(m.appRoot + "sites/" + s.Domain + "/tls/key.pem")
+				if err != nil {
+					return false, err
+				}
+				needTLS = needTLS || !e
+
+				e, err = utils.PathExists(m.appRoot + "sites/" + s.Domain + "/tls/dhparams.pem")
+				if err != nil {
+					return false, err
+				}
+				needTLS = needTLS || !e
+			}
+
+			// Fetch the TLS certificates if we need to
+			if needTLS {
+				if err := m.GetTLSCertificate(s.Domain, *s.TLSCertificate); err != nil {
+					return false, err
+				}
+				updated = true
+			}
+
+			// Deploy the app; do this any time, regardless, since it doesn't disrupt the running server
+			// /approot/sites/{site}/www
+			// www is always a symbolic link, and if there's no app deployed, it goes to the default one
+			bundle := "_default"
+			if s.App != nil {
+				bundle = s.App.Name + "-" + s.App.Version
+			}
+			if err := m.ActivateApp(bundle, s.Domain); err != nil {
+				return false, err
+			}
+		}
+	}
+
 	return updated, nil
 }
 
@@ -255,39 +369,10 @@ func (m *Manager) WriteDefaultApp() error {
 	return nil
 }
 
-// CreateFolders creates the required folders in the file system
-func (m *Manager) CreateFolders(site string) error {
-	// /approot/sites/{site}
-	if err := utils.EnsureFolder(m.appRoot + "sites/" + site); err != nil {
-		return err
-	}
-
-	// Skip the tls folder for the _default site
-	if site != "_default" {
-		// /approot/sites/{site}/tls
-		if err := utils.EnsureFolder(m.appRoot + "sites/" + site + "/tls"); err != nil {
-			return err
-		}
-
-		// Clean the tls directory
-		if err := utils.RemoveContents(m.appRoot + "sites/" + site + "/tls"); err != nil {
-			return err
-		}
-	}
-
-	// /approot/sites/{site}/www
-	// www is always a symbolic link, to the default app and then switched to app staged
-	if err := m.ActivateApp("_default", site); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // ActivateApp points a site to an app, by creating the symbolic link
-func (m *Manager) ActivateApp(app string, site string) error {
+func (m *Manager) ActivateApp(app string, domain string) error {
 	// Switch the www folder to an app staged
-	if err := utils.SymlinkAtomic(m.appRoot+"apps/"+app, m.appRoot+"sites/"+site+"/www"); err != nil {
+	if err := utils.SymlinkAtomic(m.appRoot+"apps/"+app, m.appRoot+"sites/"+domain+"/www"); err != nil {
 		return err
 	}
 	return nil
@@ -490,7 +575,7 @@ func writeData(data []byte, path string) error {
 }
 
 // GetTLSCertificate requests the TLS certificate for a site
-func (m *Manager) GetTLSCertificate(site string, tlsCertificate string) error {
+func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error {
 	// Check if we have the file in cache
 	cachePathCert := m.appRoot + "cache/" + tlsCertificate + ".cert.pem"
 	cachePathKey := m.appRoot + "cache/" + tlsCertificate + ".key.pem"
@@ -509,9 +594,9 @@ func (m *Manager) GetTLSCertificate(site string, tlsCertificate string) error {
 	}
 
 	// Destinations
-	pathCert := m.appRoot + "sites/" + site + "/tls/certificate.pem"
-	pathKey := m.appRoot + "sites/" + site + "/tls/key.pem"
-	pathDhparams := m.appRoot + "sites/" + site + "/tls/dhparams.pem"
+	pathCert := m.appRoot + "sites/" + domain + "/tls/certificate.pem"
+	pathKey := m.appRoot + "sites/" + domain + "/tls/key.pem"
+	pathDhparams := m.appRoot + "sites/" + domain + "/tls/dhparams.pem"
 
 	if existsCert && existsKey && existsDhparams {
 		// Load certificate from cache
