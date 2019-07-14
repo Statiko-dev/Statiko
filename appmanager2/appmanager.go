@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package appmanager
+package appmanager2
 
 import (
 	"bytes"
@@ -39,6 +39,7 @@ import (
 
 	"smplatform/appconfig"
 	"smplatform/azurekeyvault"
+	"smplatform/state"
 	"smplatform/utils"
 )
 
@@ -46,9 +47,6 @@ import (
 type Manager struct {
 	// Root folder for the platform
 	appRoot string
-
-	// Nginx configuration directory
-	nginxConfPath string
 
 	// Azure Storage client
 	azureStoragePipeline azpipeline.Pipeline
@@ -69,7 +67,6 @@ func (m *Manager) Init() error {
 
 	// Init properties from env vars
 	m.appRoot = appconfig.Config.GetString("appRoot")
-	m.nginxConfPath = appconfig.Config.GetString("nginx.configPath")
 
 	// Get Azure Storage configuration
 	azureStorageAccount := appconfig.Config.GetString("azureStorage.account")
@@ -104,23 +101,85 @@ func (m *Manager) Init() error {
 	}
 
 	// Packr
-	m.box = packr.New("Default app old", "default-app")
+	m.box = packr.New("Default app", "default-app")
+
+	return nil
+}
+
+// SyncState ensures that the state of the filesystem matches the desired one
+func (m *Manager) SyncState(sites []state.SiteState) (bool, error) {
+	updated := false
+
+	// To start, ensure the basic folders exist
+	if err := m.InitAppRoot(); err != nil {
+		return false, err
+	}
+
+	// Default app (writing this to disk always, regardless)
+	if err := m.WriteDefaultApp(); err != nil {
+		return false, err
+	}
+
+	// Start with apps: ensure we have the right ones
+	if err := m.SyncApps(sites); err != nil {
+		return false, err
+	}
+
+	return updated, nil
+}
+
+// SyncApps ensures that we have the correct apps
+func (m *Manager) SyncApps(sites []state.SiteState) error {
+	// Channels used by the worker pool to fetch apps in parallel
+	jobs := make(chan *state.SiteApp, 100)
+	errs := make(chan error, 100)
+
+	// Spin up 2 backround workers
+	for w := 1; w <= 2; w++ {
+		go m.workerStageApp(w, jobs, errs)
+	}
+
+	// Iterate through the sites looking for apps
+	for _, s := range sites {
+		app := s.App
+
+		// If there's no app, skip this
+		if app == nil {
+			continue
+		}
+
+		// Check if we have the app deployed
+		exists, err := utils.PathExists(m.appRoot + "apps/" + app.Name + "-" + app.Version)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			fmt.Println("Need to fetch ", app.Name, app.Version)
+			// We need to deploy the app
+			// Use the worker pool to handle concurrency
+			jobs <- app
+		}
+	}
+
+	// No more jobs; close the channel
+	close(jobs)
+
+	// Iterate through all the errors, if any
+	for e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	close(errs)
 
 	return nil
 }
 
 // InitAppRoot creates a new, empty app root folder
-func (m *Manager) InitAppRoot(reset bool) error {
+func (m *Manager) InitAppRoot() error {
 	// Ensure the app root folder exists
 	if err := utils.EnsureFolder(m.appRoot); err != nil {
 		return err
-	}
-
-	// If folder isn't empty, clean it if we are resetting the folder
-	if reset {
-		if err := utils.RemoveContents(m.appRoot); err != nil {
-			return err
-		}
 	}
 
 	// Create /approot/cache
@@ -133,8 +192,23 @@ func (m *Manager) InitAppRoot(reset bool) error {
 		return err
 	}
 
-	// Create /approot/apps/_default
+	// Create /approot/sites
+	if err := utils.EnsureFolder(m.appRoot + "sites"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// WriteDefaultApp creates the files for the default app on disk
+func (m *Manager) WriteDefaultApp() error {
+	// Ensure /approot/apps/_default exists
 	if err := utils.EnsureFolder(m.appRoot + "apps/_default"); err != nil {
+		return err
+	}
+
+	// Reset the folder
+	if err := utils.RemoveContents(m.appRoot + "apps/_default/"); err != nil {
 		return err
 	}
 
@@ -149,11 +223,6 @@ func (m *Manager) InitAppRoot(reset bool) error {
 		return err
 	}
 	f.Write(welcome)
-
-	// Create /approot/sites
-	if err := utils.EnsureFolder(m.appRoot + "sites"); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -272,6 +341,17 @@ func (m *Manager) StageApp(app string, version string) error {
 	}
 
 	return nil
+}
+
+// Background worker for the StageApp function
+func (m *Manager) workerStageApp(id int, jobs <-chan *state.SiteApp, errs chan<- error) {
+	for j := range jobs {
+		fmt.Println("worker", id, "started  job", j)
+		err := m.StageApp(j.Name, j.Version)
+		fmt.Println("worker", id, "finished job", j)
+		errs <- err
+	}
+	fmt.Println("Worker", id, "dead")
 }
 
 // FetchBundle downloads the application's tar.bz2 bundle for a specific version

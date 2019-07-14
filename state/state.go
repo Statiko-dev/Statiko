@@ -32,9 +32,9 @@ func (m *Manager) Init() error {
 		Domain:         "site1.local",
 		Aliases:        []string{"site1-alias.local", "mysite.local"},
 		App: &SiteApp{
-			AppName:    "app1",
-			AppVersion: "1",
-			Time:       &time1,
+			Name:    "app1",
+			Version: "1",
+			Time:    &time1,
 		},
 	}
 	tls2 := "site2"
@@ -45,9 +45,9 @@ func (m *Manager) Init() error {
 		Domain:         "site2.local",
 		Aliases:        []string{"site2-alias.local"},
 		App: &SiteApp{
-			AppName:    "app2",
-			AppVersion: "1.0.1",
-			Time:       &time2,
+			Name:    "app2",
+			Version: "1.0.1",
+			Time:    &time2,
 		},
 	}
 	tls3 := "site3"
@@ -58,9 +58,9 @@ func (m *Manager) Init() error {
 		Domain:         "site3.local",
 		Aliases:        []string{"site3-alias.local"},
 		App: &SiteApp{
-			AppName:    "app3",
-			AppVersion: "200",
-			Time:       &time3,
+			Name:    "app3",
+			Version: "200",
+			Time:    &time3,
 		},
 	}
 

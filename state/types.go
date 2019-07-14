@@ -26,9 +26,9 @@ type SiteState struct {
 // SiteApp represents the state of an app deployed or being deployed
 type SiteApp struct {
 	// App details
-	AppName    string     `json:"app"`
-	AppVersion string     `json:"version"`
-	Time       *time.Time `json:"time"`
+	Name    string     `json:"name"`
+	Version string     `json:"version"`
+	Time    *time.Time `json:"time"`
 }
 
 // Manager is the state manager class
