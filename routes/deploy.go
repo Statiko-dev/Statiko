@@ -54,9 +54,6 @@ func updateDeployment(deployment *db.Deployment, deploymentError error) {
 	if err != nil {
 		logger.Println("[updateDeployment] database update failed with error", err)
 	}
-
-	// Reset status cache
-	statusCache = nil
 }
 
 // Deploys an app asynchronously

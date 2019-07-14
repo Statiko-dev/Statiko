@@ -19,14 +19,11 @@ package routes
 import (
 	"log"
 	"os"
-
-	"smplatform/utils"
 )
 
 // Package-wide properties
 var (
-	logger      *log.Logger
-	statusCache *utils.NodeStatus
+	logger *log.Logger
 )
 
 // Init method for the package

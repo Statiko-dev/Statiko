@@ -64,7 +64,6 @@ func main() {
 	{
 		authorized := router.Group("/")
 		authorized.Use(middlewares.Auth())
-		authorized.POST("/adopt", routes.AdoptHandler)
 		authorized.POST("/site", routes.CreateSiteHandler)
 		authorized.GET("/site", routes.ListSiteHandler)
 		authorized.GET("/site/:site", routes.ShowSiteHandler)

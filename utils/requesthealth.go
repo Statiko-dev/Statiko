@@ -22,17 +22,14 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/gofrs/uuid"
 )
 
 // NodeApps contains the current list of apps defined
 type NodeApps struct {
-	SiteID     uuid.UUID  `json:"id"`
 	Domain     string     `json:"domain"`
 	AppName    *string    `json:"appName"`
 	AppVersion *string    `json:"appVersion"`
-	Updated    *time.Time `json:"updated" gorm:"column:time"`
+	Deployed   *time.Time `json:"deployed"`
 }
 
 // SiteHealth contains the results of the health checks for each individual app

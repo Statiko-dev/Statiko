@@ -136,9 +136,6 @@ func CreateSiteHandler(c *gin.Context) {
 		return
 	}
 
-	// Reset status cache
-	statusCache = nil
-
 	// Commit
 	if err := tx.Commit().Error; err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -309,9 +306,6 @@ func DeleteSiteHandler(c *gin.Context) {
 			})
 			return
 		}
-
-		// Reset status cache
-		statusCache = nil
 
 		// Commit
 		if err := tx.Commit().Error; err != nil {

@@ -22,7 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/db"
+	"smplatform/state"
 	"smplatform/utils"
 )
 
@@ -38,37 +38,23 @@ var appTestedTime = time.Time{}
 // @Success 200 {array} actions.NodeStatus
 // @Router /status [get]
 func StatusHandler(c *gin.Context) {
-	// Check if we have the status cached
-	if statusCache == nil {
-		// Reset the health check time too
-		appTestedTime = time.Time{}
-		// Create the cache
-		statusCache = &utils.NodeStatus{}
+	// Response object
+	res := &utils.NodeStatus{}
 
-		// Load the status from the database
-		sql := `
-		SELECT
-			sites.site_id AS site_id,
-			domains.domain AS domain,
-			deployments.app_name AS app_name,
-			deployments.app_version AS app_version,
-			deployments.time AS time
-		FROM sites
-		LEFT JOIN domains
-			ON domains.site_id = sites.site_id AND domains.is_default = 1
-		LEFT JOIN deployments
-			ON deployments.deployment_id = (
-				SELECT deployment_id
-				FROM deployments
-				WHERE deployments.site_id = sites.site_id AND deployments.status = 1
-				ORDER BY deployments.time DESC
-				LIMIT 1
-			)
-		`
-		if err := db.Connection.Raw(sql).Scan(&statusCache.Apps).Error; err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
+	// Get list of apps
+	sites := state.Instance.GetSites()
+	res.Apps = make([]utils.NodeApps, len(sites))
+	for i, s := range sites {
+		el := utils.NodeApps{
+			Domain: s.Domain,
 		}
+		if s.App != nil {
+			el.AppName = &s.App.Name
+			el.AppVersion = &s.App.Version
+			el.Deployed = s.App.Time
+		}
+
+		res.Apps[i] = el
 	}
 
 	// Response status code
@@ -82,7 +68,7 @@ func StatusHandler(c *gin.Context) {
 		// Update the cached data
 		ch := make(chan utils.SiteHealth)
 		requested := 0
-		for _, app := range statusCache.Apps {
+		for _, app := range res.Apps {
 			// Ignore sites that have no apps deployed
 			if app.AppName == nil || app.AppVersion == nil {
 				continue
@@ -94,7 +80,7 @@ func StatusHandler(c *gin.Context) {
 		}
 
 		// Read responses
-		statusCache.Health = make([]utils.SiteHealth, requested)
+		res.Health = make([]utils.SiteHealth, requested)
 		hasError := false
 		for i := 0; i < requested; i++ {
 			health := <-ch
@@ -104,7 +90,7 @@ func StatusHandler(c *gin.Context) {
 				*health.ErrorStr = health.Error.Error()
 				logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
 			}
-			statusCache.Health[i] = health
+			res.Health[i] = health
 		}
 
 		if hasError {
@@ -114,5 +100,5 @@ func StatusHandler(c *gin.Context) {
 		}
 	}
 
-	c.JSON(statusCode, statusCache)
+	c.JSON(statusCode, res)
 }
