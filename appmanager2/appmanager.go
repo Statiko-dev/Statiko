@@ -262,17 +262,16 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 		// Check if the jobs channel is full
 		for len(jobs) == cap(jobs) {
 			// Pause this thread until the channel is not at capacity anymore
-			fmt.Println("Channel jobs is full, sleeping for a second")
+			m.log.Println("Channel jobs is full, sleeping for a second")
 			time.Sleep(time.Second)
 		}
 
 		// Check if the err channel is full
 		if len(errs) == cap(errs) {
 			// Process all errors, if any
-			fmt.Println("Channel errs is full, processing errors")
+			m.log.Println("Channel errs is full, processing errors")
 			for i := 0; i < requested; i++ {
 				e := <-errs
-				fmt.Println("Error:", e)
 				if e != nil {
 					return e
 				}
@@ -293,7 +292,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 			return err
 		}
 		if !exists {
-			fmt.Println("Need to fetch ", app.Name, app.Version)
+			m.log.Println("Need to fetch ", app.Name, app.Version)
 			// We need to deploy the app
 			// Use the worker pool to handle concurrency
 			jobs <- app
@@ -307,7 +306,6 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	// Iterate through all the errors, if any
 	for i := 0; i < requested; i++ {
 		e := <-errs
-		fmt.Println("Error:", e)
 		if e != nil {
 			return e
 		}
@@ -459,12 +457,11 @@ func (m *Manager) StageApp(app string, version string) error {
 // Background worker for the StageApp function
 func (m *Manager) workerStageApp(id int, jobs <-chan *state.SiteApp, errs chan<- error) {
 	for j := range jobs {
-		fmt.Println("worker", id, "started  job", j)
+		m.log.Println("Worker", id, "started staging app "+j.Name+"-"+j.Version)
 		err := m.StageApp(j.Name, j.Version)
-		fmt.Println("worker", id, "finished job", j)
+		m.log.Println("Worker", id, "finished staging app "+j.Name+"-"+j.Version)
 		errs <- err
 	}
-	fmt.Println("Worker", id, "dead")
 }
 
 // FetchBundle downloads the application's tar.bz2 bundle for a specific version
