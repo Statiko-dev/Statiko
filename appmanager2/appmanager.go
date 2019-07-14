@@ -32,6 +32,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"time"
 
 	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
@@ -131,17 +132,26 @@ func (m *Manager) SyncState(sites []state.SiteState) (bool, error) {
 // SyncApps ensures that we have the correct apps
 func (m *Manager) SyncApps(sites []state.SiteState) error {
 	// Channels used by the worker pool to fetch apps in parallel
-	jobs := make(chan *state.SiteApp, 100)
+	jobs := make(chan *state.SiteApp, 1)
 	errs := make(chan error, 100)
 
 	// Spin up 2 backround workers
-	for w := 1; w <= 2; w++ {
+	for w := 1; w <= 1; w++ {
 		go m.workerStageApp(w, jobs, errs)
 	}
 
 	// Iterate through the sites looking for apps
+	requested := 0
 	for _, s := range sites {
 		app := s.App
+
+		// Check if the jobs channel is full
+		// TODO: CHECK BOTH jobs and err, and process errs if necessary
+		for len(jobs) == cap(jobs) {
+			// Channel was full, but might not be by now
+			fmt.Println("Channel jobs is full, sleeping for a second")
+			time.Sleep(time.Second)
+		}
 
 		// If there's no app, skip this
 		if app == nil {
@@ -158,6 +168,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 			// We need to deploy the app
 			// Use the worker pool to handle concurrency
 			jobs <- app
+			requested++
 		}
 	}
 
@@ -165,7 +176,9 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	close(jobs)
 
 	// Iterate through all the errors, if any
-	for e := range errs {
+	for i := 0; i < requested; i++ {
+		e := <-errs
+		fmt.Println("Error:", e)
 		if e != nil {
 			return e
 		}
