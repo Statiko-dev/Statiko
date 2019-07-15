@@ -24,9 +24,19 @@ import (
 
 	"smplatform/appmanager"
 	"smplatform/db"
+	"smplatform/state"
 	"smplatform/utils"
 	"smplatform/webserver"
+	"smplatform/sync"
 )
+
+// CreateSiteInput is the message clients send to create a site
+type CreateSiteInput struct {
+	Domain         string   `json:"domain"`
+	Aliases        []string `json:"aliases"`
+	ClientCaching  bool     `json:"clientCaching"`
+	TLSCertificate *string  `json:"tlsCertificate"`
+}
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site
 // @Summary Creates a new site
@@ -38,17 +48,8 @@ import (
 // @Failure 500
 // @Router /site [post]
 func CreateSiteHandler(c *gin.Context) {
-	// DB transaction
-	tx := db.Connection.Begin()
-	defer func() {
-		if tx != nil {
-			// Rollback automatically in case of error
-			tx.Rollback()
-		}
-	}()
-
 	// Get data from the form body
-	site := &db.Site{}
+	site := &CreateSiteInput{}
 	if err := c.Bind(site); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body",
@@ -68,84 +69,37 @@ func CreateSiteHandler(c *gin.Context) {
 		})
 		return
 	}
-	if len(site.TLSCertificate) < 1 {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "You must specify the 'tlsCertificate' key",
-		})
-		return
-	}
 
 	// Check if site exists already
 	domains := make([]string, len(site.Aliases)+1)
 	copy(domains, site.Aliases)
 	domains[len(site.Aliases)] = site.Domain
-	var count int
-	err := tx.Model(&db.Domain{}).Where("domain in (?)", domains).Count(&count).Error
+	for _, el := range domains {
+		if state.Instance.GetSite(el) != nil {
+			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+				"error": "Domain or alias already exists",
+			})
+			return
+		}
+	}
+
+	// Add the website to the store
+	err := state.Instance.AddSite(&state.SiteState{
+		Domain:         site.Domain,
+		Aliases:        site.Aliases,
+		ClientCaching:  site.ClientCaching,
+		TLSCertificate: site.TLSCertificate,
+	})
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	if count > 0 {
-		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-			"error": "Domain or alias already exists",
-		})
-		return
-	}
-
-	// Save the website
-	// We're in a transaction, so it something fails it will be deleted
-	err = tx.Create(site).Error
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	// Create the site's configuration and folders
-	siteID := site.SiteID.String()
-	if err := webserver.Instance.ConfigureSite(site); err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	if err := appmanager.Instance.CreateFolders(siteID); err != nil {
-		// Rollback the previous step (ignoring errors)
-		webserver.Instance.RemoveSite(siteID)
-
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	// Get the TLS certificate
-	if err := appmanager.Instance.GetTLSCertificate(siteID, site.TLSCertificate); err != nil {
-		// If this failed, delete the Nginx's configuration for the site as that won't be rolled back automatically
-		// Ignore errors in these steps
-		webserver.Instance.RemoveSite(siteID)
-		appmanager.Instance.RemoveFolders(siteID)
-
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	// Reload the Nginx configuration
-	if err := webserver.Instance.RestartServer(); err != nil {
-		// Likewise, rollback the changes on the filesystem
-		webserver.Instance.RemoveSite(siteID)
-		appmanager.Instance.RemoveFolders(siteID)
-
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	// Commit
-	if err := tx.Commit().Error; err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	tx = nil
+	// Queue a sync
+	sync.QueueRun()
 
 	// Response
-	site.RemapJSON()
-	c.JSON(http.StatusCreated, site)
+	c.Status(http.StatusCreated)
 }
 
 // ListSiteHandler is the handler for GET /site, which lists all sites

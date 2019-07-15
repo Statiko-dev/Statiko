@@ -18,12 +18,28 @@ package sync
 
 import (
 	appmanager "smplatform/appmanager2"
-	_ "smplatform/db"
 	"smplatform/state"
 	webserver "smplatform/webserver2"
 )
 
+// Semaphore that allows only one operation at time
+var semaphore = make(chan int, 1)
+
+// QueueRun is a thread-safe version of Run that ensures that only one sync can happen at a time
+func QueueRun() {
+	semaphore <- 1
+	go func() {
+		err := Run()
+		if err != nil {
+			// TODO: DO SOMETHING
+			logger.Println(err)
+		}
+		<-semaphore
+	}()
+}
+
 // Run ensures the system is in the correct state
+// You should not use this function directly; use QueueRun instead
 func Run() error {
 	// Boolean flag for the need to restart the webserver
 	restartRequired := false

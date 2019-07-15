@@ -135,6 +135,16 @@ func FolderExists(path string) (bool, error) {
 	return false, nil
 }
 
+// StringInSlice checks if a string is contained inside a slice of strings
+func StringInSlice(list []string, a string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 // EnsureFolder creates a folder if it doesn't exist already
 func EnsureFolder(path string) error {
 	exists, err := PathExists(path)

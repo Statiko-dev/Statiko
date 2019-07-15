@@ -52,6 +52,7 @@ func main() {
 	db.Init()
 
 	// Sync the state
+	// Do this in a synchronous way to ensure the node starts up properly
 	if err := sync.Run(); err != nil {
 		panic(err)
 	}

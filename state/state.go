@@ -18,7 +18,15 @@ package state
 
 import (
 	"time"
+
+	"smplatform/utils"
 )
+
+// Manager is the state manager class
+type Manager struct {
+	state   *NodeState
+	updated *time.Time
+}
 
 // Init loads the state from the store
 func (m *Manager) Init() error {
@@ -78,11 +86,41 @@ func (m *Manager) Init() error {
 	m.state = &NodeState{
 		Sites: sites,
 	}
+	m.setUpdated()
 
 	return nil
 }
 
-// GetSites return the list of all sites
+// setUpdated sets the updated time in the object
+func (m *Manager) setUpdated() {
+	now := time.Now()
+	m.updated = &now
+}
+
+// LastUpdated returns the time the state was updated last
+func (m *Manager) LastUpdated() *time.Time {
+	return m.updated
+}
+
+// GetSites returns the list of all sites
 func (m *Manager) GetSites() []SiteState {
 	return m.state.Sites
+}
+
+// GetSite returns the site object for a specific domain (including aliases)
+func (m *Manager) GetSite(domain string) *SiteState {
+	for _, s := range m.state.Sites {
+		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
+			return &s
+		}
+	}
+
+	return nil
+}
+
+// AddSite adds a site to the store
+func (m *Manager) AddSite(site *SiteState) error {
+	m.state.Sites = append(m.state.Sites, *site)
+	m.setUpdated()
+	return nil
 }

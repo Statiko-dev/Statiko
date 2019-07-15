@@ -30,8 +30,3 @@ type SiteApp struct {
 	Version string     `json:"version"`
 	Time    *time.Time `json:"time"`
 }
-
-// Manager is the state manager class
-type Manager struct {
-	state *NodeState
-}

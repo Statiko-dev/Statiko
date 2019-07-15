@@ -29,6 +29,12 @@ import (
 // Last time the health checks were run
 var appTestedTime = time.Time{}
 
+// Last time the state was updated
+var stateUpdatedTime *time.Time
+
+// Cached health data
+var healthCache []utils.SiteHealth
+
 // StatusHandler is the handler for GET /status, which returns the status and health of the node
 // @Summary Returns the status and health of the node
 // @Description Returns an object listing the sites currently running and the apps deployed.
@@ -60,9 +66,16 @@ func StatusHandler(c *gin.Context) {
 	// Response status code
 	statusCode := http.StatusOK
 
+	// If the state has changed, we need to invalidate the healthCache
+	u := state.Instance.LastUpdated()
+	if u != stateUpdatedTime {
+		healthCache = nil
+		stateUpdatedTime = u
+	}
+
 	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
 	diff := time.Since(appTestedTime).Seconds()
-	if diff > 299 {
+	if healthCache == nil || diff > 299 {
 		appTestedTime = time.Now()
 
 		// Update the cached data
@@ -80,7 +93,7 @@ func StatusHandler(c *gin.Context) {
 		}
 
 		// Read responses
-		res.Health = make([]utils.SiteHealth, requested)
+		healthCache = make([]utils.SiteHealth, requested)
 		hasError := false
 		for i := 0; i < requested; i++ {
 			health := <-ch
@@ -90,14 +103,18 @@ func StatusHandler(c *gin.Context) {
 				*health.ErrorStr = health.Error.Error()
 				logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
 			}
-			res.Health[i] = health
+			healthCache[i] = health
 		}
+
+		res.Health = healthCache
 
 		if hasError {
 			// If there's an error, make the test happen again right away
-			appTestedTime = time.Time{}
+			healthCache = nil
 			statusCode = http.StatusServiceUnavailable
 		}
+	} else {
+		res.Health = healthCache
 	}
 
 	c.JSON(statusCode, res)
