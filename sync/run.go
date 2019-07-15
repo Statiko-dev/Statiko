@@ -17,6 +17,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package sync
 
 import (
+	"time"
+
 	appmanager "smplatform/appmanager2"
 	"smplatform/state"
 	webserver "smplatform/webserver2"
@@ -25,11 +27,14 @@ import (
 // Semaphore that allows only one operation at time
 var semaphore = make(chan int, 1)
 
+// Last time the sync was started
+var lastSync *time.Time
+
 // QueueRun is a thread-safe version of Run that ensures that only one sync can happen at a time
 func QueueRun() {
 	semaphore <- 1
 	go func() {
-		err := Run()
+		err := runner()
 		if err != nil {
 			// TODO: DO SOMETHING
 			logger.Println(err)
@@ -39,8 +44,30 @@ func QueueRun() {
 }
 
 // Run ensures the system is in the correct state
-// You should not use this function directly; use QueueRun instead
+// You should use QueueRun in most cases
 func Run() error {
+	semaphore <- 1
+	err := runner()
+	<-semaphore
+	return err
+}
+
+// IsRunning returns true if the sync is running in background
+func IsRunning() bool {
+	return len(semaphore) == 1
+}
+
+// LastSync returns the time when the last sync started
+func LastSync() *time.Time {
+	return lastSync
+}
+
+// Function actually executing the sync
+func runner() error {
+	// Set the time
+	now := time.Now()
+	lastSync = &now
+
 	// Boolean flag for the need to restart the webserver
 	restartRequired := false
 

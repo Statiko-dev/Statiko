@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"smplatform/state"
+	"smplatform/sync"
 	"smplatform/utils"
 )
 
@@ -47,20 +48,10 @@ func StatusHandler(c *gin.Context) {
 	// Response object
 	res := &utils.NodeStatus{}
 
-	// Get list of apps
-	sites := state.Instance.GetSites()
-	res.Apps = make([]utils.NodeApps, len(sites))
-	for i, s := range sites {
-		el := utils.NodeApps{
-			Domain: s.Domain,
-		}
-		if s.App != nil {
-			el.AppName = &s.App.Name
-			el.AppVersion = &s.App.Version
-			el.Deployed = s.App.Time
-		}
-
-		res.Apps[i] = el
+	// Sync status
+	res.Sync = utils.NodeSync{
+		Running:  sync.IsRunning(),
+		LastSync: sync.LastSync(),
 	}
 
 	// Response status code
@@ -79,21 +70,26 @@ func StatusHandler(c *gin.Context) {
 		appTestedTime = time.Now()
 
 		// Update the cached data
-		ch := make(chan utils.SiteHealth)
 		requested := 0
-		for _, app := range res.Apps {
-			// Ignore sites that have no apps deployed
-			if app.AppName == nil || app.AppVersion == nil {
-				continue
+		sites := state.Instance.GetSites()
+		ch := make(chan utils.SiteHealth, len(sites))
+		healthCache = make([]utils.SiteHealth, 0)
+		for _, s := range sites {
+			// Request health only if there's an app being deployed
+			if s.App != nil {
+				// Start the request in parallel
+				go utils.RequestHealth(s.Domain, s.App.Name+"-"+s.App.Version, ch)
+				requested++
+			} else {
+				// No app deployed, so show the site only
+				healthCache = append(healthCache, utils.SiteHealth{
+					Domain: s.Domain,
+					App:    nil,
+				})
 			}
-
-			// Start the request in parallel
-			go utils.RequestHealth(app.Domain, ch)
-			requested++
 		}
 
 		// Read responses
-		healthCache = make([]utils.SiteHealth, requested)
 		hasError := false
 		for i := 0; i < requested; i++ {
 			health := <-ch
@@ -103,7 +99,7 @@ func StatusHandler(c *gin.Context) {
 				*health.ErrorStr = health.Error.Error()
 				logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
 			}
-			healthCache[i] = health
+			healthCache = append(healthCache, health)
 		}
 
 		res.Health = healthCache
