@@ -176,7 +176,11 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	}
 
 	// Iterate through the sites list
+	expectFolders := make([]string, 1)
+	expectFolders[0] = "_default"
 	for _, s := range sites {
+		expectFolders = append(expectFolders, s.Domain)
+
 		// /approot/sites/{site}
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
 		if err != nil {
@@ -235,6 +239,35 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 				bundle = s.App.Name + "-" + s.App.Version
 			}
 			if err := m.ActivateApp(bundle, s.Domain); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	// Look for extraneous folders in the /approot/sites directory
+	// TODO
+	files, err := ioutil.ReadDir(m.appRoot + "sites/")
+	if err != nil {
+		return false, err
+	}
+	for _, f := range files {
+		name := f.Name()
+		// There should only be folders
+		if f.IsDir() {
+			// Folder name must be _default or one of the domains
+			if !utils.StringInSlice(expectFolders, name) {
+				// Delete the folder
+				updated = true
+				m.log.Println("Removing extraneous folder", m.appRoot+"sites/"+name)
+				if err := os.RemoveAll(m.appRoot + "sites/" + name); err != nil {
+					return false, err
+				}
+			}
+		} else {
+			// There shouldn't be any file; delete extraneous stuff
+			updated = true
+			m.log.Println("Removing extraneous file", m.appRoot+"sites/"+name)
+			if err := os.Remove(m.appRoot + "sites/" + name); err != nil {
 				return false, err
 			}
 		}
