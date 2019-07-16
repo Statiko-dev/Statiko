@@ -30,7 +30,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"smplatform/appconfig"
-	"smplatform/db"
 	"smplatform/middlewares"
 	"smplatform/routes"
 	"smplatform/sync"
@@ -47,9 +46,6 @@ func main() {
 
 	// Start gin
 	router := gin.Default()
-
-	// Connect to the database
-	db.Init()
 
 	// Sync the state
 	// Do this in a synchronous way to ensure the node starts up properly
@@ -69,7 +65,6 @@ func main() {
 		authorized.GET("/site", routes.ListSiteHandler)
 		authorized.GET("/site/:site", routes.ShowSiteHandler)
 		authorized.DELETE("/site/:site", routes.DeleteSiteHandler)
-		authorized.POST("/site/:site/deploy", routes.DeployHandler)
 	}
 
 	// HTTP Server

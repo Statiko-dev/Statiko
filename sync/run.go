@@ -19,9 +19,9 @@ package sync
 import (
 	"time"
 
-	appmanager "smplatform/appmanager2"
+	"smplatform/appmanager"
 	"smplatform/state"
-	webserver "smplatform/webserver2"
+	"smplatform/webserver"
 )
 
 // Semaphore that allows only one operation at time

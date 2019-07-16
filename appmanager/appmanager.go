@@ -32,6 +32,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"time"
 
 	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
@@ -39,6 +40,7 @@ import (
 
 	"smplatform/appconfig"
 	"smplatform/azurekeyvault"
+	"smplatform/state"
 	"smplatform/utils"
 )
 
@@ -46,9 +48,6 @@ import (
 type Manager struct {
 	// Root folder for the platform
 	appRoot string
-
-	// Nginx configuration directory
-	nginxConfPath string
 
 	// Azure Storage client
 	azureStoragePipeline azpipeline.Pipeline
@@ -69,7 +68,6 @@ func (m *Manager) Init() error {
 
 	// Init properties from env vars
 	m.appRoot = appconfig.Config.GetString("appRoot")
-	m.nginxConfPath = appconfig.Config.GetString("nginx.configPath")
 
 	// Get Azure Storage configuration
 	azureStorageAccount := appconfig.Config.GetString("azureStorage.account")
@@ -104,23 +102,263 @@ func (m *Manager) Init() error {
 	}
 
 	// Packr
-	m.box = packr.New("Default app old", "default-app")
+	m.box = packr.New("Default app", "default-app")
+
+	return nil
+}
+
+// SyncState ensures that the state of the filesystem matches the desired one
+func (m *Manager) SyncState(sites []state.SiteState) (bool, error) {
+	updated := false
+
+	// To start, ensure the basic folders exist
+	if err := m.InitAppRoot(); err != nil {
+		return false, err
+	}
+
+	// Default app (writing this to disk always, regardless)
+	if err := m.WriteDefaultApp(); err != nil {
+		return false, err
+	}
+
+	// Start with apps: ensure we have the right ones
+	if err := m.SyncApps(sites); err != nil {
+		return false, err
+	}
+
+	// Sync site folders too
+	u, err := m.SyncSiteFolders(sites)
+	if err != nil {
+		return false, err
+	}
+	updated = updated || u
+
+	return updated, nil
+}
+
+// Creates a folder if it doesn't exist already
+func ensureFolderWithUpdated(path string) (updated bool, err error) {
+	updated = false
+	exists := false
+	exists, err = utils.FolderExists(path)
+	if err != nil {
+		return
+	}
+	if !exists {
+		err = utils.EnsureFolder(path)
+		if err != nil {
+			return
+		}
+		updated = true
+	}
+	return
+}
+
+// SyncSiteFolders ensures that we have the correct folders in the site directory, and TLS certificates are present
+func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
+	updated := false
+
+	var u bool
+	var err error
+
+	// Folder for the default site
+	// /approot/sites/_default
+	u, err = ensureFolderWithUpdated(m.appRoot + "sites/_default")
+	if err != nil {
+		return false, err
+	}
+	updated = updated || u
+
+	// Activate the default site
+	// /approot/sites/_default/www
+	if err := m.ActivateApp("_default", "_default"); err != nil {
+		return false, err
+	}
+
+	// Iterate through the sites list
+	expectFolders := make([]string, 1)
+	expectFolders[0] = "_default"
+	for _, s := range sites {
+		expectFolders = append(expectFolders, s.Domain)
+
+		// /approot/sites/{site}
+		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
+		if err != nil {
+			return false, err
+		}
+		updated = updated || u
+
+		// /approot/sites/{site}/tls
+		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain + "/tls")
+		if err != nil {
+			return false, err
+		}
+		updated = updated || u
+
+		// Check if the TLS certs are in place, if needed
+		if s.TLSCertificate != nil {
+			needTLS := false
+			// If we just created the folder, the certs definitely don't exist yet
+			if u {
+				needTLS = true
+			} else {
+				var e bool
+
+				e, err = utils.PathExists(m.appRoot + "sites/" + s.Domain + "/tls/certificate.pem")
+				if err != nil {
+					return false, err
+				}
+				needTLS = needTLS || !e
+
+				e, err = utils.PathExists(m.appRoot + "sites/" + s.Domain + "/tls/key.pem")
+				if err != nil {
+					return false, err
+				}
+				needTLS = needTLS || !e
+
+				e, err = utils.PathExists(m.appRoot + "sites/" + s.Domain + "/tls/dhparams.pem")
+				if err != nil {
+					return false, err
+				}
+				needTLS = needTLS || !e
+			}
+
+			// Fetch the TLS certificates if we need to
+			if needTLS {
+				if err := m.GetTLSCertificate(s.Domain, *s.TLSCertificate); err != nil {
+					return false, err
+				}
+				updated = true
+			}
+
+			// Deploy the app; do this any time, regardless, since it doesn't disrupt the running server
+			// /approot/sites/{site}/www
+			// www is always a symbolic link, and if there's no app deployed, it goes to the default one
+			bundle := "_default"
+			if s.App != nil {
+				bundle = s.App.Name + "-" + s.App.Version
+			}
+			if err := m.ActivateApp(bundle, s.Domain); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	// Look for extraneous folders in the /approot/sites directory
+	files, err := ioutil.ReadDir(m.appRoot + "sites/")
+	if err != nil {
+		return false, err
+	}
+	for _, f := range files {
+		name := f.Name()
+		// There should only be folders
+		if f.IsDir() {
+			// Folder name must be _default or one of the domains
+			if !utils.StringInSlice(expectFolders, name) {
+				// Delete the folder
+				updated = true
+				m.log.Println("Removing extraneous folder", m.appRoot+"sites/"+name)
+				if err := os.RemoveAll(m.appRoot + "sites/" + name); err != nil {
+					return false, err
+				}
+			}
+		} else {
+			// There shouldn't be any file; delete extraneous stuff
+			updated = true
+			m.log.Println("Removing extraneous file", m.appRoot+"sites/"+name)
+			if err := os.Remove(m.appRoot + "sites/" + name); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	return updated, nil
+}
+
+// SyncApps ensures that we have the correct apps
+func (m *Manager) SyncApps(sites []state.SiteState) error {
+	now := time.Now()
+
+	// Channels used by the worker pool to fetch apps in parallel
+	jobs := make(chan *state.SiteApp, 4)
+	errs := make(chan error, 4)
+
+	// Spin up 3 backround workers
+	for w := 1; w <= 3; w++ {
+		go m.workerStageApp(w, jobs, errs)
+	}
+
+	// Iterate through the sites looking for apps
+	requested := 0
+	for _, s := range sites {
+		app := s.App
+
+		// Check if the jobs channel is full
+		for len(jobs) == cap(jobs) {
+			// Pause this thread until the channel is not at capacity anymore
+			m.log.Println("Channel jobs is full, sleeping for a second")
+			time.Sleep(time.Second)
+		}
+
+		// Check if the err channel is full
+		if len(errs) == cap(errs) {
+			// Process all errors, if any
+			m.log.Println("Channel errs is full, processing errors")
+			for i := 0; i < requested; i++ {
+				e := <-errs
+				if e != nil {
+					return e
+				}
+			}
+
+			// We've processed all errors
+			requested = 0
+		}
+
+		// If there's no app, skip this
+		if app == nil {
+			continue
+		}
+
+		// Check if we have the app deployed
+		exists, err := utils.PathExists(m.appRoot + "apps/" + app.Name + "-" + app.Version)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			m.log.Println("Need to fetch ", app.Name, app.Version)
+
+			// We need to deploy the app
+			// Use the worker pool to handle concurrency
+			jobs <- app
+			requested++
+
+			// Update the Time in the record
+			s.App.Time = &now
+			state.Instance.UpdateSite(&s, false)
+		}
+	}
+
+	// No more jobs; close the channel
+	close(jobs)
+
+	// Iterate through all the errors, if any
+	for i := 0; i < requested; i++ {
+		e := <-errs
+		if e != nil {
+			return e
+		}
+	}
+	close(errs)
 
 	return nil
 }
 
 // InitAppRoot creates a new, empty app root folder
-func (m *Manager) InitAppRoot(reset bool) error {
+func (m *Manager) InitAppRoot() error {
 	// Ensure the app root folder exists
 	if err := utils.EnsureFolder(m.appRoot); err != nil {
 		return err
-	}
-
-	// If folder isn't empty, clean it if we are resetting the folder
-	if reset {
-		if err := utils.RemoveContents(m.appRoot); err != nil {
-			return err
-		}
 	}
 
 	// Create /approot/cache
@@ -133,8 +371,23 @@ func (m *Manager) InitAppRoot(reset bool) error {
 		return err
 	}
 
-	// Create /approot/apps/_default
+	// Create /approot/sites
+	if err := utils.EnsureFolder(m.appRoot + "sites"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// WriteDefaultApp creates the files for the default app on disk
+func (m *Manager) WriteDefaultApp() error {
+	// Ensure /approot/apps/_default exists
 	if err := utils.EnsureFolder(m.appRoot + "apps/_default"); err != nil {
+		return err
+	}
+
+	// Reset the folder
+	if err := utils.RemoveContents(m.appRoot + "apps/_default/"); err != nil {
 		return err
 	}
 
@@ -150,59 +403,15 @@ func (m *Manager) InitAppRoot(reset bool) error {
 	}
 	f.Write(welcome)
 
-	// Create /approot/sites
-	if err := utils.EnsureFolder(m.appRoot + "sites"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// CreateFolders creates the required folders in the file system
-func (m *Manager) CreateFolders(site string) error {
-	// /approot/sites/{site}
-	if err := utils.EnsureFolder(m.appRoot + "sites/" + site); err != nil {
-		return err
-	}
-
-	// Skip the tls folder for the _default site
-	if site != "_default" {
-		// /approot/sites/{site}/tls
-		if err := utils.EnsureFolder(m.appRoot + "sites/" + site + "/tls"); err != nil {
-			return err
-		}
-
-		// Clean the tls directory
-		if err := utils.RemoveContents(m.appRoot + "sites/" + site + "/tls"); err != nil {
-			return err
-		}
-	}
-
-	// /approot/sites/{site}/www
-	// www is always a symbolic link, to the default app and then switched to app staged
-	if err := m.ActivateApp("_default", site); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 // ActivateApp points a site to an app, by creating the symbolic link
-func (m *Manager) ActivateApp(app string, site string) error {
+func (m *Manager) ActivateApp(app string, domain string) error {
 	// Switch the www folder to an app staged
-	if err := utils.SymlinkAtomic(m.appRoot+"apps/"+app, m.appRoot+"sites/"+site+"/www"); err != nil {
+	if err := utils.SymlinkAtomic(m.appRoot+"apps/"+app, m.appRoot+"sites/"+domain+"/www"); err != nil {
 		return err
 	}
-	return nil
-}
-
-// RemoveFolders deletes the folders for the site
-func (m *Manager) RemoveFolders(site string) error {
-	// /approot/sites/{site}
-	if err := os.RemoveAll(m.appRoot + "sites/" + site); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -272,6 +481,16 @@ func (m *Manager) StageApp(app string, version string) error {
 	}
 
 	return nil
+}
+
+// Background worker for the StageApp function
+func (m *Manager) workerStageApp(id int, jobs <-chan *state.SiteApp, errs chan<- error) {
+	for j := range jobs {
+		m.log.Println("Worker", id, "started staging app "+j.Name+"-"+j.Version)
+		err := m.StageApp(j.Name, j.Version)
+		m.log.Println("Worker", id, "finished staging app "+j.Name+"-"+j.Version)
+		errs <- err
+	}
 }
 
 // FetchBundle downloads the application's tar.bz2 bundle for a specific version
@@ -381,8 +600,8 @@ func writeData(data []byte, path string) error {
 	return f.Close()
 }
 
-// GetTLSCertificate requests the TLS certificate for an app
-func (m *Manager) GetTLSCertificate(site string, tlsCertificate string) error {
+// GetTLSCertificate requests the TLS certificate for a site
+func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error {
 	// Check if we have the file in cache
 	cachePathCert := m.appRoot + "cache/" + tlsCertificate + ".cert.pem"
 	cachePathKey := m.appRoot + "cache/" + tlsCertificate + ".key.pem"
@@ -401,9 +620,9 @@ func (m *Manager) GetTLSCertificate(site string, tlsCertificate string) error {
 	}
 
 	// Destinations
-	pathCert := m.appRoot + "sites/" + site + "/tls/certificate.pem"
-	pathKey := m.appRoot + "sites/" + site + "/tls/key.pem"
-	pathDhparams := m.appRoot + "sites/" + site + "/tls/dhparams.pem"
+	pathCert := m.appRoot + "sites/" + domain + "/tls/certificate.pem"
+	pathKey := m.appRoot + "sites/" + domain + "/tls/key.pem"
+	pathDhparams := m.appRoot + "sites/" + domain + "/tls/dhparams.pem"
 
 	if existsCert && existsKey && existsDhparams {
 		// Load certificate from cache
