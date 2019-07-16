@@ -17,17 +17,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package middlewares
 
 import (
-	"os"
+	"smplatform/appconfig"
 
 	"github.com/gin-gonic/gin"
 )
 
-// NodeName middleware that adds the "X-SMP-Node" header containing the hostname
+// NodeName middleware that adds the "X-SMP-Node" header containing the node name
 func NodeName() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		hostname, err := os.Hostname()
-		if err != nil || len(hostname) == 0 {
-			// Ignore errors
+		hostname := appconfig.Config.GetString("nodeName")
+		if len(hostname) == 0 {
 			return
 		}
 

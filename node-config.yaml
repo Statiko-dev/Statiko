@@ -67,3 +67,7 @@ tls:
   certificate: "/etc/smplatform/node-public.crt"
   key: "/etc/smplatform/node-private.key"
   dhparams: "/etc/smplatform/node-dhparams.pem"
+
+# Node name (optional; will default to the hostname)
+# Can also be passed with environmental variable NODE_NAME
+nodeName: ""
