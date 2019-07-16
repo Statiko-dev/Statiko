@@ -20,13 +20,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/gorm"
 
-	"smplatform/appmanager"
-	"smplatform/db"
 	"smplatform/state"
-	"smplatform/utils"
-	"smplatform/webserver"
 	"smplatform/sync"
 )
 
@@ -104,17 +99,8 @@ func CreateSiteHandler(c *gin.Context) {
 
 // ListSiteHandler is the handler for GET /site, which lists all sites
 func ListSiteHandler(c *gin.Context) {
-	// Get records from the database
-	sites := []db.Site{}
-	if err := db.Connection.Preload("Domains").Find(&sites).Error; err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	// Re-map to the original JSON structure
-	for i := 0; i < len(sites); i++ {
-		sites[i].RemapJSON()
-	}
+	// Get records from the state object
+	sites := state.Instance.GetSites()
 
 	c.JSON(http.StatusOK, sites)
 }
@@ -123,43 +109,16 @@ func ListSiteHandler(c *gin.Context) {
 // The `site` parameter can be a site id (GUID) or a domain
 func ShowSiteHandler(c *gin.Context) {
 	if site := c.Param("site"); len(site) > 0 {
-		// If site is a domain name, we need to load the site ID first
-		if !utils.IsValidUUID(site) {
-			domain := &db.Domain{}
-			err := db.Connection.Where("domain = ?", site).First(domain).Error
-			if err != nil {
-				// Check if the error is because of the record not found
-				if gorm.IsRecordNotFoundError(err) {
-					c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-						"error": "Domain name not found",
-					})
-					return
-				}
-				c.AbortWithError(http.StatusInternalServerError, err)
-				return
-			}
-
-			site = domain.SiteID.String()
-		}
-
-		// Load the record and perform the joins
-		result := &db.Site{}
-		err := db.Connection.Preload("Domains").Where("site_id = ?", site).First(result).Error
-		if err != nil {
-			// Check if the error is because of the record not found
-			if gorm.IsRecordNotFoundError(err) {
-				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-					"error": "Domain name not found",
-				})
-				return
-			}
-			c.AbortWithError(http.StatusInternalServerError, err)
+		// Get the site from the state object
+		site := state.Instance.GetSite(site)
+		if site == nil {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "Domain name not found",
+			})
 			return
 		}
 
-		// Re-map to the original JSON structure
-		result.RemapJSON()
-		c.JSON(http.StatusOK, result)
+		c.JSON(http.StatusOK, site)
 	} else {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid parameter 'site'",
@@ -170,103 +129,16 @@ func ShowSiteHandler(c *gin.Context) {
 // DeleteSiteHandler is the handler for DELETE /site/{site}, which deletes a site
 // The `site` parameter can be a site id (GUID) or a domain
 func DeleteSiteHandler(c *gin.Context) {
-	// DB transaction
-	tx := db.Connection.Begin()
-	defer func() {
-		if tx != nil {
-			// Rollback automatically in case of error
-			tx.Rollback()
-		}
-	}()
-
 	if site := c.Param("site"); len(site) > 0 {
-		// If site is a domain name, we need to load the site ID first
-		if !utils.IsValidUUID(site) {
-			domain := &db.Domain{}
-			err := db.Connection.Where("domain = ?", site).First(domain).Error
-			if err != nil {
-				// Check if the error is because of the record not found
-				if gorm.IsRecordNotFoundError(err) {
-					c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-						"error": "Domain name not found",
-					})
-					return
-				}
-				c.AbortWithError(http.StatusInternalServerError, err)
-				return
-			}
-
-			// We can allow the deletion only using the primary domain
-			// This is to avoid situations where users are just trying to delete an alias
-			if !domain.IsDefault {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-					"error": "Cannot remove a site using an alias",
-				})
-				return
-			}
-
-			site = domain.SiteID.String()
-		}
-
-		// Remove the nginx configuration, then reload the server's config
-		if err := webserver.Instance.RemoveSite(site); err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-		if err := webserver.Instance.RestartServer(); err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-
-		// Delete data from the file system
-		if err := appmanager.Instance.RemoveFolders(site); err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-
-		// Remove records from the database
-		var query *gorm.DB
-
-		// First, delete the domains
-		query = tx.Raw("DELETE FROM domains WHERE site_id = ?", site)
-		if query.Error != nil {
-			c.AbortWithError(http.StatusInternalServerError, query.Error)
-			return
-		}
-		if query.RowsAffected < 1 {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error": "Site id not found",
-			})
-			return
-		}
-
-		// Delete all deployments (if any)
-		query = tx.Raw("DELETE FROM deployments WHERE site_id = ?", site)
-		if query.Error != nil {
-			c.AbortWithError(http.StatusInternalServerError, query.Error)
-			return
-		}
-
 		// Delete the record
-		// Note that we're still running within a database transaction
-		query = tx.Raw("DELETE FROM sites WHERE id = ?", site)
-		if query.Error != nil {
-			c.AbortWithError(http.StatusInternalServerError, query.Error)
-			return
-		}
-		if query.RowsAffected < 1 {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error": "Site id not found",
-			})
-			return
-		}
-
-		// Commit
-		if err := tx.Commit().Error; err != nil {
+		err := state.Instance.DeleteSite(site)
+		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-		tx = nil
+
+		// Queue a sync
+		sync.QueueRun()
 
 		c.Status(http.StatusNoContent)
 	} else {
@@ -275,3 +147,5 @@ func DeleteSiteHandler(c *gin.Context) {
 		})
 	}
 }
+
+// TODO: Route to update a site's configuration

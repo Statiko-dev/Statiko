@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
+	"errors"
 	"time"
 
 	"smplatform/utils"
@@ -122,5 +123,26 @@ func (m *Manager) GetSite(domain string) *SiteState {
 func (m *Manager) AddSite(site *SiteState) error {
 	m.state.Sites = append(m.state.Sites, *site)
 	m.setUpdated()
+	return nil
+}
+
+// DeleteSite remvoes a site from the store
+func (m *Manager) DeleteSite(domain string) error {
+	found := false
+	for i, s := range m.state.Sites {
+		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
+			// Remove the element
+			m.state.Sites[i] = m.state.Sites[len(m.state.Sites)-1]
+			m.state.Sites = m.state.Sites[:len(m.state.Sites)-1]
+
+			found = true
+			break
+		}
+	}
+	m.setUpdated()
+
+	if !found {
+		return errors.New("Site not found")
+	}
 	return nil
 }
