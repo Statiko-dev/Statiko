@@ -53,6 +53,9 @@ func main() {
 		panic(err)
 	}
 
+	// Add middlewares
+	router.Use(middlewares.NodeName())
+
 	// Add routes
 	router.GET("/status", routes.StatusHandler)
 	router.GET("/info", routes.InfoHandler)
