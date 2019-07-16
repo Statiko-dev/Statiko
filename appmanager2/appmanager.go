@@ -245,7 +245,6 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	}
 
 	// Look for extraneous folders in the /approot/sites directory
-	// TODO
 	files, err := ioutil.ReadDir(m.appRoot + "sites/")
 	if err != nil {
 		return false, err

@@ -69,39 +69,7 @@ func StatusHandler(c *gin.Context) {
 	if healthCache == nil || diff > 299 {
 		appTestedTime = time.Now()
 
-		// Update the cached data
-		requested := 0
-		sites := state.Instance.GetSites()
-		ch := make(chan utils.SiteHealth, len(sites))
-		healthCache = make([]utils.SiteHealth, 0)
-		for _, s := range sites {
-			// Request health only if there's an app being deployed
-			if s.App != nil {
-				// Start the request in parallel
-				go utils.RequestHealth(s.Domain, s.App.Name+"-"+s.App.Version, ch)
-				requested++
-			} else {
-				// No app deployed, so show the site only
-				healthCache = append(healthCache, utils.SiteHealth{
-					Domain: s.Domain,
-					App:    nil,
-				})
-			}
-		}
-
-		// Read responses
-		hasError := false
-		for i := 0; i < requested; i++ {
-			health := <-ch
-			if health.Error != nil {
-				hasError = true
-				health.ErrorStr = new(string)
-				*health.ErrorStr = health.Error.Error()
-				logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
-			}
-			healthCache = append(healthCache, health)
-		}
-
+		hasError := updateHealthCache()
 		res.Health = healthCache
 
 		if hasError {
@@ -114,4 +82,76 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	c.JSON(statusCode, res)
+}
+
+type healthcheckJob struct {
+	domain string
+	bundle string
+}
+
+func updateHealthCache() bool {
+	// Get list of sites
+	sites := state.Instance.GetSites()
+
+	// Use a worker pool to limit concurrency to 3
+	jobs := make(chan healthcheckJob, 4)
+	res := make(chan utils.SiteHealth, len(sites))
+
+	// Spin up 3 backround workers
+	for w := 1; w <= 3; w++ {
+		go updateHealthCacheWorker(w, jobs, res)
+	}
+
+	// Update the cached data
+	requested := 0
+	healthCache = make([]utils.SiteHealth, 0)
+	for _, s := range sites {
+		// Request health only if there's an app being deployed
+		if s.App != nil {
+			// Check if the jobs channel is full
+			for len(jobs) == cap(jobs) {
+				// Pause this until the channel is not at capacity anymore
+				time.Sleep(time.Millisecond * 5)
+			}
+
+			// Start the request in parallel
+			jobs <- healthcheckJob{
+				domain: s.Domain,
+				bundle: s.App.Name + "-" + s.App.Version,
+			}
+			requested++
+		} else {
+			// No app deployed, so show the site only
+			healthCache = append(healthCache, utils.SiteHealth{
+				Domain: s.Domain,
+				App:    nil,
+			})
+		}
+	}
+	close(jobs)
+
+	// Read responses
+	hasError := false
+	for i := 0; i < requested; i++ {
+		health := <-res
+		if health.Error != nil {
+			hasError = true
+			health.ErrorStr = new(string)
+			*health.ErrorStr = health.Error.Error()
+			logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
+		}
+		healthCache = append(healthCache, health)
+	}
+	close(res)
+
+	return hasError
+}
+
+// Background worker for the updateHealthCache function
+func updateHealthCacheWorker(id int, jobs <-chan healthcheckJob, res chan<- utils.SiteHealth) {
+	for j := range jobs {
+		//logger.Println("Worker", id, "started requesting health for", j.domain)
+		utils.RequestHealth(j.domain, j.bundle, res)
+		//logger.Println("Worker", id, "finished requesting health for", j.domain)
+	}
 }
