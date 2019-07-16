@@ -277,6 +277,8 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 
 // SyncApps ensures that we have the correct apps
 func (m *Manager) SyncApps(sites []state.SiteState) error {
+	now := time.Now()
+
 	// Channels used by the worker pool to fetch apps in parallel
 	jobs := make(chan *state.SiteApp, 4)
 	errs := make(chan error, 4)
@@ -325,10 +327,15 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 		}
 		if !exists {
 			m.log.Println("Need to fetch ", app.Name, app.Version)
+
 			// We need to deploy the app
 			// Use the worker pool to handle concurrency
 			jobs <- app
 			requested++
+
+			// Update the Time in the record
+			s.App.Time = &now
+			state.Instance.UpdateSite(&s, false)
 		}
 	}
 
@@ -405,16 +412,6 @@ func (m *Manager) ActivateApp(app string, domain string) error {
 	if err := utils.SymlinkAtomic(m.appRoot+"apps/"+app, m.appRoot+"sites/"+domain+"/www"); err != nil {
 		return err
 	}
-	return nil
-}
-
-// RemoveFolders deletes the folders for the site
-func (m *Manager) RemoveFolders(site string) error {
-	// /approot/sites/{site}
-	if err := os.RemoveAll(m.appRoot + "sites/" + site); err != nil {
-		return err
-	}
-
 	return nil
 }
 

@@ -25,14 +25,6 @@ import (
 	"smplatform/sync"
 )
 
-// CreateSiteInput is the message clients send to create a site
-type CreateSiteInput struct {
-	Domain         string   `json:"domain"`
-	Aliases        []string `json:"aliases"`
-	ClientCaching  bool     `json:"clientCaching"`
-	TLSCertificate *string  `json:"tlsCertificate"`
-}
-
 // CreateSiteHandler is the handler for POST /site, which creates a new site
 // @Summary Creates a new site
 // @Description Creates a new site in the local web server and configures it with the default app
@@ -44,23 +36,10 @@ type CreateSiteInput struct {
 // @Router /site [post]
 func CreateSiteHandler(c *gin.Context) {
 	// Get data from the form body
-	site := &CreateSiteInput{}
+	site := &state.SiteState{}
 	if err := c.Bind(site); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request body",
-		})
-		return
-	}
-
-	if len(site.Domain) < 1 {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "You must specify the 'domain' key",
-		})
-		return
-	}
-	if site.Domain == "_default" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Cannot use '_default' as domain name",
+			"error": "Invalid request body: " + err.Error(),
 		})
 		return
 	}
@@ -79,12 +58,7 @@ func CreateSiteHandler(c *gin.Context) {
 	}
 
 	// Add the website to the store
-	err := state.Instance.AddSite(&state.SiteState{
-		Domain:         site.Domain,
-		Aliases:        site.Aliases,
-		ClientCaching:  site.ClientCaching,
-		TLSCertificate: site.TLSCertificate,
-	})
+	err := state.Instance.AddSite(site)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return

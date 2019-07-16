@@ -16,8 +16,8 @@ type SiteState struct {
 	TLSCertificate *string `json:"tlsCertificate"`
 
 	// Domains: primary and aliases
-	Domain  string   `json:"domain"`
-	Aliases []string `json:"aliases"`
+	Domain  string   `json:"domain" binding:"required,ne=_default"`
+	Aliases []string `json:"aliases" binding:"dive,ne=_default"`
 
 	// App
 	App *SiteApp `json:"app"`
@@ -26,7 +26,7 @@ type SiteState struct {
 // SiteApp represents the state of an app deployed or being deployed
 type SiteApp struct {
 	// App details
-	Name    string     `json:"name"`
-	Version string     `json:"version"`
-	Time    *time.Time `json:"time"`
+	Name    string     `json:"name" binding:"required"`
+	Version string     `json:"version" binding:"required"`
+	Time    *time.Time `json:"time" binding:"-"` // Not allowed as input
 }

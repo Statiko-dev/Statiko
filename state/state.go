@@ -126,6 +126,30 @@ func (m *Manager) AddSite(site *SiteState) error {
 	return nil
 }
 
+// UpdateSite updates a site with the same Domain
+func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
+	found := false
+	for i, s := range m.state.Sites {
+		if s.Domain == site.Domain {
+			// Replace the element
+			m.state.Sites[i] = *site
+
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return errors.New("Site not found")
+	}
+
+	if setUpdated {
+		m.setUpdated()
+	}
+
+	return nil
+}
+
 // DeleteSite remvoes a site from the store
 func (m *Manager) DeleteSite(domain string) error {
 	found := false
@@ -139,10 +163,12 @@ func (m *Manager) DeleteSite(domain string) error {
 			break
 		}
 	}
-	m.setUpdated()
 
 	if !found {
 		return errors.New("Site not found")
 	}
+
+	m.setUpdated()
+
 	return nil
 }
