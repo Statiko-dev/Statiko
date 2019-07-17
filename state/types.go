@@ -12,8 +12,8 @@ type NodeState struct {
 // SiteState represents the state of a single site
 type SiteState struct {
 	// Configuration
-	ClientCaching  bool    `json:"clientCaching"`
-	TLSCertificate *string `json:"tlsCertificate"`
+	ClientCaching  bool    `json:"clientCaching" patch:"yes"`
+	TLSCertificate *string `json:"tlsCertificate" patch:"yes"`
 
 	// Domains: primary and aliases
 	Domain  string   `json:"domain" binding:"required,ne=_default"`

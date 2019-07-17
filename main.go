@@ -66,8 +66,9 @@ func main() {
 		authorized.Use(middlewares.Auth())
 		authorized.POST("/site", routes.CreateSiteHandler)
 		authorized.GET("/site", routes.ListSiteHandler)
-		authorized.GET("/site/:site", routes.ShowSiteHandler)
-		authorized.DELETE("/site/:site", routes.DeleteSiteHandler)
+		authorized.GET("/site/:domain", routes.ShowSiteHandler)
+		authorized.DELETE("/site/:domain", routes.DeleteSiteHandler)
+		authorized.PATCH("/site/:domain", routes.PatchSiteHandler)
 	}
 
 	// HTTP Server
