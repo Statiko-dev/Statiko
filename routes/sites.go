@@ -19,6 +19,7 @@ package routes
 import (
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -150,63 +151,60 @@ func PatchSiteHandler(c *gin.Context) {
 		return
 	}
 
-	// Iterate through the SiteState interface and see what fields can be updated
-	t := reflect.TypeOf(state.SiteState{})
-
-	// List of fields that we can update
-	// Note that this doesn't include the Aliases field by design
-	updateable := make(map[string]string)
-	types := make(map[string]reflect.Type)
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		patchTag, okP := field.Tag.Lookup("patch")
-		jsonTag, okJ := field.Tag.Lookup("json")
-		if okJ && okP && patchTag == "yes" {
-			updateable[jsonTag] = field.Name
-			types[jsonTag] = field.Type
-		}
-	}
-
 	// Iterate through the fields in the input and update site
-	siteValue := reflect.ValueOf(site).Elem()
 	updated := false
 	for k, v := range update {
-		// Check if this field can be updated
-		upd, ok := updateable[k]
-		typ := types[k]
-		if !ok {
-			continue
-		}
+		t := reflect.TypeOf(v)
 
-		// Update if it's the right type
-		vType := reflect.TypeOf(v)
-		vTypePtr := reflect.PtrTo(vType)
-		if typ == vType {
-			// Right type
-			set := siteValue.FieldByName(upd)
-			vVal := reflect.ValueOf(v)
-			set.Set(vVal)
-			updated = true
-		} else if typ == vTypePtr {
-			// Pointer to the type
-			set := siteValue.FieldByName(upd)
-
-			switch typ.String() {
-			case "*string":
-				str := v.(string)
-				vVal := reflect.ValueOf(&str)
-				set.Set(vVal)
+		switch strings.ToLower(k) {
+		case "clientcaching":
+			if t.Kind() == reflect.Bool {
+				site.ClientCaching = v.(bool)
 				updated = true
 			}
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": "Invalid type for: " + k,
-			})
-			return
+		case "tlscertificate":
+			if t.Kind() == reflect.String {
+				str := v.(string)
+				site.TLSCertificate = &str
+				updated = true
+			}
+		case "aliases":
+			if t == nil {
+				// Reset the aliases slice
+				site.Aliases = make([]string, 0)
+			} else if t.Kind() == reflect.Slice {
+				updated = true
+
+				// Reset the aliases slice
+				site.Aliases = make([]string, 0)
+
+				// Check if the aliases exist already
+				for _, a := range v.([]interface{}) {
+					// Element must be a string
+					if reflect.TypeOf(a).Kind() != reflect.String {
+						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+							"error": "Invalid type for element in the aliases list",
+						})
+						return
+					}
+
+					str := a.(string)
+
+					// Aliases can't be defined somewhere else (but can be defined in this same site!)
+					ok := state.Instance.GetSite(str)
+					if ok != nil && ok.Domain != site.Domain {
+						c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+							"error": "Alias " + str + " already exists",
+						})
+						return
+					}
+
+					// Add the alias
+					site.Aliases = append(site.Aliases, str)
+				}
+			}
 		}
 	}
-
-	// TODO: check updated aliases
 
 	if updated {
 		state.Instance.UpdateSite(site, true)
