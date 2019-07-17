@@ -59,6 +59,9 @@ func CreateSiteHandler(c *gin.Context) {
 		}
 	}
 
+	// Ensure the TLS Thumbprint is empty
+	site.TLSFingerprint = ""
+
 	// Add the website to the store
 	err := state.Instance.AddSite(site)
 	if err != nil {
@@ -166,6 +169,7 @@ func PatchSiteHandler(c *gin.Context) {
 			if t.Kind() == reflect.String {
 				str := v.(string)
 				site.TLSCertificate = &str
+				site.TLSFingerprint = ""
 				updated = true
 			}
 		case "aliases":

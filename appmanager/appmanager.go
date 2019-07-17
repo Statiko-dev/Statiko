@@ -154,6 +154,21 @@ func ensureFolderWithUpdated(path string) (updated bool, err error) {
 	return
 }
 
+// Calculates the "fingerprint" of a certificate and key
+// This is different from the way OpenSSL calculates it
+func (m *Manager) calculateCertificateFingerprint(domain string) (string, error) {
+	certHash, err := utils.HashFile(m.appRoot + "sites/" + domain + "/tls/certificate.pem")
+	if err != nil {
+		return "", err
+	}
+	keyHash, err := utils.HashFile(m.appRoot + "sites/" + domain + "/tls/key.pem")
+	if err != nil {
+		return "", err
+	}
+	fingerprint := certHash + "-" + keyHash
+	return fingerprint, nil
+}
+
 // SyncSiteFolders ensures that we have the correct folders in the site directory, and TLS certificates are present
 func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	updated := false
@@ -199,7 +214,8 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		if s.TLSCertificate != nil {
 			needTLS := false
 			// If we just created the folder, the certs definitely don't exist yet
-			if u {
+			// Also, refresh the certificates if the fingerprint is empty (means new certificate)
+			if u || s.TLSFingerprint == "" {
 				needTLS = true
 			} else {
 				var e bool
@@ -221,13 +237,35 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 					return false, err
 				}
 				needTLS = needTLS || !e
+
+				// Compare the fingerprint
+				// Note that this is calculated in a different way from OpenSSL, as it's just a hash of the certificate and key
+				fingerprint, err := m.calculateCertificateFingerprint(s.Domain)
+				if err != nil {
+					return false, err
+				}
+
+				if fingerprint != s.TLSFingerprint {
+					needTLS = true
+				}
 			}
 
 			// Fetch the TLS certificates if we need to
 			if needTLS {
+				// Update the certificate
 				if err := m.GetTLSCertificate(s.Domain, *s.TLSCertificate); err != nil {
 					return false, err
 				}
+
+				// Update the fingerprint
+				fingerprint, err := m.calculateCertificateFingerprint(s.Domain)
+				if err != nil {
+					return false, err
+				}
+
+				s.TLSFingerprint = fingerprint
+				state.Instance.UpdateSite(&s, false)
+
 				updated = true
 			}
 

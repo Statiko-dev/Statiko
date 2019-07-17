@@ -21,6 +21,10 @@ type SiteState struct {
 
 	// App
 	App *SiteApp `json:"app"`
+
+	// Fingerprint of the TLS certificate
+	// Note that this is calculated differently from the way OpenSSL does
+	TLSFingerprint string `json:"-"`
 }
 
 // SiteApp represents the state of an app deployed or being deployed
