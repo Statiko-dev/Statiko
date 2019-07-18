@@ -283,7 +283,6 @@ async function checkCacheDirectory(sites, apps) {
 
             await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.cert.pem')
             await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.key.pem')
-            await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.dhparams.pem')
         }
     }
 

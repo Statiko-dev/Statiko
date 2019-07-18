@@ -232,12 +232,6 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 				}
 				needTLS = needTLS || !e
 
-				e, err = utils.PathExists(m.appRoot + "sites/" + s.Domain + "/tls/dhparams.pem")
-				if err != nil {
-					return false, err
-				}
-				needTLS = needTLS || !e
-
 				// Compare the fingerprint
 				// Note that this is calculated in a different way from OpenSSL, as it's just a hash of the certificate and key
 				fingerprint, err := m.calculateCertificateFingerprint(s.Domain)
@@ -643,7 +637,6 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error 
 	// Check if we have the file in cache
 	cachePathCert := m.appRoot + "cache/" + tlsCertificate + ".cert.pem"
 	cachePathKey := m.appRoot + "cache/" + tlsCertificate + ".key.pem"
-	cachePathDhparams := m.appRoot + "cache/" + tlsCertificate + ".dhparams.pem"
 	existsCert, err := utils.PathExists(cachePathCert)
 	if err != nil {
 		return err
@@ -652,17 +645,12 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error 
 	if err != nil {
 		return err
 	}
-	existsDhparams, err := utils.PathExists(cachePathDhparams)
-	if err != nil {
-		return err
-	}
 
 	// Destinations
 	pathCert := m.appRoot + "sites/" + domain + "/tls/certificate.pem"
 	pathKey := m.appRoot + "sites/" + domain + "/tls/key.pem"
-	pathDhparams := m.appRoot + "sites/" + domain + "/tls/dhparams.pem"
 
-	if existsCert && existsKey && existsDhparams {
+	if existsCert && existsKey {
 		// Load certificate from cache
 		m.log.Println("Loading TLS certificate from cache: " + tlsCertificate)
 		err := utils.CopyFile(cachePathCert, pathCert)
@@ -670,10 +658,6 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error 
 			return err
 		}
 		err = utils.CopyFile(cachePathKey, pathKey)
-		if err != nil {
-			return err
-		}
-		err = utils.CopyFile(cachePathDhparams, pathDhparams)
 		if err != nil {
 			return err
 		}
@@ -699,31 +683,6 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error 
 			return err
 		}
 		if err := writeData(key, cachePathKey); err != nil {
-			return err
-		}
-
-		// Obtain the dhparams file, which is on the storage account
-		// We pre-generated this as it can take a very long time, and it needs to be the same in every server
-		// Request the file
-		m.log.Println("Request dhparams file from object storage: " + tlsCertificate)
-		u, err := url.Parse(m.azureStorageURL + "dhparams/" + tlsCertificate + ".pem")
-		if err != nil {
-			return err
-		}
-		blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
-		resp, err := blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
-		if err != nil {
-			return err
-		}
-		body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
-		dhparams, err := ioutil.ReadAll(body)
-		if err != nil {
-			return err
-		}
-		if err := writeData(dhparams, pathDhparams); err != nil {
-			return err
-		}
-		if err := writeData(dhparams, cachePathDhparams); err != nil {
 			return err
 		}
 	}

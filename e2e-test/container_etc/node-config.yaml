@@ -62,11 +62,13 @@ codesignKey: "/etc/smplatform/codesign.pub"
 
 # TLS
 tls:
-  # Using TLS is strongly recommended
-  enabled: yes
-  certificate: "/etc/smplatform/node-public.crt"
-  key: "/etc/smplatform/node-private.key"
-  dhparams: "/etc/smplatform/node-dhparams.pem"
+  # Diffie-Hellman parameters used by all TLS-enabled sites
+  dhparams: "/etc/smplatform/dhparams.pem"
+  node:
+    # Using TLS is strongly recommended
+    enabled: yes
+    certificate: "/etc/smplatform/node-public.crt"
+    key: "/etc/smplatform/node-private.key"
 
 # Node name (optional; will default to the hostname)
 # Can also be passed with environmental variable NODE_NAME

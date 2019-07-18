@@ -307,10 +307,12 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData inte
 		Port     string
 		Protocol string
 		TLS      struct {
-			Enabled     bool
-			Certificate string
-			Key         string
-			Dhparams    string
+			Dhparams string
+			Node     struct {
+				Enabled     bool
+				Certificate string
+				Key         string
+			}
 		}
 	}{
 		Item:     itemData,
@@ -318,15 +320,23 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData inte
 		Port:     appconfig.Config.GetString("port"),
 		Protocol: protocol,
 		TLS: struct {
-			Enabled     bool
-			Certificate string
-			Key         string
-			Dhparams    string
+			Dhparams string
+			Node     struct {
+				Enabled     bool
+				Certificate string
+				Key         string
+			}
 		}{
-			Enabled:     appconfig.Config.GetBool("tls.enabled"),
-			Certificate: appconfig.Config.GetString("tls.certificate"),
-			Key:         appconfig.Config.GetString("tls.key"),
-			Dhparams:    appconfig.Config.GetString("tls.dhparams"),
+			Dhparams: appconfig.Config.GetString("tls.dhparams"),
+			Node: struct {
+				Enabled     bool
+				Certificate string
+				Key         string
+			}{
+				Enabled:     appconfig.Config.GetBool("tls.node.enabled"),
+				Certificate: appconfig.Config.GetString("tls.node.certificate"),
+				Key:         appconfig.Config.GetString("tls.node.key"),
+			},
 		},
 	}
 
