@@ -12,8 +12,9 @@ type NodeState struct {
 // SiteState represents the state of a single site
 type SiteState struct {
 	// Configuration
-	ClientCaching  bool    `json:"clientCaching"`
-	TLSCertificate *string `json:"tlsCertificate"`
+	ClientCaching         bool    `json:"clientCaching"`
+	TLSCertificate        *string `json:"tlsCertificate"`
+	TLSCertificateVersion *string `json:"tlsCertificateVersion"`
 
 	// Domains: primary and aliases
 	Domain  string   `json:"domain" binding:"required,ne=_default"`
@@ -21,10 +22,6 @@ type SiteState struct {
 
 	// App
 	App *SiteApp `json:"app"`
-
-	// Fingerprint of the TLS certificate
-	// Note that this is calculated differently from the way OpenSSL does
-	TLSFingerprint string `json:"-"`
 }
 
 // SiteApp represents the state of an app deployed or being deployed

@@ -49,14 +49,14 @@ type Certificate struct {
 }
 
 // Init the object
-func (akv *Certificate) Init() (err error) {
+func (akv *Certificate) Init() error {
 	akv.logger = log.New(os.Stdout, "azure-key-vault: ", log.Ldate|log.Ltime|log.LUTC)
 
 	return nil
 }
 
 // GetKeyVaultClient initializes and authenticates the client to interact with Azure Key Vault
-func (akv *Certificate) GetKeyVaultClient() (err error) {
+func (akv *Certificate) GetKeyVaultClient() error {
 	// Create a new client
 	akv.Client = keyvault.New()
 
@@ -87,7 +87,7 @@ func (akv *Certificate) GetKeyVaultClient() (err error) {
 	return nil
 }
 
-func (akv *Certificate) requestCertificateVersion(certificateName string) (version string, err error) {
+func (akv *Certificate) getCertificateLastVersion(certificateName string) (string, error) {
 	// List certificate versions
 	list, err := akv.Client.GetCertificateVersionsComplete(akv.Ctx, akv.vaultBaseURL, certificateName, nil)
 	if err != nil {
@@ -119,7 +119,7 @@ func (akv *Certificate) requestCertificateVersion(certificateName string) (versi
 	return lastItemVersion, nil
 }
 
-func (akv *Certificate) requestCertificatePFX(certificateName string, certificateVersion string) (key interface{}, cert *x509.Certificate, err error) {
+func (akv *Certificate) requestCertificatePFX(certificateName string, certificateVersion string) (interface{}, *x509.Certificate, error) {
 	// The full certificate, including the key, is stored as a secret in Azure Key Vault, encoded as PFX
 	pfx, err := akv.Client.GetSecret(akv.Ctx, akv.vaultBaseURL, certificateName, certificateVersion)
 	if err != nil {
@@ -135,17 +135,20 @@ func (akv *Certificate) requestCertificatePFX(certificateName string, certificat
 }
 
 // GetCertificate returns the certificate and key from Azure Key Vault, encoded as PEM
-func (akv *Certificate) GetCertificate(certificateName string) (certificate []byte, key []byte, err error) {
+func (akv *Certificate) GetCertificate(certificateName string, certificateVersion string) (string, []byte, []byte, error) {
 	// Error if there's no authenticated client yet
 	if !akv.authenticated {
-		return nil, nil, errors.New("Need to invoke GetKeyVaultClient() first")
+		return certificateVersion, nil, nil, errors.New("Need to invoke GetKeyVaultClient() first")
 	}
 
-	// List certificate versions
-	akv.logger.Printf("Getting certificate version for %s\n", certificateName)
-	certificateVersion, err := akv.requestCertificateVersion(certificateName)
-	if err != nil {
-		return nil, nil, err
+	// If we don't have a version specified, request the last one
+	if len(certificateVersion) == 0 {
+		akv.logger.Printf("Getting last version for %s\n", certificateName)
+		var err error
+		certificateVersion, err = akv.getCertificateLastVersion(certificateName)
+		if err != nil {
+			return certificateVersion, nil, nil, err
+		}
 	}
 
 	// Request the certificate and key
@@ -153,7 +156,7 @@ func (akv *Certificate) GetCertificate(certificateName string) (certificate []by
 	pfxKey, pfxCert, err := akv.requestCertificatePFX(certificateName, certificateVersion)
 	keyX509, err := x509.MarshalPKCS8PrivateKey(pfxKey)
 	if err != nil {
-		return nil, nil, err
+		return certificateVersion, nil, nil, err
 	}
 
 	// Convert to PEM
@@ -172,5 +175,5 @@ func (akv *Certificate) GetCertificate(certificateName string) (certificate []by
 	var certPEM bytes.Buffer
 	pem.Encode(&certPEM, certBlock)
 
-	return certPEM.Bytes(), keyPEM.Bytes(), nil
+	return certificateVersion, certPEM.Bytes(), keyPEM.Bytes(), nil
 }

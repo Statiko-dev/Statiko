@@ -59,8 +59,8 @@ func CreateSiteHandler(c *gin.Context) {
 		}
 	}
 
-	// Ensure the TLS Thumbprint is empty
-	site.TLSFingerprint = ""
+	// Ensure the TLS Certificate Version is empty
+	site.TLSCertificateVersion = nil
 
 	// Add the website to the store
 	err := state.Instance.AddSite(site)
@@ -156,6 +156,8 @@ func PatchSiteHandler(c *gin.Context) {
 
 	// Iterate through the fields in the input and update site
 	updated := false
+	updatedTLS := false
+	updatedTLSVersion := false
 	for k, v := range update {
 		t := reflect.TypeOf(v)
 
@@ -169,7 +171,14 @@ func PatchSiteHandler(c *gin.Context) {
 			if t.Kind() == reflect.String {
 				str := v.(string)
 				site.TLSCertificate = &str
-				site.TLSFingerprint = ""
+				updatedTLS = true
+				updated = true
+			}
+		case "tlscertificateversion":
+			if t.Kind() == reflect.String {
+				str := v.(string)
+				site.TLSCertificateVersion = &str
+				updatedTLSVersion = true
 				updated = true
 			}
 		case "aliases":
@@ -210,6 +219,12 @@ func PatchSiteHandler(c *gin.Context) {
 		}
 	}
 
+	// If we have updated the TLS certificate, but not the version, reset the version
+	if updatedTLS && !updatedTLSVersion {
+		site.TLSCertificateVersion = nil
+	}
+
+	// Update the site object if something has changed
 	if updated {
 		state.Instance.UpdateSite(site, true)
 

@@ -154,21 +154,6 @@ func ensureFolderWithUpdated(path string) (updated bool, err error) {
 	return
 }
 
-// Calculates the "fingerprint" of a certificate and key
-// This is different from the way OpenSSL calculates it
-func (m *Manager) calculateCertificateFingerprint(domain string) (string, error) {
-	certHash, err := utils.HashFile(m.appRoot + "sites/" + domain + "/tls/certificate.pem")
-	if err != nil {
-		return "", err
-	}
-	keyHash, err := utils.HashFile(m.appRoot + "sites/" + domain + "/tls/key.pem")
-	if err != nil {
-		return "", err
-	}
-	fingerprint := certHash + "-" + keyHash
-	return fingerprint, nil
-}
-
 // SyncSiteFolders ensures that we have the correct folders in the site directory, and TLS certificates are present
 func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	updated := false
@@ -213,9 +198,15 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		// Check if the TLS certs are in place, if needed
 		if s.TLSCertificate != nil {
 			needTLS := false
+
+			certVersion := ""
+			if s.TLSCertificateVersion != nil {
+				certVersion = *s.TLSCertificateVersion
+			}
+
 			// If we just created the folder, the certs definitely don't exist yet
-			// Also, refresh the certificates if the fingerprint is empty (means new certificate)
-			if u || s.TLSFingerprint == "" {
+			// Also, refresh the certificates if the version is empty (means new certificate)
+			if u || certVersion == "" {
 				needTLS = true
 			} else {
 				var e bool
@@ -231,33 +222,17 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 					return false, err
 				}
 				needTLS = needTLS || !e
-
-				// Compare the fingerprint
-				// Note that this is calculated in a different way from OpenSSL, as it's just a hash of the certificate and key
-				fingerprint, err := m.calculateCertificateFingerprint(s.Domain)
-				if err != nil {
-					return false, err
-				}
-
-				if fingerprint != s.TLSFingerprint {
-					needTLS = true
-				}
 			}
 
 			// Fetch the TLS certificates if we need to
 			if needTLS {
 				// Update the certificate
-				if err := m.GetTLSCertificate(s.Domain, *s.TLSCertificate); err != nil {
-					return false, err
-				}
-
-				// Update the fingerprint
-				fingerprint, err := m.calculateCertificateFingerprint(s.Domain)
+				version, err := m.GetTLSCertificate(s.Domain, *s.TLSCertificate, certVersion)
 				if err != nil {
 					return false, err
 				}
 
-				s.TLSFingerprint = fingerprint
+				s.TLSCertificateVersion = &version
 				state.Instance.UpdateSite(&s, false)
 
 				updated = true
@@ -633,17 +608,23 @@ func writeData(data []byte, path string) error {
 }
 
 // GetTLSCertificate requests the TLS certificate for a site
-func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error {
+func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCertificateVersion string) (string, error) {
+	var cachePathCert, cachePathKey string
+	var existsCert, existsKey bool
+	var err error
+
 	// Check if we have the file in cache
-	cachePathCert := m.appRoot + "cache/" + tlsCertificate + ".cert.pem"
-	cachePathKey := m.appRoot + "cache/" + tlsCertificate + ".key.pem"
-	existsCert, err := utils.PathExists(cachePathCert)
-	if err != nil {
-		return err
-	}
-	existsKey, err := utils.PathExists(cachePathKey)
-	if err != nil {
-		return err
+	if len(tlsCertificateVersion) > 0 {
+		cachePathCert = m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".cert.pem"
+		cachePathKey = m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".key.pem"
+		existsCert, err = utils.PathExists(cachePathCert)
+		if err != nil {
+			return tlsCertificateVersion, err
+		}
+		existsKey, err = utils.PathExists(cachePathKey)
+		if err != nil {
+			return tlsCertificateVersion, err
+		}
 	}
 
 	// Destinations
@@ -655,37 +636,43 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string) error 
 		m.log.Println("Loading TLS certificate from cache: " + tlsCertificate)
 		err := utils.CopyFile(cachePathCert, pathCert)
 		if err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
 		err = utils.CopyFile(cachePathKey, pathKey)
 		if err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
 	} else {
 		// Fetch the certificate and key as PEM
 		m.log.Println("Request TLS certificate from key vault: " + tlsCertificate)
 		if err := m.akv.GetKeyVaultClient(); err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
-		cert, key, err := m.akv.GetCertificate(tlsCertificate)
+		var cert []byte
+		var key []byte
+		var err error
+		tlsCertificateVersion, cert, key, err = m.akv.GetCertificate(tlsCertificate, tlsCertificateVersion)
 		if err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
+
+		cachePathCert = m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".cert.pem"
+		cachePathKey = m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".key.pem"
 
 		// Write to file
 		if err := writeData(cert, pathCert); err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
 		if err := writeData(cert, cachePathCert); err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
 		if err := writeData(key, pathKey); err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
 		if err := writeData(key, cachePathKey); err != nil {
-			return err
+			return tlsCertificateVersion, err
 		}
 	}
 
-	return nil
+	return tlsCertificateVersion, nil
 }
