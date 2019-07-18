@@ -96,10 +96,10 @@ func main() {
 	}()
 
 	// Start the server
-	if appconfig.Config.GetBool("tls.enabled") {
+	if appconfig.Config.GetBool("tls.node.enabled") {
 		fmt.Printf("Starting server on https://%s\n", server.Addr)
-		tlsCertFile := appconfig.Config.GetString("tls.certificate")
-		tlsKeyFile := appconfig.Config.GetString("tls.key")
+		tlsCertFile := appconfig.Config.GetString("tls.node.certificate")
+		tlsKeyFile := appconfig.Config.GetString("tls.node.key")
 		tlsConfig := &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		}
