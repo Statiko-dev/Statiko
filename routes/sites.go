@@ -232,5 +232,5 @@ func PatchSiteHandler(c *gin.Context) {
 		sync.QueueRun()
 	}
 
-	c.JSON(http.StatusOK, site)
+	c.Status(http.StatusNoContent)
 }

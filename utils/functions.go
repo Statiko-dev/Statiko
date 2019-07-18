@@ -19,10 +19,8 @@ package utils
 import (
 	"archive/tar"
 	"compress/bzip2"
-	"crypto/sha1"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -55,17 +53,6 @@ func RequestJSON(client *http.Client, url string, target interface{}) error {
 	}
 	return nil
 }
-
-/*// KeysOfMap returns the list of keys of a map
-func KeysOfMap(m map[string]interface{}) (keys []string) {
-	keys = make([]string, len(m))
-	i := 0
-	for k := range m {
-		keys[i] = k
-		i++
-	}
-	return
-}*/
 
 // RemoveContents remove all contents within a directory
 // Source: https://stackoverflow.com/a/33451503/192024
@@ -252,20 +239,4 @@ func UntarBZ2(dst string, r io.Reader) error {
 func IsValidUUID(s string) bool {
 	_, err := uuid.FromString(s)
 	return err == nil
-}
-
-// HashFile returns the SHA-1 hash of a file
-func HashFile(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	h := sha1.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

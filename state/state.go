@@ -34,12 +34,14 @@ func (m *Manager) Init() error {
 	// Debug: use a pre-defined state
 	sites := make([]SiteState, 4)
 	tls1 := "site1"
+	tls1Version := "72cd150c5f394bd190749cdb22d0f731"
 	time1 := time.Unix(1562821787, 0)
 	sites[0] = SiteState{
-		ClientCaching:  true,
-		TLSCertificate: &tls1,
-		Domain:         "site1.local",
-		Aliases:        []string{"site1-alias.local", "mysite.local"},
+		ClientCaching:         true,
+		TLSCertificate:        &tls1,
+		TLSCertificateVersion: &tls1Version,
+		Domain:                "site1.local",
+		Aliases:               []string{"site1-alias.local", "mysite.local"},
 		App: &SiteApp{
 			Name:    "app1",
 			Version: "1",
@@ -47,12 +49,14 @@ func (m *Manager) Init() error {
 		},
 	}
 	tls2 := "site2"
+	tls2Version := "5b66a6296e894c2fa6a28af196d10bf6"
 	time2 := time.Unix(1562820787, 0)
 	sites[1] = SiteState{
-		ClientCaching:  false,
-		TLSCertificate: &tls2,
-		Domain:         "site2.local",
-		Aliases:        []string{"site2-alias.local"},
+		ClientCaching:         false,
+		TLSCertificate:        &tls2,
+		TLSCertificateVersion: &tls2Version,
+		Domain:                "site2.local",
+		Aliases:               []string{"site2-alias.local"},
 		App: &SiteApp{
 			Name:    "app2",
 			Version: "1.0.1",
@@ -60,12 +64,14 @@ func (m *Manager) Init() error {
 		},
 	}
 	tls3 := "site3"
+	tls3Version := "8b164f4577244c4aa8eb54a31b45c70c"
 	time3 := time.Unix(1562820887, 0)
 	sites[2] = SiteState{
-		ClientCaching:  false,
-		TLSCertificate: &tls3,
-		Domain:         "site3.local",
-		Aliases:        []string{"site3-alias.local"},
+		ClientCaching:         false,
+		TLSCertificate:        &tls3,
+		TLSCertificateVersion: &tls3Version,
+		Domain:                "site3.local",
+		Aliases:               []string{"site3-alias.local"},
 		App: &SiteApp{
 			Name:    "app3",
 			Version: "200",
