@@ -221,17 +221,18 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 				return false, err
 			}
 			updated = updated || u
+		}
 
-			// Deploy the app; do this any time, regardless, since it doesn't disrupt the running server
-			// /approot/sites/{site}/www
-			// www is always a symbolic link, and if there's no app deployed, it goes to the default one
-			bundle := "_default"
-			if s.App != nil {
-				bundle = s.App.Name + "-" + s.App.Version
-			}
-			if err := m.ActivateApp(bundle, s.Domain); err != nil {
-				return false, err
-			}
+		// Deploy the app; do this any time, regardless, since it doesn't disrupt the running server
+		// /approot/sites/{site}/www
+		// www is always a symbolic link, and if there's no app deployed, it goes to the default one
+		bundle := "_default"
+		if s.App != nil {
+			bundle = s.App.Name + "-" + s.App.Version
+		}
+		// TODO: MAKE SURE .TIME IS UPDATED
+		if err := m.ActivateApp(bundle, s.Domain); err != nil {
+			return false, err
 		}
 	}
 

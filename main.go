@@ -67,6 +67,8 @@ func main() {
 		authorized.POST("/site", routes.CreateSiteHandler)
 		authorized.GET("/site", routes.ListSiteHandler)
 		authorized.GET("/site/:domain", routes.ShowSiteHandler)
+		authorized.POST("/site/:domain/app", routes.DeploySiteHandler)
+		authorized.PUT("/site/:domain/app", routes.DeploySiteHandler) // Alias
 		authorized.DELETE("/site/:domain", routes.DeleteSiteHandler)
 		authorized.PATCH("/site/:domain", routes.PatchSiteHandler)
 	}

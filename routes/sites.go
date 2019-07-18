@@ -232,5 +232,6 @@ func PatchSiteHandler(c *gin.Context) {
 		sync.QueueRun()
 	}
 
+	// Respond with "No content"
 	c.Status(http.StatusNoContent)
 }
