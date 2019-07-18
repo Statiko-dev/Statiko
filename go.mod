@@ -13,7 +13,6 @@ require (
 	github.com/gin-gonic/gin v1.4.0
 	github.com/gobuffalo/packr/v2 v2.5.2
 	github.com/gofrs/uuid v3.2.0+incompatible
-	github.com/jinzhu/gorm v1.9.10
 	github.com/spf13/viper v1.4.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 )

@@ -367,9 +367,6 @@ const tests = {
         return async function() {
             // Check if directory exists
             assert(await utils.folderExists('/etc/smplatform'))
-
-            // Ensure that the app created the database
-            assert(await utils.fileExists('/etc/smplatform/data.db'))
         }
     },
 
