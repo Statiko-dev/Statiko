@@ -20,6 +20,10 @@ type SiteState struct {
 	Domain  string   `json:"domain" binding:"required,ne=_default"`
 	Aliases []string `json:"aliases" binding:"dive,ne=_default"`
 
+	// Deployment error
+	Error    error   `json:"-"`
+	ErrorStr *string `json:"error" binding:"-"` // Not allowed as input
+
 	// App
 	App *SiteApp `json:"app"`
 }

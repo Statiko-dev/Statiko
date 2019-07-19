@@ -74,18 +74,18 @@ func runner() error {
 	// Get the list of sites
 	sites := state.Instance.GetSites()
 
-	// First, sync the web server configuration
-	res, err := webserver.Instance.SyncConfiguration(sites)
+	// First, sync apps
+	res, err := appmanager.Instance.SyncState(sites)
 	if err != nil {
-		logger.Fatalln("[syncState] Error while syncing Nginx configuration:", err)
+		logger.Fatalln("[syncState] Unrecoverable error while syncing apps:", err)
 		return err
 	}
 	restartRequired = restartRequired || res
 
-	// Second, sync apps
-	res, err = appmanager.Instance.SyncState(sites)
+	// Second, sync the web server configuration
+	res, err = webserver.Instance.SyncConfiguration(sites)
 	if err != nil {
-		logger.Fatalln("[syncState] Error while syncing apps:", err)
+		logger.Fatalln("[syncState] Error while syncing Nginx configuration:", err)
 		return err
 	}
 	restartRequired = restartRequired || res

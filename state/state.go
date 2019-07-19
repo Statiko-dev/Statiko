@@ -127,13 +127,28 @@ func (m *Manager) GetSite(domain string) *SiteState {
 
 // AddSite adds a site to the store
 func (m *Manager) AddSite(site *SiteState) error {
+	// Reset the error
+	site.Error = nil
+	site.ErrorStr = nil
+
+	// Add the site
 	m.state.Sites = append(m.state.Sites, *site)
 	m.setUpdated()
+
 	return nil
 }
 
 // UpdateSite updates a site with the same Domain
 func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
+	// Sync ErrorStr with Error
+	if site.Error != nil {
+		errorStr := site.Error.Error()
+		site.ErrorStr = &errorStr
+	} else {
+		site.ErrorStr = nil
+	}
+
+	// Replace in the memory state
 	found := false
 	for i, s := range m.state.Sites {
 		if s.Domain == site.Domain {
@@ -149,6 +164,7 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 		return errors.New("Site not found")
 	}
 
+	// Check if we need to set the object as updated
 	if setUpdated {
 		m.setUpdated()
 	}

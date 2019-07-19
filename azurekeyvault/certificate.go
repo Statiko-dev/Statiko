@@ -96,7 +96,7 @@ func (akv *Certificate) getCertificateLastVersion(certificateName string) (strin
 
 	// Iterate through the list and get the last version
 	var lastItemDate time.Time
-	var lastItemVersion string
+	lastItemVersion := ""
 	for list.NotDone() {
 		// Get element
 		item := list.Value()
@@ -149,11 +149,19 @@ func (akv *Certificate) GetCertificate(certificateName string, certificateVersio
 		if err != nil {
 			return certificateVersion, nil, nil, err
 		}
+		if certificateVersion == "" {
+			return certificateVersion, nil, nil, errors.New("Certificate not found")
+		}
 	}
 
 	// Request the certificate and key
 	akv.logger.Printf("Getting PFX for %s\n", certificateName)
 	pfxKey, pfxCert, err := akv.requestCertificatePFX(certificateName, certificateVersion)
+	if err != nil {
+		return certificateVersion, nil, nil, err
+	}
+
+	// Marshal the x509 key
 	keyX509, err := x509.MarshalPKCS8PrivateKey(pfxKey)
 	if err != nil {
 		return certificateVersion, nil, nil, err

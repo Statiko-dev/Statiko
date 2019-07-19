@@ -108,32 +108,35 @@ func (m *Manager) Init() error {
 }
 
 // SyncState ensures that the state of the filesystem matches the desired one
-func (m *Manager) SyncState(sites []state.SiteState) (bool, error) {
-	updated := false
+func (m *Manager) SyncState(sites []state.SiteState) (updated bool, err error) {
+	updated = false
 
 	// To start, ensure the basic folders exist
-	if err := m.InitAppRoot(); err != nil {
-		return false, err
+	err = m.InitAppRoot()
+	if err != nil {
+		return
 	}
 
 	// Default app (writing this to disk always, regardless)
-	if err := m.WriteDefaultApp(); err != nil {
-		return false, err
+	err = m.WriteDefaultApp()
+	if err != nil {
+		return
 	}
 
 	// Start with apps: ensure we have the right ones
-	if err := m.SyncApps(sites); err != nil {
-		return false, err
+	err = m.SyncApps(sites)
+	if err != nil {
+		return
 	}
 
 	// Sync site folders too
 	u, err := m.SyncSiteFolders(sites)
 	if err != nil {
-		return false, err
+		return
 	}
 	updated = updated || u
 
-	return updated, nil
+	return
 }
 
 // Creates a folder if it doesn't exist already
@@ -179,19 +182,31 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	expectFolders := make([]string, 1)
 	expectFolders[0] = "_default"
 	for _, s := range sites {
+		// If the app failed to deploy, skip this
+		if s.Error != nil {
+			m.log.Println("Skipping because of errors:", s.Domain)
+			continue
+		}
+
 		expectFolders = append(expectFolders, s.Domain)
 
 		// /approot/sites/{site}
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
 		if err != nil {
-			return false, err
+			m.log.Println("Error while creating folder for site:", s.Domain, err)
+			s.Error = err
+			state.Instance.UpdateSite(&s, true)
+			continue
 		}
 		updated = updated || u
 
 		// /approot/sites/{site}/tls
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain + "/tls")
 		if err != nil {
-			return false, err
+			m.log.Println("Error while creating tls folder for site:", s.Domain, err)
+			s.Error = err
+			state.Instance.UpdateSite(&s, true)
+			continue
 		}
 		updated = updated || u
 
@@ -205,7 +220,10 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 			// Call GetTLSCertificate to ensure that the certificate exists in the cache
 			version, err := m.GetTLSCertificate(s.Domain, *s.TLSCertificate, certVersion)
 			if err != nil {
-				return false, err
+				m.log.Println("Error while getting TLS certificate for site:", s.Domain, err)
+				s.Error = err
+				state.Instance.UpdateSite(&s, true)
+				continue
 			}
 			if u || certVersion == "" || certVersion != version {
 				certVersion = version
@@ -218,7 +236,10 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 			// Update the TLS certificate link if necessary
 			u, err = m.LinkTLSCertificate(s.Domain, *s.TLSCertificate, certVersion)
 			if err != nil {
-				return false, err
+				m.log.Println("Error while linking tls certificate for site:", s.Domain, err)
+				s.Error = err
+				state.Instance.UpdateSite(&s, true)
+				continue
 			}
 			updated = updated || u
 		}
@@ -232,7 +253,10 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		}
 		// TODO: MAKE SURE .TIME IS UPDATED
 		if err := m.ActivateApp(bundle, s.Domain); err != nil {
-			return false, err
+			m.log.Println("Error while activating app for site:", s.Domain, err)
+			s.Error = err
+			state.Instance.UpdateSite(&s, true)
+			continue
 		}
 	}
 
@@ -251,7 +275,8 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 				updated = true
 				m.log.Println("Removing extraneous folder", m.appRoot+"sites/"+name)
 				if err := os.RemoveAll(m.appRoot + "sites/" + name); err != nil {
-					return false, err
+					// Do not return on error
+					m.log.Println("Error ignored while removing extraneous folder", m.appRoot+"sites/"+name, err)
 				}
 			}
 		} else {
@@ -259,7 +284,8 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 			updated = true
 			m.log.Println("Removing extraneous file", m.appRoot+"sites/"+name)
 			if err := os.Remove(m.appRoot + "sites/" + name); err != nil {
-				return false, err
+				// Do not return on error
+				m.log.Println("Error ignored while removing extraneous file", m.appRoot+"sites/"+name, err)
 			}
 		}
 	}
@@ -272,17 +298,23 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	now := time.Now()
 
 	// Channels used by the worker pool to fetch apps in parallel
-	jobs := make(chan *state.SiteApp, 4)
-	errs := make(chan error, 4)
+	jobs := make(chan *state.SiteState, 4)
+	res := make(chan int, len(sites))
 
 	// Spin up 3 backround workers
 	for w := 1; w <= 3; w++ {
-		go m.workerStageApp(w, jobs, errs)
+		go m.workerStageApp(w, jobs, res)
 	}
 
 	// Iterate through the sites looking for apps
 	requested := 0
 	for _, s := range sites {
+		// Reset the error
+		if s.Error != nil {
+			s.Error = nil
+			state.Instance.UpdateSite(&s, true)
+		}
+
 		app := s.App
 
 		// Check if the jobs channel is full
@@ -290,21 +322,6 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 			// Pause this thread until the channel is not at capacity anymore
 			m.log.Println("Channel jobs is full, sleeping for a second")
 			time.Sleep(time.Second)
-		}
-
-		// Check if the err channel is full
-		if len(errs) == cap(errs) {
-			// Process all errors, if any
-			m.log.Println("Channel errs is full, processing errors")
-			for i := 0; i < requested; i++ {
-				e := <-errs
-				if e != nil {
-					return e
-				}
-			}
-
-			// We've processed all errors
-			requested = 0
 		}
 
 		// If there's no app, skip this
@@ -322,7 +339,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 
 			// We need to deploy the app
 			// Use the worker pool to handle concurrency
-			jobs <- app
+			jobs <- &s
 			requested++
 
 			// Update the Time in the record
@@ -334,14 +351,11 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	// No more jobs; close the channel
 	close(jobs)
 
-	// Iterate through all the errors, if any
+	// Iterate through all the responses
 	for i := 0; i < requested; i++ {
-		e := <-errs
-		if e != nil {
-			return e
-		}
+		<-res
 	}
-	close(errs)
+	close(res)
 
 	return nil
 }
@@ -476,12 +490,21 @@ func (m *Manager) StageApp(app string, version string) error {
 }
 
 // Background worker for the StageApp function
-func (m *Manager) workerStageApp(id int, jobs <-chan *state.SiteApp, errs chan<- error) {
+func (m *Manager) workerStageApp(id int, jobs <-chan *state.SiteState, res chan<- int) {
 	for j := range jobs {
-		m.log.Println("Worker", id, "started staging app "+j.Name+"-"+j.Version)
-		err := m.StageApp(j.Name, j.Version)
-		m.log.Println("Worker", id, "finished staging app "+j.Name+"-"+j.Version)
-		errs <- err
+		m.log.Println("Worker", id, "started staging app "+j.App.Name+"-"+j.App.Version)
+		err := m.StageApp(j.App.Name, j.App.Version)
+		m.log.Println("Worker", id, "finished staging app "+j.App.Name+"-"+j.App.Version)
+
+		// Handle errors
+		if err != nil {
+			m.log.Println("Error staging app "+j.App.Name+"-"+j.App.Version+":", err)
+
+			// Store it in the site object
+			j.Error = err
+			state.Instance.UpdateSite(j, true)
+		}
+		res <- 1
 	}
 }
 

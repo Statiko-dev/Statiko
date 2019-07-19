@@ -94,6 +94,12 @@ func (n *NginxConfig) DesiredConfiguration(sites []state.SiteState) (config Conf
 
 	// Configuration for each site
 	for _, s := range sites {
+		// If the site/app failed to deploy, skip this
+		if s.Error != nil {
+			n.logger.Println("Skipping site with error", s.Domain)
+			continue
+		}
+
 		key := "conf.d/" + s.Domain + ".conf"
 		var val []byte
 		val, err = n.createConfigurationFile("site.conf", s)
@@ -154,8 +160,14 @@ func (n *NginxConfig) ExistingConfiguration(sites []state.SiteState) (ConfigData
 
 	// List of files we expect in the conf.d directory
 	existing["conf.d/_default.conf"] = nil
-	for k := range sites {
-		existing["conf.d/"+sites[k].Domain+".conf"] = nil
+	for _, s := range sites {
+		// If the site/app failed to deploy, skip this
+		if s.Error != nil {
+			n.logger.Println("Skipping site with error", s.Domain)
+			continue
+		}
+
+		existing["conf.d/"+s.Domain+".conf"] = nil
 	}
 
 	// Scan the conf.d directory
