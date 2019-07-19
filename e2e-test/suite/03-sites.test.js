@@ -36,7 +36,6 @@ describe('Sites', function() {
             .post('/site')
             .set('Authorization', shared.auth)
             .send(sitesData.site1)
-            .expect('Content-Type', /json/)
             .expect(201)
 
         assert(response.body)
@@ -77,7 +76,6 @@ describe('Sites', function() {
             .post('/site')
             .set('Authorization', shared.auth)
             .send(sitesData.site2)
-            .expect('Content-Type', /json/)
             .expect(201)
 
         assert(response.body)
@@ -118,7 +116,6 @@ describe('Sites', function() {
             .post('/site')
             .set('Authorization', shared.auth)
             .send(sitesData.site3)
-            .expect('Content-Type', /json/)
             .expect(201)
 
         assert(response.body)

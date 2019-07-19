@@ -308,7 +308,7 @@ func (n *NginxConfig) loadTemplates() error {
 // Create a configuration file
 func (n *NginxConfig) createConfigurationFile(templateName string, itemData interface{}) ([]byte, error) {
 	protocol := "http"
-	if appconfig.Config.GetBool("tls.enabled") {
+	if appconfig.Config.GetBool("tls.node.enabled") {
 		protocol = "https"
 	}
 

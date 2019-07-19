@@ -21,27 +21,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 const assert = require('assert')
 
 const shared = require('../shared/shared-tests')
+const stateData = require('../shared/state-data')
 
 // Check that the platform has been started correctly
-describe('Adopt node', function() {
-    it('Adopt node', async function() {
-        // This operation can take some time
-        this.timeout(10 * 1000)
-        this.slow(5 * 1000)
-
+describe('Restore state', function() {
+    it('Restore state request', async function() {
         const response = await shared.nodeRequest
-            .post('/adopt')
+            .post('/state')
             .set('Authorization', shared.auth)
-            .expect('Content-Type', /json/)
-            .expect(200)
+            .send(stateData)
+            .expect(204)
 
-        assert(response.body)
-        assert.deepStrictEqual(response.body, {message: 'adopted'})
+        assert(response.text.length == 0)
     })
 
-    it('Check platform data directory', shared.tests.checkDataDirectory(shared.sites))
-
-    it('Check platform config directory', shared.tests.checkConfigDirectory())
-
-    it('Check nginx configuration', shared.tests.checkNginxConfig())
+    it('Wait for sync', shared.tests.waitForSync())
 })

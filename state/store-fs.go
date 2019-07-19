@@ -23,6 +23,7 @@ import (
 	"github.com/google/renameio"
 
 	"smplatform/appconfig"
+	"smplatform/utils"
 )
 
 // Store the state on disk
@@ -49,16 +50,31 @@ func readState() (state *NodeState, err error) {
 	path := appconfig.Config.GetString("store")
 	logger.Println("Reading state from disk", path)
 
-	// Read from disk
-	var data []byte
-	data, err = ioutil.ReadFile(path)
+	// Check if the file exists
+	var exists bool
+	exists, err = utils.PathExists(path)
 	if err != nil {
 		return
 	}
 
-	// Parse JSON
-	state = &NodeState{}
-	err = json.Unmarshal(data, state)
+	if exists {
+		// Read from disk
+		var data []byte
+		data, err = ioutil.ReadFile(path)
+		if err != nil {
+			return
+		}
+
+		// Parse JSON
+		state = &NodeState{}
+		err = json.Unmarshal(data, state)
+	} else {
+		// File doesn't exist, so load an empty state
+		sites := make([]SiteState, 0)
+		state = &NodeState{
+			Sites: sites,
+		}
+	}
 
 	return
 }

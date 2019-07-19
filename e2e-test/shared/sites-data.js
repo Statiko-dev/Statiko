@@ -20,6 +20,7 @@ module.exports = {
     site1: {
         domain: 'site1.local',
         tlsCertificate: 'site1',
+        tlsCertificateVersion: '72cd150c5f394bd190749cdb22d0f731',
         clientCaching: true,
         aliases: [
             'site1-alias.local',

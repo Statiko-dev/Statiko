@@ -45,7 +45,7 @@ async function checkStatus(sites, apps) {
         apps = {}
     }
 
-    // Request all sites
+    // Request status
     const response = await nodeRequest
         .get('/status')
         .expect('Content-Type', /json/)
@@ -110,7 +110,7 @@ async function checkDataDirectory(sites, apps) {
     // Add all expected sites 
     if (sites) {
         Object.values(sites).map((site) => {
-            expectSites.push(site.id)
+            expectSites.push(site.domain)
         })
     }
 
@@ -298,6 +298,28 @@ async function checkCacheDirectory(sites, apps) {
     }
 }
 
+// Waits until state syncs have completed
+async function waitForSync() {
+    // Request the status
+    let running = true
+    while (!running) {
+        const response = await nodeRequest
+            .get('/status')
+            .expect('Content-Type', /json/)
+            .expect(200)
+        if (!response || !response.sync) {
+            throw Error('Invalid response: missing the sync object')
+        }
+
+        if (response.sync.running === true) {
+            await utils.waitPromise(500)
+        }
+        else {
+            running = false
+        }
+    }
+}
+
 // Waits for an app to be deployed, with a timeout of ~20 seconds
 async function waitForDeployment(domain, appData) {
     // Wait 20 seconds max (40 times, every 500ms)
@@ -367,6 +389,9 @@ const tests = {
         return async function() {
             // Check if directory exists
             assert(await utils.folderExists('/etc/smplatform'))
+
+            // Check for config file
+            assert(await utils.fileExists('/etc/smplatform/store.json'))
         }
     },
 
@@ -403,6 +428,16 @@ const tests = {
         return async function() {
             await checkNginxSite(site, appDeployed)
         }
+    },
+
+    waitForSync: () => {
+        return function() {
+            // This operation can take some time
+            this.timeout(30 * 1000)
+            this.slow(10 * 1000)
+
+            return waitForSync()
+        }
     }
 }
 
@@ -419,6 +454,7 @@ module.exports = {
     checkNginxConfig,
     checkNginxSite,
     checkCacheDirectory,
+    waitForSync,
     waitForDeployment,
 
     tests,
