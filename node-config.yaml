@@ -7,6 +7,10 @@ auth: ""
 # Can also be passed with environmental variable PORT
 port: "3000"
 
+# File containing the state persistently stored on disk
+# Can also be passed with environmental variable STATE_PATH
+store: "/etc/smplatform/state.json"
+
 # Configuration for the nginx webserver
 nginx:
   # Path where the nginx config is stored

@@ -76,6 +76,7 @@ func (c *appConfig) Load() error {
 	// Some settings can be set as env vars too
 	viper.BindEnv("auth", "PLATFORM_AUTH")
 	viper.BindEnv("port", "PORT")
+	viper.BindEnv("store", "STATE_PATH")
 	viper.BindEnv("appRoot", "PLATFORM_APP_ROOT")
 	viper.BindEnv("nginx.commands.start", "PLATFORM_NGINX_START")
 	viper.BindEnv("nginx.commands.stop", "PLATFORM_NGINX_STOP")

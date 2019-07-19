@@ -16,11 +16,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package state
 
+import (
+	"log"
+	"os"
+)
+
 // Instance is a singleton for Manager
 var Instance *Manager
 
+// Logger
+var logger *log.Logger
+
 // Init the singleton
 func init() {
+	// Initialize the logger
+	logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
+
 	// Initialize the singleton
 	Instance = &Manager{}
 	if err := Instance.Init(); err != nil {

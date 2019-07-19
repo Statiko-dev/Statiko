@@ -33,61 +33,12 @@ type Manager struct {
 
 // Init loads the state from the store
 func (m *Manager) Init() error {
-	// Debug: use a pre-defined state
-	sites := make([]SiteState, 4)
-	tls1 := "site1"
-	tls1Version := "72cd150c5f394bd190749cdb22d0f731"
-	sites[0] = SiteState{
-		ClientCaching:         true,
-		TLSCertificate:        &tls1,
-		TLSCertificateVersion: &tls1Version,
-		Domain:                "site1.local",
-		Aliases:               []string{"site1-alias.local", "mysite.local"},
-		App: &SiteApp{
-			Name:    "app1",
-			Version: "1",
-		},
+	// Read the state from disk
+	var err error
+	m.state, err = readState()
+	if err != nil {
+		return err
 	}
-	tls2 := "site2"
-	tls2Version := "5b66a6296e894c2fa6a28af196d10bf6"
-	sites[1] = SiteState{
-		ClientCaching:         false,
-		TLSCertificate:        &tls2,
-		TLSCertificateVersion: &tls2Version,
-		Domain:                "site2.local",
-		Aliases:               []string{"site2-alias.local"},
-		App: &SiteApp{
-			Name:    "app2",
-			Version: "1.0.1",
-		},
-	}
-	tls3 := "site3"
-	tls3Version := "8b164f4577244c4aa8eb54a31b45c70c"
-	sites[2] = SiteState{
-		ClientCaching:         false,
-		TLSCertificate:        &tls3,
-		TLSCertificateVersion: &tls3Version,
-		Domain:                "site3.local",
-		Aliases:               []string{"site3-alias.local"},
-		App: &SiteApp{
-			Name:    "app3",
-			Version: "200",
-		},
-	}
-	sites[3] = SiteState{
-		ClientCaching:  false,
-		TLSCertificate: &tls3,
-		Domain:         "site4.local",
-		Aliases:        nil,
-		App: &SiteApp{
-			Name:    "app2",
-			Version: "1.2.0",
-		},
-	}
-
-	m.ReplaceState(&NodeState{
-		Sites: sites,
-	})
 
 	return nil
 }
@@ -95,20 +46,20 @@ func (m *Manager) Init() error {
 // DumpState exports the entire state
 func (m *Manager) DumpState() (*NodeState, error) {
 	// Deep clone the state
-	var obj NodeState
-	copier.Copy(&obj, m.state)
+	obj := &NodeState{}
+	copier.Copy(obj, m.state)
 
 	// Remove all errors
-	for _, s := range obj.Sites {
-		if s.Error != nil {
-			s.Error = nil
+	for i := range obj.Sites {
+		if obj.Sites[i].Error != nil {
+			obj.Sites[i].Error = nil
 		}
-		if s.ErrorStr != nil {
-			s.ErrorStr = nil
+		if obj.Sites[i].ErrorStr != nil {
+			obj.Sites[i].ErrorStr = nil
 		}
 	}
 
-	return &obj, nil
+	return obj, nil
 }
 
 // ReplaceState replaces the full state for the node with the provided one
@@ -126,6 +77,15 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 	// Replace the state
 	m.state = state
 	m.setUpdated()
+
+	// Write the file to disk
+	obj, err := m.DumpState()
+	if err != nil {
+		return err
+	}
+	if err := writeState(obj); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -167,6 +127,15 @@ func (m *Manager) AddSite(site *SiteState) error {
 	m.state.Sites = append(m.state.Sites, *site)
 	m.setUpdated()
 
+	// Write the file to disk
+	obj, err := m.DumpState()
+	if err != nil {
+		return err
+	}
+	if err := writeState(obj); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -201,6 +170,15 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 		m.setUpdated()
 	}
 
+	// Write the file to disk
+	obj, err := m.DumpState()
+	if err != nil {
+		return err
+	}
+	if err := writeState(obj); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -223,6 +201,15 @@ func (m *Manager) DeleteSite(domain string) error {
 	}
 
 	m.setUpdated()
+
+	// Write the file to disk
+	obj, err := m.DumpState()
+	if err != nil {
+		return err
+	}
+	if err := writeState(obj); err != nil {
+		return err
+	}
 
 	return nil
 }
