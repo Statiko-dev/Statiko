@@ -37,6 +37,7 @@ import (
 	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gobuffalo/packr/v2"
+	"github.com/google/renameio"
 
 	"smplatform/appconfig"
 	"smplatform/azurekeyvault"
@@ -408,7 +409,7 @@ func (m *Manager) WriteDefaultApp() error {
 // ActivateApp points a site to an app, by creating the symbolic link
 func (m *Manager) ActivateApp(app string, domain string) error {
 	// Switch the www folder to an app staged
-	if err := utils.SymlinkAtomic(m.appRoot+"apps/"+app, m.appRoot+"sites/"+domain+"/www"); err != nil {
+	if err := renameio.Symlink(m.appRoot+"apps/"+app, m.appRoot+"sites/"+domain+"/www"); err != nil {
 		return err
 	}
 	return nil
@@ -640,7 +641,7 @@ func createLinkIfNeeded(src string, dst string) (updated bool, err error) {
 
 	// If we need to create a link
 	if updated {
-		err = utils.SymlinkAtomic(src, dst)
+		err = renameio.Symlink(src, dst)
 		// No need to return on error; that will happen right away anyways
 	}
 

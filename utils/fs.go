@@ -105,16 +105,3 @@ func EnsureFolder(path string) error {
 
 	return nil
 }
-
-// SymlinkAtomic creates a symbolic link atomically, replacing existing ones if any
-func SymlinkAtomic(src string, dest string) error {
-	// First, create a temporary symlink, then rename it, so the entire operation is atomic
-	tmpLink := dest + "_" + RandString(6)
-	if err := os.Symlink(src, tmpLink); err != nil {
-		return err
-	}
-	if err := os.Rename(tmpLink, dest); err != nil {
-		return err
-	}
-	return nil
-}
