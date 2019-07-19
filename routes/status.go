@@ -18,6 +18,7 @@ package routes
 
 import (
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -69,12 +70,14 @@ func StatusHandler(c *gin.Context) {
 	if healthCache == nil || diff > 299 {
 		appTestedTime = time.Now()
 
-		hasError := updateHealthCache()
+		hasError, hasAppError := updateHealthCache()
 		res.Health = healthCache
 
 		if hasError {
 			// If there's an error, make the test happen again right away
 			healthCache = nil
+		}
+		if hasError || hasAppError {
 			statusCode = http.StatusServiceUnavailable
 		}
 	} else {
@@ -89,7 +92,10 @@ type healthcheckJob struct {
 	bundle string
 }
 
-func updateHealthCache() bool {
+func updateHealthCache() (hasError bool, hasAppError bool) {
+	hasError = false
+	hasAppError = false
+
 	// Get list of sites
 	sites := state.Instance.GetSites()
 
@@ -106,6 +112,18 @@ func updateHealthCache() bool {
 	requested := 0
 	healthCache = make([]utils.SiteHealth, 0)
 	for _, s := range sites {
+		// Skip sites that have deployment errors
+		if s.Error != nil {
+			hasAppError = true
+			healthCache = append(healthCache, utils.SiteHealth{
+				Domain:   s.Domain,
+				App:      nil,
+				Error:    s.Error,
+				ErrorStr: s.ErrorStr,
+			})
+			continue
+		}
+
 		// Request health only if there's an app being deployed
 		if s.App != nil {
 			// Check if the jobs channel is full
@@ -131,7 +149,6 @@ func updateHealthCache() bool {
 	close(jobs)
 
 	// Read responses
-	hasError := false
 	for i := 0; i < requested; i++ {
 		health := <-res
 		if health.Error != nil {
@@ -144,7 +161,12 @@ func updateHealthCache() bool {
 	}
 	close(res)
 
-	return hasError
+	// Sort the result
+	sort.Slice(healthCache, func(i, j int) bool {
+		return healthCache[i].Domain < healthCache[j].Domain
+	})
+
+	return
 }
 
 // Background worker for the updateHealthCache function
