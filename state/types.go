@@ -1,12 +1,8 @@
 package state
 
-import (
-	"time"
-)
-
 // NodeState represents the global state of the node
 type NodeState struct {
-	Sites []SiteState
+	Sites []SiteState `json:"sites"`
 }
 
 // SiteState represents the state of a single site
@@ -31,7 +27,6 @@ type SiteState struct {
 // SiteApp represents the state of an app deployed or being deployed
 type SiteApp struct {
 	// App details
-	Name    string     `json:"name" binding:"required"`
-	Version string     `json:"version" binding:"required"`
-	Time    *time.Time `json:"time" binding:"-"` // Not allowed as input
+	Name    string `json:"name" binding:"required"`
+	Version string `json:"version" binding:"required"`
 }

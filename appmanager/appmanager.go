@@ -244,14 +244,13 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 			updated = updated || u
 		}
 
-		// Deploy the app; do this any time, regardless, since it doesn't disrupt the running server
+		// Deploy the app; do this every time, regardless, since it doesn't disrupt the running server
 		// /approot/sites/{site}/www
 		// www is always a symbolic link, and if there's no app deployed, it goes to the default one
 		bundle := "_default"
 		if s.App != nil {
 			bundle = s.App.Name + "-" + s.App.Version
 		}
-		// TODO: MAKE SURE .TIME IS UPDATED
 		if err := m.ActivateApp(bundle, s.Domain); err != nil {
 			m.log.Println("Error while activating app for site:", s.Domain, err)
 			s.Error = err
@@ -295,8 +294,6 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 
 // SyncApps ensures that we have the correct apps
 func (m *Manager) SyncApps(sites []state.SiteState) error {
-	now := time.Now()
-
 	// Channels used by the worker pool to fetch apps in parallel
 	jobs := make(chan *state.SiteState, 4)
 	res := make(chan int, len(sites))
@@ -341,10 +338,6 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 			// Use the worker pool to handle concurrency
 			jobs <- &s
 			requested++
-
-			// Update the Time in the record
-			s.App.Time = &now
-			state.Instance.UpdateSite(&s, false)
 		}
 	}
 

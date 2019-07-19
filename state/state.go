@@ -20,6 +20,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jinzhu/copier"
+
 	"smplatform/utils"
 )
 
@@ -35,7 +37,6 @@ func (m *Manager) Init() error {
 	sites := make([]SiteState, 4)
 	tls1 := "site1"
 	tls1Version := "72cd150c5f394bd190749cdb22d0f731"
-	time1 := time.Unix(1562821787, 0)
 	sites[0] = SiteState{
 		ClientCaching:         true,
 		TLSCertificate:        &tls1,
@@ -45,12 +46,10 @@ func (m *Manager) Init() error {
 		App: &SiteApp{
 			Name:    "app1",
 			Version: "1",
-			Time:    &time1,
 		},
 	}
 	tls2 := "site2"
 	tls2Version := "5b66a6296e894c2fa6a28af196d10bf6"
-	time2 := time.Unix(1562820787, 0)
 	sites[1] = SiteState{
 		ClientCaching:         false,
 		TLSCertificate:        &tls2,
@@ -60,12 +59,10 @@ func (m *Manager) Init() error {
 		App: &SiteApp{
 			Name:    "app2",
 			Version: "1.0.1",
-			Time:    &time2,
 		},
 	}
 	tls3 := "site3"
 	tls3Version := "8b164f4577244c4aa8eb54a31b45c70c"
-	time3 := time.Unix(1562820887, 0)
 	sites[2] = SiteState{
 		ClientCaching:         false,
 		TLSCertificate:        &tls3,
@@ -75,7 +72,6 @@ func (m *Manager) Init() error {
 		App: &SiteApp{
 			Name:    "app3",
 			Version: "200",
-			Time:    &time3,
 		},
 	}
 	sites[3] = SiteState{
@@ -86,13 +82,49 @@ func (m *Manager) Init() error {
 		App: &SiteApp{
 			Name:    "app2",
 			Version: "1.2.0",
-			Time:    &time3,
 		},
 	}
 
-	m.state = &NodeState{
+	m.ReplaceState(&NodeState{
 		Sites: sites,
+	})
+
+	return nil
+}
+
+// DumpState exports the entire state
+func (m *Manager) DumpState() (*NodeState, error) {
+	// Deep clone the state
+	var obj NodeState
+	copier.Copy(&obj, m.state)
+
+	// Remove all errors
+	for _, s := range obj.Sites {
+		if s.Error != nil {
+			s.Error = nil
+		}
+		if s.ErrorStr != nil {
+			s.ErrorStr = nil
+		}
 	}
+
+	return &obj, nil
+}
+
+// ReplaceState replaces the full state for the node with the provided one
+func (m *Manager) ReplaceState(state *NodeState) error {
+	// Ensure that errors aren't included
+	for _, s := range state.Sites {
+		if s.Error != nil {
+			s.Error = nil
+		}
+		if s.ErrorStr != nil {
+			s.ErrorStr = nil
+		}
+	}
+
+	// Replace the state
+	m.state = state
 	m.setUpdated()
 
 	return nil
