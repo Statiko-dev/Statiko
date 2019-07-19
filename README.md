@@ -1,7 +1,7 @@
 ## Starting the Application
 
 ````sh
-GO111MODULE=on PORT=3000 GOFLAGS=-mod=vendor go run main.go
+GO111MODULE=on PORT=2265 GOFLAGS=-mod=vendor go run main.go
 ````
 
 ## Building for production

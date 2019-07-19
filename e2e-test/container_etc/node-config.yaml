@@ -3,9 +3,9 @@
 auth: "hello world"
 
 # Port the server is listening on (must be a string)
-# Defaults to 3000 if not set
+# Defaults to 2265 if not set
 # Can also be passed with environmental variable PORT
-port: "3000"
+port: "2265"
 
 # File containing the state persistently stored on disk
 # Can also be passed with environmental variable STATE_PATH

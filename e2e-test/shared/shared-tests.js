@@ -32,7 +32,7 @@ const fsReadFile = promisify(fs.readFile)
 const auth = 'hello world'
 
 // Read URLs from env vars
-const nodeUrl = process.env.NODE_URL || 'localhost:3000'
+const nodeUrl = process.env.NODE_URL || 'localhost:2265'
 const nginxUrl = process.env.NGINX_URL || 'localhost'
 
 // Supertest instances

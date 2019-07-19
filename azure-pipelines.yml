@@ -203,7 +203,7 @@ stages:
                 -v $(pwd)/e2e-test/results:/results \
                 -e "AZURE_STORAGE_KEY=$(AZURE_STORAGE_KEY)" \
                 -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
-                -e "NODE_URL=smplatform.local:3000" \
+                -e "NODE_URL=smplatform.local:2265" \
                 -e "NGINX_URL=smplatform.local" \
                 --add-host "smplatform.local:127.0.0.1" \
                 $(testImageRepository)

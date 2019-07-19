@@ -65,8 +65,8 @@ func (c *appConfig) Load() error {
 	}
 
 	// Default values
-	// Default port is 3000
-	viper.SetDefault("port", "3000")
+	// Default port is 2265
+	viper.SetDefault("port", "2265")
 
 	// Default node name is the hostname
 	// Ignore errors here
