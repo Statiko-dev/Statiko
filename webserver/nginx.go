@@ -279,7 +279,7 @@ func (n *NginxConfig) RestartServer() error {
 // Read all templates
 func (n *NginxConfig) loadTemplates() error {
 	// Packr
-	box := packr.New("Nginx templates old", "nginx-template")
+	box := packr.New("Nginx templates", "nginx-template")
 
 	// Functions to add to the template
 	funcMap := template.FuncMap{
