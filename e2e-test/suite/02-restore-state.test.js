@@ -21,11 +21,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 const assert = require('assert')
 
 const shared = require('../shared/shared-tests')
-const stateData = require('../shared/state-data')
+const sitesData = require('../shared/sites-data')
 
 // Check that the platform has been started correctly
 describe('Restore state', function() {
+    // The state to create
+    let stateData = {
+        sites: []
+    }
+
     it('Restore state request', async function() {
+        stateData.sites.push(
+            sitesData.site1,
+            sitesData.site2,
+            sitesData.site3
+        )
         const response = await shared.nodeRequest
             .post('/state')
             .set('Authorization', shared.auth)
@@ -36,4 +46,6 @@ describe('Restore state', function() {
     })
 
     it('Wait for sync', shared.tests.waitForSync())
+
+    it('Check data directory', shared.tests.checkDataDirectory(stateData.sites))
 })

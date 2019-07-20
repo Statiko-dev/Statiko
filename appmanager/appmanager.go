@@ -189,8 +189,6 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 			continue
 		}
 
-		expectFolders = append(expectFolders, s.Domain)
-
 		// /approot/sites/{site}
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
 		if err != nil {
@@ -258,6 +256,8 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 			state.Instance.UpdateSite(&s, true)
 			continue
 		}
+
+		expectFolders = append(expectFolders, s.Domain)
 	}
 
 	// Look for extraneous folders in the /approot/sites directory

@@ -74,6 +74,9 @@ func readState() (state *NodeState, err error) {
 		state = &NodeState{
 			Sites: sites,
 		}
+
+		// Write the empty state to disk
+		err = writeState(state)
 	}
 
 	return

@@ -41,10 +41,6 @@ const nginxRequest = request('https://' + nginxUrl)
 
 // Checks the /status page
 async function checkStatus(sites, apps) {
-    if (!apps) {
-        apps = {}
-    }
-
     // Request status
     const response = await nodeRequest
         .get('/status')
@@ -101,24 +97,19 @@ async function checkStatus(sites, apps) {
 
 // This function can be called to check the status of the data directory on the filesystem
 // It checks that sites, apps, and certificates are correct
-async function checkDataDirectory(sites, apps) {
+async function checkDataDirectory(sites) {
     // We always expect the default site and app
     const expectSites = ['_default']
-    let appsArray = []
+    const appsArray = []
     const expectApps = ['_default']
 
     // Add all expected sites 
     if (sites) {
-        Object.values(sites).map((site) => {
+        sites.map((site) => {
             expectSites.push(site.domain)
-        })
-    }
-
-    // Add all expected apps
-    if (apps) {
-        appsArray = Object.values(apps)
-        appsArray.map((app) => {
-            expectApps.push(app.app + '-' + app.version)
+            if (site.app && site.app.name && site.app.version) {
+                expectApps.push(site.app.name + '-' + site.app.version)
+            }
         })
     }
 
@@ -168,9 +159,8 @@ async function checkNginxConfig(sites) {
 
     // Add all expected sites 
     if (sites) {
-        Object.entries(sites).forEach((el) => {
-            const [, site] = el
-            expectSites.push(site.id)
+        sites.map((site) => {
+            expectSites.push(site.domain)
         })
     }
 
@@ -191,8 +181,8 @@ async function checkNginxConfig(sites) {
     if (sites) {
         if (sites.site1) {
             assert.equal(
-                (await fsReadFile('/etc/nginx/conf.d/' + sites.site1.id + '.conf', 'utf8')).trim(),
-                (await fsReadFile('fixtures/nginx-site1.conf', 'utf8')).trim().replace(/\{\{siteid\}\}/g, sites.site1.id)
+                (await fsReadFile('/etc/nginx/conf.d/' + sites.site1.domain + '.conf', 'utf8')).trim(),
+                (await fsReadFile('fixtures/nginx-site1.conf', 'utf8')).trim().replace(/\{\{siteid\}\}/g, sites.site1.domain)
             )
         }
     }
@@ -302,16 +292,16 @@ async function checkCacheDirectory(sites, apps) {
 async function waitForSync() {
     // Request the status
     let running = true
-    while (!running) {
+    while (running) {
         const response = await nodeRequest
             .get('/status')
             .expect('Content-Type', /json/)
             .expect(200)
-        if (!response || !response.sync) {
+        if (!response || !response.body || !response.body.sync) {
             throw Error('Invalid response: missing the sync object')
         }
 
-        if (response.sync.running === true) {
+        if (response.body.sync.running === true) {
             await utils.waitPromise(500)
         }
         else {
@@ -367,7 +357,7 @@ const tests = {
         }
     },
 
-    checkDataDirectory: (sites, apps) => {
+    checkDataDirectory: (sites) => {
         return async function() {
             // This operation can take some time
             this.timeout(8 * 1000)
@@ -381,7 +371,7 @@ const tests = {
             assert.deepStrictEqual(await fsReaddir('/data'), ['apps', 'cache', 'sites'])
 
             // Check the data directory
-            await checkDataDirectory(sites, apps)
+            await checkDataDirectory(sites)
         }
     },
 
@@ -391,7 +381,7 @@ const tests = {
             assert(await utils.folderExists('/etc/smplatform'))
 
             // Check for config file
-            assert(await utils.fileExists('/etc/smplatform/store.json'))
+            assert(await utils.fileExists('/etc/smplatform/state.json'))
         }
     },
 
@@ -461,12 +451,6 @@ module.exports = {
 
     // Read/write properties
 
-    // Site ids
-    siteIds: {},
-
     // Configured sites
-    sites: {},
-
-    // Deployed apps
-    apps: {}
+    sites: []
 }

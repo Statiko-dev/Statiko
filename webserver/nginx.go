@@ -96,7 +96,7 @@ func (n *NginxConfig) DesiredConfiguration(sites []state.SiteState) (config Conf
 	for _, s := range sites {
 		// If the site/app failed to deploy, skip this
 		if s.Error != nil {
-			n.logger.Println("Skipping site with error", s.Domain)
+			n.logger.Println("Skipping site with error (in DesiredConfiguration)", s.Domain)
 			continue
 		}
 
@@ -163,7 +163,7 @@ func (n *NginxConfig) ExistingConfiguration(sites []state.SiteState) (ConfigData
 	for _, s := range sites {
 		// If the site/app failed to deploy, skip this
 		if s.Error != nil {
-			n.logger.Println("Skipping site with error", s.Domain)
+			n.logger.Println("Skipping site with error (in ExistingConfiguration)", s.Domain)
 			continue
 		}
 
