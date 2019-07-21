@@ -526,7 +526,7 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 		return err
 	}
 
-	// Hash should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
+	// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
 	signature := make([]byte, 513)
 	len, err := base64.StdEncoding.Decode(signature, signatureB64.Bytes())
 	if err != nil {

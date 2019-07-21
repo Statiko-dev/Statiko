@@ -26,7 +26,7 @@ const sitesData = require('../shared/sites-data')
 // Check that the platform has been started correctly
 describe('Restore state', function() {
     // The state to create
-    let stateData = {
+    const stateData = {
         sites: []
     }
 

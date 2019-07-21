@@ -20,8 +20,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jinzhu/copier"
-
 	"smplatform/utils"
 )
 
@@ -45,21 +43,7 @@ func (m *Manager) Init() error {
 
 // DumpState exports the entire state
 func (m *Manager) DumpState() (*NodeState, error) {
-	// Deep clone the state
-	obj := &NodeState{}
-	copier.Copy(obj, m.state)
-
-	// Remove all errors
-	for i := range obj.Sites {
-		if obj.Sites[i].Error != nil {
-			obj.Sites[i].Error = nil
-		}
-		if obj.Sites[i].ErrorStr != nil {
-			obj.Sites[i].ErrorStr = nil
-		}
-	}
-
-	return obj, nil
+	return m.state, nil
 }
 
 // ReplaceState replaces the full state for the node with the provided one

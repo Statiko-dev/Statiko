@@ -69,6 +69,8 @@ func readState() (state *NodeState, err error) {
 		state = &NodeState{}
 		err = json.Unmarshal(data, state)
 	} else {
+		logger.Println("Will create new state file", path)
+
 		// File doesn't exist, so load an empty state
 		sites := make([]SiteState, 0)
 		state = &NodeState{
