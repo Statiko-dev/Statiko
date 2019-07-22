@@ -68,7 +68,10 @@ func StatusHandler(c *gin.Context) {
 	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
 	diff := time.Since(appTestedTime).Seconds()
 	if healthCache == nil || diff > 299 {
-		appTestedTime = time.Now()
+		// If there's a deployment, do not update this, as apps aren't tested
+		if !sync.IsRunning() {
+			appTestedTime = time.Now()
+		}
 
 		hasError, hasAppError := updateHealthCache()
 		res.Health = healthCache
@@ -124,8 +127,9 @@ func updateHealthCache() (hasError bool, hasAppError bool) {
 			continue
 		}
 
-		// Request health only if there's an app being deployed
-		if s.App != nil {
+		// Request health only if there's an app deployed
+		// Also, skip this if there's a deployment running
+		if s.App != nil && !sync.IsRunning() {
 			// Check if the jobs channel is full
 			for len(jobs) == cap(jobs) {
 				// Pause this until the channel is not at capacity anymore
