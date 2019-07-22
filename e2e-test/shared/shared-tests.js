@@ -23,6 +23,7 @@ const request = require('supertest')
 const validator = require('validator')
 
 const utils = require('./utils')
+const appData = require('./app-data')
 
 // Promisified methods
 const fsReaddir = promisify(fs.readdir)
@@ -100,7 +101,6 @@ async function checkStatus(sites, apps) {
 async function checkDataDirectory(sites) {
     // We always expect the default site and app
     const expectSites = ['_default']
-    const appsArray = []
     const expectApps = ['_default']
 
     // Add all expected sites 
@@ -130,6 +130,19 @@ async function checkDataDirectory(sites) {
         }
     }
 
+    // Function that returns the app's content
+    const appContents = function(find) {
+        // Iterate through the apps
+        for (const key in appData) {
+            if (appData.hasOwnProperty(key)) {
+                const str = appData[key].app + '-' + appData[key].version
+                if (str == find) {
+                    return appData[key].contents
+                }
+            }
+        }
+    }
+
     // Apps
     assert(await utils.folderExists('/data/apps/_default'))
     assert.deepStrictEqual((await fsReaddir('/data/apps')).sort(), expectApps.sort())
@@ -140,10 +153,11 @@ async function checkDataDirectory(sites) {
         }
         else {
             // Check all files and their md5 hash
-            assert((await fsReaddir('/data/apps/' + expectApps[i])).length == Object.keys(appsArray[i - 1].contents).length)
-            for (const file in appsArray[i - 1].contents) {
-                if (appsArray[i - 1].contents.hasOwnProperty(file)) {
-                    const hash = appsArray[i - 1].contents[file]
+            const contents = appContents(expectApps[i])
+            assert((await fsReaddir('/data/apps/' + expectApps[i])).length == Object.keys(contents).length)
+            for (const file in contents) {
+                if (contents.hasOwnProperty(file)) {
+                    const hash = contents[file]
                     const content = await fsReadFile('/data/apps/' + expectApps[i] + '/' + file)
                     assert.strictEqual(hash, utils.md5String(content))
                 }

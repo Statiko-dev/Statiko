@@ -91,10 +91,21 @@ const md5String = (str) => {
     return crypto.createHash('md5').update(str).digest('hex')
 }
 
+/**
+ * Deep-clones an object (with simplex objects only)
+ * 
+ * @param {*} obj - Object to clone
+ * @returns {*} Cloned object
+ */
+const cloneObject = (obj) => {
+    return JSON.parse(JSON.stringify(obj))
+}
+
 module.exports = {
     pathExists,
     fileExists,
     folderExists,
     waitPromise,
-    md5String
+    md5String,
+    cloneObject
 }

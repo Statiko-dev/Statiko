@@ -20,8 +20,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 const assert = require('assert')
 
+const {cloneObject} = require('../shared/utils')
 const shared = require('../shared/shared-tests')
 const sitesData = require('../shared/sites-data')
+const appData = require('../shared/app-data')
 
 // Check that the platform has been started correctly
 describe('Restore state', function() {
@@ -30,18 +32,51 @@ describe('Restore state', function() {
         sites: []
     }
 
-    it('Restore state request', async function() {
+    it('Restore state with no apps', async function() {
+        // Add sites; use push rather than changing the variable because of the pointer used in the checkDataDirectory method
         stateData.sites.push(
-            sitesData.site1,
-            sitesData.site2,
-            sitesData.site3
+            cloneObject(sitesData.site1),
+            cloneObject(sitesData.site2)
         )
+
+        // Request
         const response = await shared.nodeRequest
             .post('/state')
             .set('Authorization', shared.auth)
             .send(stateData)
             .expect(204)
 
+        // Tests
+        assert(response.text.length == 0)
+    })
+
+    it('Wait for sync', shared.tests.waitForSync())
+
+    it('Check data directory', shared.tests.checkDataDirectory(stateData.sites))
+
+    it('Restore state with apps', async function() {
+        // Remove site1, and add site3
+        stateData.sites.splice(0, 1)
+        stateData.sites.push(cloneObject(sitesData.site3))
+
+        // Add apps
+        stateData.sites[0].app = {
+            name: appData.app2.app,
+            version: appData.app2.version
+        }
+        stateData.sites[1].app = {
+            name: appData.app3.app,
+            version: appData.app3.version
+        }
+
+        // Request
+        const response = await shared.nodeRequest
+            .post('/state')
+            .set('Authorization', shared.auth)
+            .send(stateData)
+            .expect(204)
+
+        // Tests
         assert(response.text.length == 0)
     })
 
