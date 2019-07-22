@@ -296,7 +296,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 // SyncApps ensures that we have the correct apps
 func (m *Manager) SyncApps(sites []state.SiteState) error {
 	// Channels used by the worker pool to fetch apps in parallel
-	jobs := make(chan *state.SiteState, 4)
+	jobs := make(chan state.SiteState, 4)
 	res := make(chan int, len(sites))
 
 	// Spin up 3 backround workers
@@ -337,7 +337,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 
 			// We need to deploy the app
 			// Use the worker pool to handle concurrency
-			jobs <- &s
+			jobs <- s
 			requested++
 		}
 	}
@@ -484,7 +484,7 @@ func (m *Manager) StageApp(app string, version string) error {
 }
 
 // Background worker for the StageApp function
-func (m *Manager) workerStageApp(id int, jobs <-chan *state.SiteState, res chan<- int) {
+func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<- int) {
 	for j := range jobs {
 		m.log.Println("Worker", id, "started staging app "+j.App.Name+"-"+j.App.Version)
 		err := m.StageApp(j.App.Name, j.App.Version)
@@ -496,7 +496,7 @@ func (m *Manager) workerStageApp(id int, jobs <-chan *state.SiteState, res chan<
 
 			// Store it in the site object
 			j.Error = err
-			state.Instance.UpdateSite(j, true)
+			state.Instance.UpdateSite(&j, true)
 		}
 		res <- 1
 	}
