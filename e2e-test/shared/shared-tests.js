@@ -206,7 +206,7 @@ async function checkNginxConfig(sites) {
 async function checkNginxSite(site, appDeployed) {
     // If an app has been deployed, it should return 200
     // Otherwise, a 403 is expected
-    const statusCode = (appDeployed) ? 200 : 403
+    const statusCode = appDeployed ? 200 : 403
 
     // Test the base site, with TLS
     const result = await nginxRequest

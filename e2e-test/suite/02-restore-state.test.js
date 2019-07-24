@@ -54,6 +54,10 @@ describe('Restore state', function() {
 
     it('Check data directory', shared.tests.checkDataDirectory(stateData.sites))
 
+    it('Test site1 health', shared.tests.checkNginxSite(sitesData.site1))
+
+    it('Test site2 health', shared.tests.checkNginxSite(sitesData.site2))
+
     it('Restore state with apps', async function() {
         // Remove site1, and add site3
         stateData.sites.splice(0, 1)
@@ -83,4 +87,8 @@ describe('Restore state', function() {
     it('Wait for sync', shared.tests.waitForSync())
 
     it('Check data directory', shared.tests.checkDataDirectory(stateData.sites))
+
+    it('Test site2 health', shared.tests.checkNginxSite(sitesData.site2, appData.app2))
+
+    it('Test site3 health', shared.tests.checkNginxSite(sitesData.site3, appData.app3))
 })
