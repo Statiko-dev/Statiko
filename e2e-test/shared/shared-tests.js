@@ -83,6 +83,7 @@ async function checkStatus(sites) {
 
             // Look for the corresponding site object
             const s = findSite(el.domain)
+            assert(s)
 
             // Is there an app deployed?
             if (s.app && s.app.name) {
@@ -493,10 +494,5 @@ module.exports = {
     waitForSync,
     waitForDeployment,
 
-    tests,
-
-    // Read/write properties
-
-    // Configured sites
-    sites: []
+    tests
 }

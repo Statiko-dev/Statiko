@@ -31,7 +31,6 @@ import (
 // @Summary Creates a new site
 // @Description Creates a new site in the local web server
 // @Accept json
-// @Produce json
 // @Param domain body string true "Domain name" minimum(1)
 // @Param tlsCertificate body string true "TLS Certificate name in the Key Vault" minimum(1)
 // @Failure 500
@@ -72,8 +71,8 @@ func CreateSiteHandler(c *gin.Context) {
 	// Queue a sync
 	sync.QueueRun()
 
-	// Response
-	c.Status(http.StatusCreated)
+	// Respond with "No Content"
+	c.Status(http.StatusNoContent)
 }
 
 // ListSiteHandler is the handler for GET /site, which lists all sites

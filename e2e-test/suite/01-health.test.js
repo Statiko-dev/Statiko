@@ -22,7 +22,6 @@ const assert = require('assert')
 
 const shared = require('../shared/shared-tests')
 
-// Check that the platform has been started correctly
 describe('Health check', function() {
     it('Node is up', function() {
         return shared.nodeRequest

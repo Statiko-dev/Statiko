@@ -25,34 +25,20 @@ const shared = require('../shared/shared-tests')
 const sitesData = require('../shared/sites-data')
 const appData = require('../shared/app-data')
 
-// Check that the platform has been started correctly
 describe('Restore state with apps', function() {
     // The state to create
+    // Compared to before, we've removed site1 and added site3
     const stateData = {
-        sites: []
+        sites: [
+            cloneObject(sitesData.site2app2),
+            cloneObject(sitesData.site3app3)
+        ]
     }
 
     // Apps deployed
     const apps = [appData.app2, appData.app3]
 
     it('Restore state with apps', async function() {
-        // Add sites; use push rather than changing the variable because of the pointer used in the checkDataDirectory method
-        // Compared to before, we've removed site1 and added site3
-        stateData.sites.push(
-            cloneObject(sitesData.site2),
-            cloneObject(sitesData.site3)
-        )
-
-        // Add apps
-        stateData.sites[0].app = {
-            name: appData.app2.app,
-            version: appData.app2.version
-        }
-        stateData.sites[1].app = {
-            name: appData.app3.app,
-            version: appData.app3.version
-        }
-
         // Request
         const response = await shared.nodeRequest
             .post('/state')
