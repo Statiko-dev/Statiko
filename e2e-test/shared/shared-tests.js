@@ -24,6 +24,7 @@ const validator = require('validator')
 
 const utils = require('./utils')
 const appData = require('./app-data')
+const tlsData = require('./tls-data')
 
 // Promisified methods
 const fsReaddir = promisify(fs.readdir)
@@ -193,11 +194,15 @@ async function checkNginxConfig(sites) {
 
     // Check if the configuration file for all other sites is correct
     if (sites) {
-        if (sites.site1) {
-            assert.equal(
-                (await fsReadFile('/etc/nginx/conf.d/' + sites.site1.domain + '.conf', 'utf8')).trim(),
-                (await fsReadFile('fixtures/nginx-site1.conf', 'utf8')).trim().replace(/\{\{siteid\}\}/g, sites.site1.domain)
-            )
+        const keys = ['site1.local', 'site2.local', 'site3.local']
+        for (const i in keys) {
+            const k = keys[i]
+            if (expectSites.indexOf(k) != -1) {
+                assert.equal(
+                    (await fsReadFile('/etc/nginx/conf.d/' + k + '.conf', 'utf8')).trim(),
+                    (await fsReadFile('fixtures/nginx-' + k + '.conf', 'utf8')).trim()
+                )
+            }
         }
     }
 }
@@ -285,8 +290,15 @@ async function checkCacheDirectory(sites, apps) {
                 continue
             }
 
-            await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.cert.pem')
-            await utils.fileExists('/data/cache/' + sites[k].tlsCertificate + '.key.pem')
+            const certificate = sites[k].tlsCertificate
+            if (!certificate) {
+                continue
+            }
+
+            const filename = certificate + '-' + tlsData[certificate]
+
+            await utils.fileExists('/data/cache/' + filename + '.cert.pem')
+            await utils.fileExists('/data/cache/' + filename + '.key.pem')
         }
     }
 
@@ -386,6 +398,13 @@ const tests = {
 
             // Check the data directory
             await checkDataDirectory(sites)
+        }
+    },
+
+    checkCacheDirectory: (sites, apps) => {
+        return function() {    
+            // Check the data directory
+            return checkCacheDirectory(sites, apps)
         }
     },
 

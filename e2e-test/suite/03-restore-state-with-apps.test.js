@@ -23,20 +23,32 @@ const assert = require('assert')
 const {cloneObject} = require('../shared/utils')
 const shared = require('../shared/shared-tests')
 const sitesData = require('../shared/sites-data')
+const appData = require('../shared/app-data')
 
 // Check that the platform has been started correctly
-describe('Restore state', function() {
+describe('Restore state with apps', function() {
     // The state to create
     const stateData = {
         sites: []
     }
 
-    it('Restore state with no apps', async function() {
+    it('Restore state with apps', async function() {
         // Add sites; use push rather than changing the variable because of the pointer used in the checkDataDirectory method
+        // Compared to before, we've removed site1 and added site3
         stateData.sites.push(
-            cloneObject(sitesData.site1),
-            cloneObject(sitesData.site2)
+            cloneObject(sitesData.site2),
+            cloneObject(sitesData.site3)
         )
+
+        // Add apps
+        stateData.sites[0].app = {
+            name: appData.app2.app,
+            version: appData.app2.version
+        }
+        stateData.sites[1].app = {
+            name: appData.app3.app,
+            version: appData.app3.version
+        }
 
         // Request
         const response = await shared.nodeRequest
@@ -51,13 +63,13 @@ describe('Restore state', function() {
 
     it('Wait for sync', shared.tests.waitForSync())
 
-    it('Check cache directory', shared.tests.checkCacheDirectory(sitesData.sites, []))
+    it('Check cache directory', shared.tests.checkCacheDirectory(sitesData.sites, [appData.app2, appData.app3]))
 
     it('Check data directory', shared.tests.checkDataDirectory(stateData.sites))
 
     it('Check nginx configuration', shared.tests.checkNginxConfig(stateData.sites))
 
-    it('Test site1 health', shared.tests.checkNginxSite(sitesData.site1))
+    it('Test site2 health', shared.tests.checkNginxSite(sitesData.site2, appData.app2))
 
-    it('Test site2 health', shared.tests.checkNginxSite(sitesData.site2))
+    it('Test site3 health', shared.tests.checkNginxSite(sitesData.site3, appData.app3))
 })
