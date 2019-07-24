@@ -32,6 +32,9 @@ describe('Restore state with apps', function() {
         sites: []
     }
 
+    // Apps deployed
+    const apps = [appData.app2, appData.app3]
+
     it('Restore state with apps', async function() {
         // Add sites; use push rather than changing the variable because of the pointer used in the checkDataDirectory method
         // Compared to before, we've removed site1 and added site3
@@ -63,7 +66,7 @@ describe('Restore state with apps', function() {
 
     it('Wait for sync', shared.tests.waitForSync())
 
-    it('Check cache directory', shared.tests.checkCacheDirectory(sitesData.sites, [appData.app2, appData.app3]))
+    it('Check cache directory', shared.tests.checkCacheDirectory(sitesData.sites, apps))
 
     it('Check data directory', shared.tests.checkDataDirectory(stateData.sites))
 
@@ -72,4 +75,6 @@ describe('Restore state with apps', function() {
     it('Test site2 health', shared.tests.checkNginxSite(sitesData.site2, appData.app2))
 
     it('Test site3 health', shared.tests.checkNginxSite(sitesData.site3, appData.app3))
+
+    it('Check status', shared.tests.checkStatus(stateData.sites))
 })

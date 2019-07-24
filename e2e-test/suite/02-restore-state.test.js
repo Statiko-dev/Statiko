@@ -60,4 +60,6 @@ describe('Restore state', function() {
     it('Test site1 health', shared.tests.checkNginxSite(sitesData.site1))
 
     it('Test site2 health', shared.tests.checkNginxSite(sitesData.site2))
+
+    it('Check status', shared.tests.checkStatus(stateData.sites))
 })

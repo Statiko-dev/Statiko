@@ -68,8 +68,11 @@ func StatusHandler(c *gin.Context) {
 	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
 	diff := time.Since(appTestedTime).Seconds()
 	if healthCache == nil || diff > 299 {
-		// If there's a deployment, do not update this, as apps aren't tested
-		if !sync.IsRunning() {
+		// If there's a deployment, reset this, as apps aren't tested
+		if sync.IsRunning() {
+			appTestedTime = time.Time{}
+		} else {
+			// Otherwise, mark as tested
 			appTestedTime = time.Now()
 		}
 

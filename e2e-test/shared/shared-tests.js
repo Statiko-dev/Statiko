@@ -42,58 +42,71 @@ const nodeRequest = request('https://' + nodeUrl)
 const nginxRequest = request('https://' + nginxUrl)
 
 // Checks the /status page
-async function checkStatus(sites, apps) {
+async function checkStatus(sites) {
     // Request status
     const response = await nodeRequest
         .get('/status')
         .expect('Content-Type', /json/)
         .expect(200)
-    assert.deepStrictEqual(Object.keys(response.body).sort(), ['apps', 'health'])
+    assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'sync'])
 
-    // Check the apps object
-    assert(response.body.apps.length == Object.keys(sites).length)
-    for (let i = 0; i < response.body.apps.length; i++) {
-        const el = response.body.apps[i]
-        assert.deepStrictEqual(Object.keys(el).sort(), ['appName', 'appVersion', 'domain', 'id', 'updated'])
-        
-        const site = sites[el.id]
-        assert(site)
-        assert(el.domain == site.domain)
+    // Check the sync object
+    assert(Object.keys(response.body.sync).length == 2)
+    // When this function is called, there shouldn't be any sync running
+    assert.equal(response.body.sync.running, false)
+    assert(validator.isISO8601(response.body.sync.lastSync, {strict: true}))
+    const lastSync = new Date(response.body.sync.lastSync)
+    // Must have run within the last 5 mins
+    assert(Date.now() - lastSync.getTime() < 5 * 60 * 1000)
 
-        // If there's an app deployed
-        if (apps[site.domain]) {
-            assert(el.appName === apps[site.domain].app)
-            assert(el.appVersion === apps[site.domain].version)
-            assert(validator.isISO8601(el.updated, {strict: true}))
+    // Function that returns the object for a given site
+    const findSite = (domain) => {
+        for (const k in sites) {
+            if (sites.hasOwnProperty(k)) {
+                if (sites[k].domain == domain) {
+                    return sites[k]
+                }
+            }
         }
-        else {
-            assert(el.appName === null)
-            assert(el.appVersion === null)
-            assert(el.updated === null)
-        }
+        return null
     }
 
-    // If we have apps deployed, we need to check health too
-    if (apps && Object.keys(apps).length) {
+    // Check the health object
+    if (sites && sites.length) {
         assert(Array.isArray(response.body.health))
-        assert(response.body.health.length === Object.keys(apps).length)
+        assert(response.body.health.length === sites.length)
 
         const keys = []
         for (let i = 0; i < response.body.health.length; i++) {
             const el = response.body.health[i]
-
-            assert.deepStrictEqual(Object.keys(el).sort(), ['domain', 'error', 'size', 'status', 'time'])
-            assert(el.status === 200)
-            assert(!el.error)
-            assert(el.size > 1)
             assert(el.domain)
-            assert(validator.isISO8601(el.time, {strict: true}))
+
+            // Look for the corresponding site object
+            const s = findSite(el.domain)
+
+            // Is there an app deployed?
+            if (s.app && s.app.name) {
+                assert(!el.error)
+                assert.deepStrictEqual(Object.keys(el).sort(), ['app', 'domain', 'size', 'status', 'time'])
+                assert(el.app === s.app.name + '-' + s.app.version)
+                assert(el.status === 200)
+                assert(el.size > 1)
+                assert(validator.isISO8601(el.time, {strict: true}))
+            }
+            else {
+                assert(!el.error)
+                assert.deepStrictEqual(Object.keys(el).sort(), ['app', 'domain'])
+                assert(el.app === null)
+            }
 
             keys.push(el.domain)
         }
 
-        // Check if we had all the correct apps
-        assert.deepStrictEqual(keys.sort(), Object.keys(apps).sort())
+        // Check if we had all the correct sites
+        assert.deepStrictEqual(
+            keys.sort(),
+            sites.map(s => s.domain).sort()
+        )
     }
 }
 
@@ -377,9 +390,9 @@ async function waitForDeployment(domain, appData) {
 
 // Repeated tests
 const tests = {
-    checkStatus: (sites, apps) => {
-        return async function() {
-            await checkStatus(sites, apps)
+    checkStatus: (sites) => {
+        return function() {
+            return checkStatus(sites)
         }
     },
 
