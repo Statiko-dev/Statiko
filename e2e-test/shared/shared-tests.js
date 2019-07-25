@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 'use strict'
 
 const assert = require('assert')
-const promisify = require('util').promisify
+const {promisify} = require('util')
 const fs = require('fs')
 const request = require('supertest')
 const validator = require('validator')
@@ -464,6 +464,13 @@ const tests = {
     checkNginxSite: (site, appDeployed) => {
         return async function() {
             await checkNginxSite(site, appDeployed)
+        }
+    },
+
+    // Similar to the checkNginxSite function but for a site that's not in the data structure yet
+    checkNginxSiteIndex: (sites, index, appDeployed) => {
+        return async function() {
+            await checkNginxSite(sites[index], appDeployed)
         }
     },
 

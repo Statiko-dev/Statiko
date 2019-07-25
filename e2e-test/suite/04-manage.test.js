@@ -19,9 +19,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 'use strict'
 
 const assert = require('assert')
+const fs = require('fs')
+const {promisify} = require('util')
+
+const fsReadFile = promisify(fs.readFile)
 
 const {cloneObject} = require('../shared/utils')
 const sitesData = require('../shared/sites-data')
+const appData = require('../shared/app-data')
 const tlsData = require('../shared/tls-data')
 const shared = require('../shared/shared-tests')
 
@@ -32,6 +37,9 @@ describe('Manage sites', function() {
         cloneObject(sitesData.site2app2),
         cloneObject(sitesData.site3app3)
     ]
+
+    // Apps deployed
+    const apps = []
 
     // Function that returns the object for a given site
     const findSite = (domain) => {
@@ -58,7 +66,7 @@ describe('Manage sites', function() {
         assert(response.text.length == 0)
 
         // Add to list of sites deployed
-        deployed.push(deploy)
+        deployed.unshift(deploy)
     })
 
     it('Wait for sync', shared.tests.waitForSync())
@@ -174,14 +182,14 @@ describe('Manage sites', function() {
             .expect(404)
     })
 
-    it('Update site configuration', async function() {
+    it('Update site1 configuration', async function() {
         // This operation can take some time
         this.timeout(15 * 1000)
         this.slow(8 * 1000)
 
         // Update site1 multiple times
         const site = cloneObject(findSite('site1.local'))
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= 4; i++) {
             await shared.nodeRequest
                 .patch('/site/site1.local')
                 .set('Authorization', shared.auth)
@@ -209,6 +217,75 @@ describe('Manage sites', function() {
             }
             assert.deepStrictEqual(response.body.aliases.sort(), site.aliases.sort())
             assert.deepStrictEqual(response.body.app, null)
+
+            // Check the nginx config
+            // Skip this for patch 4 as it shouldn't change
+            if (i <= 3) {
+                assert.equal(
+                    (await fsReadFile('/etc/nginx/conf.d/site1.local.conf', 'utf8')).trim(),
+                    (await fsReadFile('fixtures/nginx-site1patch' + i + '.conf', 'utf8')).trim()
+                )
+            }
         }
+
+        // Update the site in the deployed list
+        deployed[0] = site
     })
+
+    it('Wait for sync', shared.tests.waitForSync())
+
+    it('Check status', shared.tests.checkStatus(deployed))
+
+    it('Deploy app to site1', async function() {
+        // Request
+        const app = {
+            name: appData.app1.app,
+            version: appData.app1.version,
+        }
+        const response = await shared.nodeRequest
+            .put('/site/site1.local/app')
+            .set('Authorization', shared.auth)
+            .send(app)
+            .expect(204)
+
+        // Tests
+        assert(response.text.length == 0)
+
+        // Update the site in the deployed list
+        // Then add the app
+        deployed[0].app = app
+        apps.push(app)
+    })
+
+    it('Wait for sync', shared.tests.waitForSync())
+
+    it('Check cache directory', shared.tests.checkCacheDirectory(deployed, apps))
+
+    it('Check data directory', shared.tests.checkDataDirectory(deployed))
+
+    it('Test site1 health', shared.tests.checkNginxSiteIndex(deployed, 0, appData.app1))
+
+    it('Check status', shared.tests.checkStatus(deployed))
+
+    it('Delete site1', async function() {
+        // Request
+        const response = await shared.nodeRequest
+            .delete('/site/site1.local')
+            .set('Authorization', shared.auth)
+            .expect(204)
+
+        // Tests
+        assert(response.text.length == 0)
+
+        // Add to list of sites deployed
+        deployed.splice(0, 1)
+    })
+
+    it('Wait for sync', shared.tests.waitForSync())
+
+    it('Check data directory', shared.tests.checkDataDirectory(deployed))
+
+    it('Check nginx configuration', shared.tests.checkNginxConfig(deployed))
+
+    it('Check status', shared.tests.checkStatus(deployed))
 })

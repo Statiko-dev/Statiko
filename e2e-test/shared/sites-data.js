@@ -88,8 +88,5 @@ sitesData.site1patch4 = {
     tlsCertificate: 'site3',
     tlsCertificateVersion: '8b164f4577244c4aa8eb54a31b45c70c'
 }
-sitesData.site1patch5 = {
-    tlsCertificate: null
-}
 
 module.exports = sitesData
