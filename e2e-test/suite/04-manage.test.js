@@ -33,6 +33,18 @@ describe('Manage sites', function() {
         cloneObject(sitesData.site3app3)
     ]
 
+    // Function that returns the object for a given site
+    const findSite = (domain) => {
+        for (const k in deployed) {
+            if (deployed.hasOwnProperty(k)) {
+                if (deployed[k].domain == domain) {
+                    return deployed[k]
+                }
+            }
+        }
+        return null
+    }
+
     it('Add site1', async function() {
         // Request
         const deploy = cloneObject(sitesData.site1)
@@ -85,18 +97,6 @@ describe('Manage sites', function() {
         assert(Array.isArray(response.body))
         assert(response.body.length == 3)
 
-        // Function that returns the object for a given site
-        const findSite = (domain) => {
-            for (const k in deployed) {
-                if (deployed.hasOwnProperty(k)) {
-                    if (deployed[k].domain == domain) {
-                        return deployed[k]
-                    }
-                }
-            }
-            return null
-        }
-
         for (let i = 0; i < response.body.length; i++) {
             const el = response.body[i]
             assert(el.domain)
@@ -121,6 +121,94 @@ describe('Manage sites', function() {
             else {
                 assert.strictEqual(el.app, null)
             }
+        }
+    })
+
+    it('Get site details', async function() {
+        let site, response = null
+
+        // Request site1
+        response = await shared.nodeRequest
+            .get('/site/site1.local')
+            .set('Authorization', shared.auth)
+            .expect('Content-Type', /json/)
+            .expect(200)
+
+        // Tests for site1
+        site = findSite('site1.local')
+        assert(response.body)
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['clientCaching', 'tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+        assert(!response.body.error)
+        assert.strictEqual(response.body.clientCaching, site.clientCaching)
+        assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
+        if (site.tlsCertificate) {
+            assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
+        }
+        assert.deepStrictEqual(response.body.aliases.sort(), site.aliases.sort())
+        assert.deepStrictEqual(response.body.app, null)
+
+        // Request site2 using an alias
+        response = await shared.nodeRequest
+            .get('/site/site2-alias.local')
+            .set('Authorization', shared.auth)
+            .expect('Content-Type', /json/)
+            .expect(200)
+
+        // Tests for site2
+        site = findSite('site2.local')
+        assert(response.body)
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['clientCaching', 'tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+        assert(!response.body.error)
+        assert.strictEqual(response.body.clientCaching, site.clientCaching)
+        assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
+        if (site.tlsCertificate) {
+            assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
+        }
+        assert.deepStrictEqual(response.body.aliases.sort(), site.aliases.sort())
+        assert.deepStrictEqual(response.body.app, site.app)
+
+        // Test a site that doesn't exist
+        await shared.nodeRequest
+            .get('/site/doesntexist.com')
+            .set('Authorization', shared.auth)
+            .expect(404)
+    })
+
+    it('Update site configuration', async function() {
+        // This operation can take some time
+        this.timeout(15 * 1000)
+        this.slow(8 * 1000)
+
+        // Update site1 multiple times
+        const site = cloneObject(findSite('site1.local'))
+        for (let i = 1; i <= 5; i++) {
+            await shared.nodeRequest
+                .patch('/site/site1.local')
+                .set('Authorization', shared.auth)
+                .send(sitesData['site1patch' + i])
+                .expect(204)
+
+            // Update the local data
+            Object.assign(site, sitesData['site1patch' + i])
+
+            // Request the site's details
+            const response = await shared.nodeRequest
+                .get('/site/site1.local')
+                .set('Authorization', shared.auth)
+                .expect('Content-Type', /json/)
+                .expect(200)
+
+            // Tests
+            assert(response.body)
+            assert.deepStrictEqual(Object.keys(response.body).sort(), ['clientCaching', 'tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+            assert(!response.body.error)
+            assert.strictEqual(response.body.clientCaching, site.clientCaching)
+            assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
+            if (site.tlsCertificate) {
+                assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
+            }
+            assert.deepStrictEqual(response.body.aliases.sort(), site.aliases.sort())
+            assert.deepStrictEqual(response.body.app, null)
         }
     })
 })

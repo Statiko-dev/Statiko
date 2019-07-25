@@ -74,4 +74,22 @@ sitesData.site3app3.app = {
     version: appData.app3.version
 }
 
+// Patch requests for site1
+sitesData.site1patch1 = {
+    clientCaching: false
+}
+sitesData.site1patch2 = {
+    aliases: ['testsite.local']
+}
+sitesData.site1patch3 = {
+    aliases: []
+}
+sitesData.site1patch4 = {
+    tlsCertificate: 'site3',
+    tlsCertificateVersion: '8b164f4577244c4aa8eb54a31b45c70c'
+}
+sitesData.site1patch5 = {
+    tlsCertificate: null
+}
+
 module.exports = sitesData

@@ -167,9 +167,13 @@ func PatchSiteHandler(c *gin.Context) {
 				updated = true
 			}
 		case "tlscertificate":
-			if t.Kind() == reflect.String {
+			if t != nil && t.Kind() == reflect.String {
 				str := v.(string)
 				site.TLSCertificate = &str
+				updatedTLS = true
+				updated = true
+			} else if t == nil {
+				site.TLSCertificate = nil
 				updatedTLS = true
 				updated = true
 			}
@@ -219,7 +223,7 @@ func PatchSiteHandler(c *gin.Context) {
 	}
 
 	// If we have updated the TLS certificate, but not the version, reset the version
-	if updatedTLS && !updatedTLSVersion {
+	if updatedTLS && (!updatedTLSVersion || site.TLSCertificate == nil) {
 		site.TLSCertificateVersion = nil
 	}
 
