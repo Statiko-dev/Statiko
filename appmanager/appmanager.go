@@ -306,6 +306,8 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 
 	// Iterate through the sites looking for apps
 	requested := 0
+	expectApps := make([]string, 1)
+	expectApps[0] = "_default"
 	for _, s := range sites {
 		// Reset the error
 		if s.Error != nil {
@@ -328,7 +330,8 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 		}
 
 		// Check if we have the app deployed
-		exists, err := utils.PathExists(m.appRoot + "apps/" + app.Name + "-" + app.Version)
+		folderName := app.Name + "-" + app.Version
+		exists, err := utils.PathExists(m.appRoot + "apps/" + folderName)
 		if err != nil {
 			return err
 		}
@@ -340,6 +343,9 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 			jobs <- s
 			requested++
 		}
+
+		// Add app to expected list
+		expectApps = append(expectApps, folderName)
 	}
 
 	// No more jobs; close the channel
@@ -350,6 +356,35 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 		<-res
 	}
 	close(res)
+
+	// Look for extraneous folders in the /approot/apps directory
+	// Note that we are not deleting the apps' bundles from the cache, however - just the staged folder
+	files, err := ioutil.ReadDir(m.appRoot + "apps/")
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		name := f.Name()
+		// There should only be folders
+		if f.IsDir() {
+			// Folder name must be _default or one of the domains
+			if !utils.StringInSlice(expectApps, name) {
+				// Delete the folder
+				m.log.Println("Removing extraneous folder", m.appRoot+"apps/"+name)
+				if err := os.RemoveAll(m.appRoot + "apps/" + name); err != nil {
+					// Do not return on error
+					m.log.Println("Error ignored while removing extraneous folder", m.appRoot+"apps/"+name, err)
+				}
+			}
+		} else {
+			// There shouldn't be any file; delete extraneous stuff
+			m.log.Println("Removing extraneous file", m.appRoot+"apps/"+name)
+			if err := os.Remove(m.appRoot + "apps/" + name); err != nil {
+				// Do not return on error
+				m.log.Println("Error ignored while removing extraneous file", m.appRoot+"apps/"+name, err)
+			}
+		}
+	}
 
 	return nil
 }
