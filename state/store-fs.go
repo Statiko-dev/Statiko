@@ -103,3 +103,8 @@ func (s *stateStoreFS) ReadState() (err error) {
 
 	return
 }
+
+// Healthy returns always true
+func (s *stateStoreFS) Healthy() (bool, error) {
+	return true, nil
+}

@@ -46,6 +46,16 @@ var healthCache []utils.SiteHealth
 // @Success 200 {array} actions.NodeStatus
 // @Router /status [get]
 func StatusHandler(c *gin.Context) {
+	// Check if the state is healthy
+	healthy, err := state.Instance.StoreHealth()
+	if !healthy {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error":   "State is not healthy",
+			"details": err.Error(),
+		})
+		return
+	}
+
 	// Response object
 	res := &utils.NodeStatus{}
 
@@ -53,6 +63,12 @@ func StatusHandler(c *gin.Context) {
 	res.Sync = utils.NodeSync{
 		Running:  sync.IsRunning(),
 		LastSync: sync.LastSync(),
+	}
+
+	// Check if we need to force a refresh
+	forceQs := c.Query("force")
+	if forceQs == "1" || forceQs == "true" || forceQs == "t" || forceQs == "y" || forceQs == "yes" {
+		healthCache = nil
 	}
 
 	// Response status code

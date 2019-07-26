@@ -54,6 +54,13 @@ func (m *Manager) DumpState() (*NodeState, error) {
 
 // ReplaceState replaces the full state for the node with the provided one
 func (m *Manager) ReplaceState(state *NodeState) error {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
 	// Ensure that errors aren't included
 	for _, s := range state.Sites {
 		if s.Error != nil {
@@ -109,7 +116,14 @@ func (m *Manager) GetSite(domain string) *SiteState {
 
 // AddSite adds a site to the store
 func (m *Manager) AddSite(site *SiteState) error {
-	// Reset the error
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
+	// Reset the error in the site object
 	site.Error = nil
 	site.ErrorStr = nil
 
@@ -128,6 +142,13 @@ func (m *Manager) AddSite(site *SiteState) error {
 
 // UpdateSite updates a site with the same Domain
 func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
 	// Sync ErrorStr with Error
 	if site.Error != nil {
 		errorStr := site.Error.Error()
@@ -168,6 +189,14 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 
 // DeleteSite remvoes a site from the store
 func (m *Manager) DeleteSite(domain string) error {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
+	// Update the state
 	found := false
 	state := m.store.GetState()
 	for i, s := range state.Sites {
@@ -193,4 +222,9 @@ func (m *Manager) DeleteSite(domain string) error {
 	}
 
 	return nil
+}
+
+// StoreHealth returns true if the store is healthy
+func (m *Manager) StoreHealth() (healthy bool, err error) {
+	return m.store.Healthy()
 }

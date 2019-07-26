@@ -19,10 +19,12 @@ package state
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/etcd-io/etcd/clientv3"
+	"google.golang.org/grpc/connectivity"
 
 	"smplatform/appconfig"
 )
@@ -68,7 +70,8 @@ func (s *stateStoreEtcd) getContext() (context.Context, context.CancelFunc) {
 func (s *stateStoreEtcd) watch() {
 	// Start watching for changes in the key
 	key := appconfig.Config.GetString("state.etcd.key")
-	rch := s.client.Watch(s.ctx, key)
+	ctx, cancel := context.WithCancel(s.ctx)
+	rch := s.client.Watch(ctx, key)
 
 	for resp := range rch {
 		for _, event := range resp.Events {
@@ -94,6 +97,9 @@ func (s *stateStoreEtcd) watch() {
 			}
 		}
 	}
+
+	// Cancel the context
+	cancel()
 
 	return
 }
@@ -167,6 +173,23 @@ func (s *stateStoreEtcd) ReadState() (err error) {
 
 		// Write the empty state to disk
 		err = s.WriteState()
+	}
+
+	return
+}
+
+// Healthy returns true if the connection with etcd is active
+func (s *stateStoreEtcd) Healthy() (healthy bool, err error) {
+	healthy = true
+
+	// Get state of the connection
+	state := s.client.ActiveConnection().GetState()
+	if state != connectivity.Ready {
+		err = errors.New("Connection with etcd in state: " + state.String())
+		healthy = false
+
+		// Reset also the lastRevisionPut index to potentially trigger an update when etcd comes back
+		s.lastRevisionPut = 0
 	}
 
 	return

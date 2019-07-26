@@ -40,4 +40,5 @@ type stateStore interface {
 	SetState(*NodeState) error
 	WriteState() error
 	ReadState() error
+	Healthy() (bool, error)
 }
