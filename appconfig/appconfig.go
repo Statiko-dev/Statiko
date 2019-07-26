@@ -111,7 +111,17 @@ func (c *appConfig) GetString(key string) string {
 	return viper.GetString(key)
 }
 
-// GetBool returns the value as boolean
+// GetString returns the value as slice of strings
+func (c *appConfig) GetStringSlice(key string) []string {
+	return viper.GetStringSlice(key)
+}
+
+// GetBool returns the value as bool
 func (c *appConfig) GetBool(key string) bool {
 	return viper.GetBool(key)
+}
+
+// GetInt returns the value as int
+func (c *appConfig) GetInt(key string) int {
+	return viper.GetInt(key)
 }

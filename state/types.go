@@ -35,6 +35,7 @@ type SiteApp struct {
 
 // Interface for the state stores
 type stateStore interface {
+	Init() error
 	GetState() *NodeState
 	SetState(*NodeState) error
 	WriteState() error

@@ -30,6 +30,13 @@ type stateStoreFS struct {
 	state *NodeState
 }
 
+// Init initializes the object
+func (s *stateStoreFS) Init() (err error) {
+	// Read the state from disk
+	err = s.ReadState()
+	return
+}
+
 // GetState returns the full state
 func (s *stateStoreFS) GetState() *NodeState {
 	return s.state

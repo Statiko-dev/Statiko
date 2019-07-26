@@ -30,17 +30,10 @@ type Manager struct {
 }
 
 // Init loads the state from the store
-func (m *Manager) Init() error {
-	m.store = &stateStoreFS{}
-
-	// Read the state from disk
-	var err error
-	err = m.store.ReadState()
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (m *Manager) Init() (err error) {
+	m.store = &stateStoreEtcd{}
+	err = m.store.Init()
+	return
 }
 
 // DumpState exports the entire state

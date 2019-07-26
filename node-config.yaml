@@ -11,6 +11,15 @@ port: "2265"
 # Can also be passed with environmental variable STATE_PATH
 store: "/etc/smplatform/state.json"
 
+etcd:
+  # Key where the state is stored in etcd
+  key: "smplatform"
+  # Timeout in ms
+  timeout: 15000
+  # List of node addresses to connect to
+  addresses:
+    - http://localhost:2379
+
 # Configuration for the nginx webserver
 nginx:
   # Path where the nginx config is stored
