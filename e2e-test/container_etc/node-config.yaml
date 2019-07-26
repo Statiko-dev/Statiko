@@ -7,15 +7,11 @@ auth: "hello world"
 # Can also be passed with environmental variable PORT
 port: "2265"
 
-# File containing the state persistently stored on disk
-# Can also be passed with environmental variable STATE_PATH
-store: "/etc/smplatform/state.json"
-
 # State storage configuration
 state:
   # Where to store state - can be "file" or "etcd"
   # Can also be passed with environmental variable STATE_STORE
-  store: "etcd"
+  store: "file"
 
   # Configuration for when "store" is "file"
   file:

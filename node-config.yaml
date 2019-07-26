@@ -11,7 +11,7 @@ port: "2265"
 state:
   # Where to store state - can be "file" or "etcd"
   # Can also be passed with environmental variable STATE_STORE
-  store: "etcd"
+  store: "file"
 
   # Configuration for when "store" is "file"
   file:

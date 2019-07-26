@@ -20,6 +20,7 @@ import (
 	"errors"
 	"time"
 
+	"smplatform/appconfig"
 	"smplatform/utils"
 )
 
@@ -31,7 +32,17 @@ type Manager struct {
 
 // Init loads the state from the store
 func (m *Manager) Init() (err error) {
-	m.store = &stateStoreEtcd{}
+	// Get store type
+	typ := appconfig.Config.GetString("state.store")
+	switch typ {
+	case "file":
+		m.store = &stateStoreFS{}
+	case "etcd":
+		m.store = &stateStoreEtcd{}
+	default:
+		err = errors.New("Invalid value for configuration `state.store`; valid options are `file` or `etcd`")
+		return
+	}
 	err = m.store.Init()
 	return
 }
