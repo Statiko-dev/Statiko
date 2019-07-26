@@ -65,13 +65,18 @@ func (c *appConfig) Load() error {
 	}
 
 	// Default values
-	// Default port is 3000
-	viper.SetDefault("port", "3000")
+	// Default port is 2265
+	viper.SetDefault("port", "2265")
+
+	// Default node name is the hostname
+	// Ignore errors here
+	hostname, _ := os.Hostname()
+	viper.SetDefault("nodeName", hostname)
 
 	// Some settings can be set as env vars too
 	viper.BindEnv("auth", "PLATFORM_AUTH")
-	viper.BindEnv("db", "PLATFORM_DB")
 	viper.BindEnv("port", "PORT")
+	viper.BindEnv("store", "STATE_PATH")
 	viper.BindEnv("appRoot", "PLATFORM_APP_ROOT")
 	viper.BindEnv("nginx.commands.start", "PLATFORM_NGINX_START")
 	viper.BindEnv("nginx.commands.stop", "PLATFORM_NGINX_STOP")
@@ -83,6 +88,7 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("azureStorage.account", "AZURE_STORAGE_ACCOUNT")
 	viper.BindEnv("azureStorage.key", "AZURE_STORAGE_KEY")
 	viper.BindEnv("azureStorage.container", "AZURE_STORAGE_CONTAINER")
+	viper.BindEnv("nodeName", "NODE_NAME")
 
 	// Load config file
 	err := viper.ReadInConfig()

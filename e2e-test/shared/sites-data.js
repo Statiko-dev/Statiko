@@ -16,10 +16,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 'use strict'
 
-module.exports = {
+const {cloneObject} = require('./utils')
+const appData = require('./app-data')
+
+const sitesData = {
     site1: {
         domain: 'site1.local',
         tlsCertificate: 'site1',
+        tlsCertificateVersion: '72cd150c5f394bd190749cdb22d0f731',
         clientCaching: true,
         aliases: [
             'site1-alias.local',
@@ -55,3 +59,34 @@ module.exports = {
         aliases: ['site3.local']
     }
 }
+
+// site2 with app2 deployed
+sitesData.site2app2 = cloneObject(sitesData.site2)
+sitesData.site2app2.app = {
+    name: appData.app2.app,
+    version: appData.app2.version
+}
+
+// site3 with app3 deployed
+sitesData.site3app3 = cloneObject(sitesData.site3)
+sitesData.site3app3.app = {
+    name: appData.app3.app,
+    version: appData.app3.version
+}
+
+// Patch requests for site1
+sitesData.site1patch1 = {
+    clientCaching: false
+}
+sitesData.site1patch2 = {
+    aliases: ['testsite.local']
+}
+sitesData.site1patch3 = {
+    aliases: []
+}
+sitesData.site1patch4 = {
+    tlsCertificate: 'site3',
+    tlsCertificateVersion: '8b164f4577244c4aa8eb54a31b45c70c'
+}
+
+module.exports = sitesData

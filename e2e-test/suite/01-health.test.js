@@ -22,7 +22,6 @@ const assert = require('assert')
 
 const shared = require('../shared/shared-tests')
 
-// Check that the platform has been started correctly
 describe('Health check', function() {
     it('Node is up', function() {
         return shared.nodeRequest
@@ -55,7 +54,8 @@ describe('Health check', function() {
         assert(response.body)
         assert(Object.keys(response.body).length == 3)
         assert(response.body.authMethod == 'sharedkey')
-        assert(response.body.version) // TODO: Need to validate version
+        assert(response.body.version)
+        assert(/(([0-9]{8}\.[0-9]+)|([0-9]+)) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\))/.test(response.body.version))
         assert(response.body.hostname)
     })
 

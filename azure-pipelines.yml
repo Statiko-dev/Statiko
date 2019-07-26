@@ -29,34 +29,6 @@ stages:
         pool:
           vmImage: ubuntu-16.04
         steps:
-          # Install required packages
-          - bash: |
-              sudo apt-get update && \
-              sudo apt-get install -y \
-                build-essential \
-                crossbuild-essential-armhf \
-                crossbuild-essential-arm64 \
-                autoconf \
-                libtool \
-                cmake \
-                pkg-config \
-                git \
-                automake \
-                autogen \
-                ca-certificates \
-                clang \
-                llvm-dev \
-                libtool \
-                libxml2-dev \
-                uuid-dev \
-                libssl-dev \
-                swig \
-                patch \
-                make \
-                xz-utils \
-                cpio \
-                sqlite
-            displayName: "Install required packages"
           # Set up go environment
           - bash: |
               set -e
@@ -105,13 +77,10 @@ stages:
               BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
-              CC=aarch64-linux-gnu-gcc-5 \
-              CXX=aarch64-linux-gnu-g++-5 \
               GO111MODULE=on \
               GOFLAGS=-mod=vendor \
               GOOS=linux \
               GOARCH=arm64 \
-              CGO_ENABLED=1 \
                 go build \
                   -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
                   -o bin/smplatform_linux_arm64
@@ -126,14 +95,11 @@ stages:
               BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
-              CC=arm-linux-gnueabihf-gcc-5 \
-              CXX=arm-linux-gnueabihf-g++-5 \
               GO111MODULE=on \
               GOFLAGS=-mod=vendor \
               GOOS=linux \
               GOARCH=arm \
               GOARM=7 \
-              CGO_ENABLED=1 \
                 go build \
                   -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
                   -o bin/smplatform_linux_armhf
@@ -237,7 +203,7 @@ stages:
                 -v $(pwd)/e2e-test/results:/results \
                 -e "AZURE_STORAGE_KEY=$(AZURE_STORAGE_KEY)" \
                 -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
-                -e "NODE_URL=smplatform.local:3000" \
+                -e "NODE_URL=smplatform.local:2265" \
                 -e "NGINX_URL=smplatform.local" \
                 --add-host "smplatform.local:127.0.0.1" \
                 $(testImageRepository)

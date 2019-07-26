@@ -2,7 +2,7 @@ FROM ubuntu:18.04
 
 # Configuration for the smplatform app
 ARG ARCH=amd64
-ENV ARCH=$ARCH GO_ENV=production PORT=3000
+ENV ARCH=$ARCH GO_ENV=production PORT=2265
 
 # Install dependencies and create folders
 RUN apt-get update \
@@ -21,7 +21,7 @@ COPY bin/smplatform_linux_${ARCH} /usr/local/bin/smplatform
 RUN chmod +x /usr/local/bin/smplatform
 
 # Expose ports
-EXPOSE 80 443 4000
+EXPOSE 80 443 2265
 
 # Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

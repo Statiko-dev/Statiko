@@ -18,16 +18,24 @@ package routes
 
 import (
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/db"
+	"smplatform/state"
+	"smplatform/sync"
 	"smplatform/utils"
 )
 
 // Last time the health checks were run
 var appTestedTime = time.Time{}
+
+// Last time the state was updated
+var stateUpdatedTime *time.Time
+
+// Cached health data
+var healthCache []utils.SiteHealth
 
 // StatusHandler is the handler for GET /status, which returns the status and health of the node
 // @Summary Returns the status and health of the node
@@ -38,81 +46,141 @@ var appTestedTime = time.Time{}
 // @Success 200 {array} actions.NodeStatus
 // @Router /status [get]
 func StatusHandler(c *gin.Context) {
-	// Check if we have the status cached
-	if statusCache == nil {
-		// Reset the health check time too
-		appTestedTime = time.Time{}
-		// Create the cache
-		statusCache = &utils.NodeStatus{}
+	// Response object
+	res := &utils.NodeStatus{}
 
-		// Load the status from the database
-		sql := `
-		SELECT
-			sites.site_id AS site_id,
-			domains.domain AS domain,
-			deployments.app_name AS app_name,
-			deployments.app_version AS app_version,
-			deployments.time AS time
-		FROM sites
-		LEFT JOIN domains
-			ON domains.site_id = sites.site_id AND domains.is_default = 1
-		LEFT JOIN deployments
-			ON deployments.deployment_id = (
-				SELECT deployment_id
-				FROM deployments
-				WHERE deployments.site_id = sites.site_id AND deployments.status = 1
-				ORDER BY deployments.time DESC
-				LIMIT 1
-			)
-		`
-		if err := db.Connection.Raw(sql).Scan(&statusCache.Apps).Error; err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
+	// Sync status
+	res.Sync = utils.NodeSync{
+		Running:  sync.IsRunning(),
+		LastSync: sync.LastSync(),
 	}
 
 	// Response status code
 	statusCode := http.StatusOK
 
+	// If the state has changed, we need to invalidate the healthCache
+	u := state.Instance.LastUpdated()
+	if u != stateUpdatedTime {
+		healthCache = nil
+		stateUpdatedTime = u
+	}
+
 	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
 	diff := time.Since(appTestedTime).Seconds()
-	if diff > 299 {
-		appTestedTime = time.Now()
-
-		// Update the cached data
-		ch := make(chan utils.SiteHealth)
-		requested := 0
-		for _, app := range statusCache.Apps {
-			// Ignore sites that have no apps deployed
-			if app.AppName == nil || app.AppVersion == nil {
-				continue
-			}
-
-			// Start the request in parallel
-			go utils.RequestHealth(app.Domain, ch)
-			requested++
+	if healthCache == nil || diff > 299 {
+		// If there's a deployment, reset this, as apps aren't tested
+		if sync.IsRunning() {
+			appTestedTime = time.Time{}
+		} else {
+			// Otherwise, mark as tested
+			appTestedTime = time.Now()
 		}
 
-		// Read responses
-		statusCache.Health = make([]utils.SiteHealth, requested)
-		hasError := false
-		for i := 0; i < requested; i++ {
-			health := <-ch
-			if health.Error != nil {
-				hasError = true
-				health.ErrorStr = new(string)
-				*health.ErrorStr = health.Error.Error()
-				logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
-			}
-			statusCache.Health[i] = health
-		}
+		hasError, hasAppError := updateHealthCache()
+		res.Health = healthCache
 
 		if hasError {
 			// If there's an error, make the test happen again right away
-			appTestedTime = time.Time{}
+			healthCache = nil
+		}
+		if hasError || hasAppError {
 			statusCode = http.StatusServiceUnavailable
 		}
+	} else {
+		res.Health = healthCache
 	}
 
-	c.JSON(statusCode, statusCache)
+	c.JSON(statusCode, res)
+}
+
+type healthcheckJob struct {
+	domain string
+	bundle string
+}
+
+func updateHealthCache() (hasError bool, hasAppError bool) {
+	hasError = false
+	hasAppError = false
+
+	// Get list of sites
+	sites := state.Instance.GetSites()
+
+	// Use a worker pool to limit concurrency to 3
+	jobs := make(chan healthcheckJob, 4)
+	res := make(chan utils.SiteHealth, len(sites))
+
+	// Spin up 3 backround workers
+	for w := 1; w <= 3; w++ {
+		go updateHealthCacheWorker(w, jobs, res)
+	}
+
+	// Update the cached data
+	requested := 0
+	healthCache = make([]utils.SiteHealth, 0)
+	for _, s := range sites {
+		// Skip sites that have deployment errors
+		if s.Error != nil {
+			hasAppError = true
+			healthCache = append(healthCache, utils.SiteHealth{
+				Domain:   s.Domain,
+				App:      nil,
+				Error:    s.Error,
+				ErrorStr: s.ErrorStr,
+			})
+			continue
+		}
+
+		// Request health only if there's an app deployed
+		// Also, skip this if there's a deployment running
+		if s.App != nil && !sync.IsRunning() {
+			// Check if the jobs channel is full
+			for len(jobs) == cap(jobs) {
+				// Pause this until the channel is not at capacity anymore
+				time.Sleep(time.Millisecond * 5)
+			}
+
+			// Start the request in parallel
+			jobs <- healthcheckJob{
+				domain: s.Domain,
+				bundle: s.App.Name + "-" + s.App.Version,
+			}
+			requested++
+		} else {
+			// No app deployed, so show the site only
+			healthCache = append(healthCache, utils.SiteHealth{
+				Domain: s.Domain,
+				App:    nil,
+			})
+		}
+	}
+	close(jobs)
+
+	// Read responses
+	for i := 0; i < requested; i++ {
+		health := <-res
+		if health.Error != nil {
+			hasError = true
+			health.ErrorStr = new(string)
+			*health.ErrorStr = health.Error.Error()
+			logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
+		}
+		healthCache = append(healthCache, health)
+	}
+	close(res)
+
+	// Sort the result
+	sort.Slice(healthCache, func(i, j int) bool {
+		return healthCache[i].Domain < healthCache[j].Domain
+	})
+
+	return
+}
+
+// Background worker for the updateHealthCache function
+func updateHealthCacheWorker(id int, jobs <-chan healthcheckJob, res chan<- utils.SiteHealth) {
+	for j := range jobs {
+		//logger.Println("Worker", id, "started requesting health for", j.domain)
+		utils.RequestHealth(j.domain, j.bundle, res)
+		//logger.Println("Worker", id, "finished requesting health for", j.domain)
+	}
 }

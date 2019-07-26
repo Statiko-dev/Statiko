@@ -30,10 +30,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"smplatform/appconfig"
-	"smplatform/db"
 	"smplatform/middlewares"
 	"smplatform/routes"
-	"smplatform/startup"
+	"smplatform/sync"
 )
 
 func main() {
@@ -48,19 +47,14 @@ func main() {
 	// Start gin
 	router := gin.Default()
 
-	// Connect to the database
-	db.Init()
-
-	// Perform some cleanup
-	// First, remove all pending deployments from the database
-	if err := startup.RemovePendingDeployments(); err != nil {
+	// Sync the state
+	// Do this in a synchronous way to ensure the node starts up properly
+	if err := sync.Run(); err != nil {
 		panic(err)
 	}
 
-	// Second, sync the state
-	if err := startup.SyncState(); err != nil {
-		panic(err)
-	}
+	// Add middlewares
+	router.Use(middlewares.NodeName())
 
 	// Add routes
 	router.GET("/status", routes.StatusHandler)
@@ -70,12 +64,18 @@ func main() {
 	{
 		authorized := router.Group("/")
 		authorized.Use(middlewares.Auth())
-		authorized.POST("/adopt", routes.AdoptHandler)
 		authorized.POST("/site", routes.CreateSiteHandler)
 		authorized.GET("/site", routes.ListSiteHandler)
-		authorized.GET("/site/:site", routes.ShowSiteHandler)
-		authorized.DELETE("/site/:site", routes.DeleteSiteHandler)
-		authorized.POST("/site/:site/deploy", routes.DeployHandler)
+		authorized.GET("/site/:domain", routes.ShowSiteHandler)
+		authorized.DELETE("/site/:domain", routes.DeleteSiteHandler)
+		authorized.PATCH("/site/:domain", routes.PatchSiteHandler)
+
+		authorized.POST("/site/:domain/app", routes.DeploySiteHandler)
+		authorized.PUT("/site/:domain/app", routes.DeploySiteHandler) // Alias
+
+		authorized.GET("/state", routes.GetStateHandler)
+		authorized.POST("/state", routes.PutStateHandler)
+		authorized.PUT("/state", routes.PutStateHandler) // Alias
 	}
 
 	// HTTP Server
@@ -103,10 +103,10 @@ func main() {
 	}()
 
 	// Start the server
-	if appconfig.Config.GetBool("tls.enabled") {
+	if appconfig.Config.GetBool("tls.node.enabled") {
 		fmt.Printf("Starting server on https://%s\n", server.Addr)
-		tlsCertFile := appconfig.Config.GetString("tls.certificate")
-		tlsKeyFile := appconfig.Config.GetString("tls.key")
+		tlsCertFile := appconfig.Config.GetString("tls.node.certificate")
+		tlsKeyFile := appconfig.Config.GetString("tls.node.key")
 		tlsConfig := &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		}

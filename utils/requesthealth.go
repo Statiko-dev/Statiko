@@ -22,37 +22,33 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/gofrs/uuid"
 )
-
-// NodeApps contains the current list of apps defined
-type NodeApps struct {
-	SiteID     uuid.UUID  `json:"id"`
-	Domain     string     `json:"domain"`
-	AppName    *string    `json:"appName"`
-	AppVersion *string    `json:"appVersion"`
-	Updated    *time.Time `json:"updated" gorm:"column:time"`
-}
 
 // SiteHealth contains the results of the health checks for each individual app
 type SiteHealth struct {
-	Domain       string    `json:"domain"`
-	StatusCode   int       `json:"status"`
-	ResponseSize int       `json:"size"`
-	Error        error     `json:"-"`
-	ErrorStr     *string   `json:"error"`
-	Time         time.Time `json:"time"`
+	Domain       string     `json:"domain"`
+	App          *string    `json:"app"`
+	StatusCode   *int       `json:"status,omitempty"`
+	ResponseSize *int       `json:"size,omitempty"`
+	Error        error      `json:"-"`
+	ErrorStr     *string    `json:"error,omitempty"`
+	Time         *time.Time `json:"time,omitempty"`
+}
+
+// NodeSync contains information on the sync status
+type NodeSync struct {
+	Running  bool       `json:"running"`
+	LastSync *time.Time `json:"lastSync"`
 }
 
 // NodeStatus contains the current status of the node
 type NodeStatus struct {
-	Apps   []NodeApps   `json:"apps"`
+	Sync   NodeSync     `json:"sync"`
 	Health []SiteHealth `json:"health"`
 }
 
 // RequestHealth makes a request to the app and checks its health (status code 2xx)
-func RequestHealth(domain string, ch chan<- SiteHealth) {
+func RequestHealth(domain string, app string, ch chan<- SiteHealth) {
 	var statusCode int
 	var responseSize int
 
@@ -72,9 +68,10 @@ func RequestHealth(domain string, ch chan<- SiteHealth) {
 	if err != nil {
 		ch <- SiteHealth{
 			Domain:       domain,
-			StatusCode:   statusCode,
-			ResponseSize: responseSize,
-			Time:         now,
+			App:          &app,
+			StatusCode:   &statusCode,
+			ResponseSize: &responseSize,
+			Time:         &now,
 			Error:        err,
 		}
 		return
@@ -85,9 +82,10 @@ func RequestHealth(domain string, ch chan<- SiteHealth) {
 	if statusCode < 200 || statusCode > 299 {
 		ch <- SiteHealth{
 			Domain:       domain,
-			StatusCode:   statusCode,
-			ResponseSize: responseSize,
-			Time:         now,
+			App:          &app,
+			StatusCode:   &statusCode,
+			ResponseSize: &responseSize,
+			Time:         &now,
 			Error:        fmt.Errorf("Invalid status code: %d", resp.StatusCode),
 		}
 		return
@@ -98,9 +96,10 @@ func RequestHealth(domain string, ch chan<- SiteHealth) {
 	if err != nil {
 		ch <- SiteHealth{
 			Domain:       domain,
-			StatusCode:   statusCode,
-			ResponseSize: responseSize,
-			Time:         now,
+			App:          &app,
+			StatusCode:   &statusCode,
+			ResponseSize: &responseSize,
+			Time:         &now,
 			Error:        err,
 		}
 		return
@@ -109,9 +108,10 @@ func RequestHealth(domain string, ch chan<- SiteHealth) {
 	if responseSize < 1 {
 		ch <- SiteHealth{
 			Domain:       domain,
-			StatusCode:   statusCode,
-			ResponseSize: responseSize,
-			Time:         now,
+			App:          &app,
+			StatusCode:   &statusCode,
+			ResponseSize: &responseSize,
+			Time:         &now,
 			Error:        fmt.Errorf("Invalid response size: %d", responseSize),
 		}
 		return
@@ -120,9 +120,10 @@ func RequestHealth(domain string, ch chan<- SiteHealth) {
 	// Success!
 	ch <- SiteHealth{
 		Domain:       domain,
-		StatusCode:   statusCode,
-		ResponseSize: responseSize,
-		Time:         now,
+		App:          &app,
+		StatusCode:   &statusCode,
+		ResponseSize: &responseSize,
+		Time:         &now,
 		Error:        nil,
 	}
 }

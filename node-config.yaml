@@ -2,15 +2,14 @@
 # Can also be passed with environmental variable PLATFORM_AUTH
 auth: ""
 
-# Database location
-# Most users should leave this to the default value
-# Can also be passed with environmental variable PLATFORM_DB
-db: "/etc/smplatform/data.db"
-
 # Port the server is listening on (must be a string)
-# Defaults to 3000 if not set
+# Defaults to 2265 if not set
 # Can also be passed with environmental variable PORT
-port: "3000"
+port: "2265"
+
+# File containing the state persistently stored on disk
+# Can also be passed with environmental variable STATE_PATH
+store: "/etc/smplatform/state.json"
 
 # Configuration for the nginx webserver
 nginx:
@@ -62,8 +61,14 @@ codesignKey: "/etc/smplatform/codesign.pub"
 
 # TLS
 tls:
-  # Using TLS is strongly recommended
-  enabled: yes
-  certificate: "/etc/smplatform/node-public.crt"
-  key: "/etc/smplatform/node-private.key"
-  dhparams: "/etc/smplatform/node-dhparams.pem"
+  # Diffie-Hellman parameters used by all TLS-enabled sites
+  dhparams: "/etc/smplatform/dhparams.pem"
+  node:
+    # Using TLS is strongly recommended
+    enabled: yes
+    certificate: "/etc/smplatform/node-public.crt"
+    key: "/etc/smplatform/node-private.key"
+
+# Node name (optional; will default to the hostname)
+# Can also be passed with environmental variable NODE_NAME
+nodeName: ""
