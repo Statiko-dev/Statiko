@@ -50,7 +50,7 @@ func (s *stateStoreFS) SetState(state *NodeState) (err error) {
 
 // WriteState stores the state on disk
 func (s *stateStoreFS) WriteState() (err error) {
-	path := appconfig.Config.GetString("store")
+	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Writing state to disk", path)
 
 	// Convert to JSON
@@ -67,7 +67,7 @@ func (s *stateStoreFS) WriteState() (err error) {
 
 // ReadState reads the state from disk
 func (s *stateStoreFS) ReadState() (err error) {
-	path := appconfig.Config.GetString("store")
+	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Reading state from disk", path)
 
 	// Check if the file exists

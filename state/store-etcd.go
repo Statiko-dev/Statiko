@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/etcd-io/etcd/clientv3"
@@ -39,7 +40,7 @@ func (s *stateStoreEtcd) Init() (err error) {
 	s.lastRevisionPut = 0
 
 	// Connect to the etcd cluster
-	addr := appconfig.Config.GetStringSlice("etcd.addresses")
+	addr := strings.Split(appconfig.Config.GetString("state.etcd.address"), ",")
 	s.client, err = clientv3.New(clientv3.Config{
 		Endpoints:   addr,
 		DialTimeout: 5 * time.Second,
@@ -59,14 +60,14 @@ func (s *stateStoreEtcd) Init() (err error) {
 
 // Returns a context that times out
 func (s *stateStoreEtcd) getContext() (context.Context, context.CancelFunc) {
-	timeout := time.Duration(appconfig.Config.GetInt("etcd.timeout")) * time.Millisecond
+	timeout := time.Duration(appconfig.Config.GetInt("state.etcd.timeout")) * time.Millisecond
 	return context.WithTimeout(s.ctx, timeout)
 }
 
 // Starts the watcher for changes in etcd
 func (s *stateStoreEtcd) watch() {
 	// Start watching for changes in the key
-	key := appconfig.Config.GetString("etcd.key")
+	key := appconfig.Config.GetString("state.etcd.key")
 	rch := s.client.Watch(s.ctx, key)
 
 	for resp := range rch {
@@ -124,7 +125,7 @@ func (s *stateStoreEtcd) WriteState() (err error) {
 
 	// Store in etcd
 	var res *clientv3.PutResponse
-	key := appconfig.Config.GetString("etcd.key")
+	key := appconfig.Config.GetString("state.etcd.key")
 	ctx, cancel := s.getContext()
 	res, err = s.client.Put(ctx, key, string(data))
 	cancel()
@@ -142,7 +143,7 @@ func (s *stateStoreEtcd) ReadState() (err error) {
 	logger.Println("Reading state from etcd")
 
 	// Read the state
-	key := appconfig.Config.GetString("etcd.key")
+	key := appconfig.Config.GetString("state.etcd.key")
 	ctx, cancel := s.getContext()
 	resp, err := s.client.Get(ctx, key)
 	cancel()
