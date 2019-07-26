@@ -30,3 +30,13 @@ type SiteApp struct {
 	Name    string `json:"name" binding:"required"`
 	Version string `json:"version" binding:"required"`
 }
+
+// Internal use
+
+// Interface for the state stores
+type stateStore interface {
+	GetState() *NodeState
+	SetState(*NodeState) error
+	WriteState() error
+	ReadState() error
+}

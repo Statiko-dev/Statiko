@@ -26,27 +26,40 @@ import (
 	"smplatform/utils"
 )
 
-// Store the state on disk
-func writeState(state *NodeState) error {
+type stateStoreFS struct {
+	state *NodeState
+}
+
+// GetState returns the full state
+func (s *stateStoreFS) GetState() *NodeState {
+	return s.state
+}
+
+// StoreState replaces the current state
+func (s *stateStoreFS) SetState(state *NodeState) (err error) {
+	s.state = state
+	return
+}
+
+// WriteState stores the state on disk
+func (s *stateStoreFS) WriteState() (err error) {
 	path := appconfig.Config.GetString("store")
 	logger.Println("Writing state to disk", path)
 
 	// Convert to JSON
-	data, err := json.MarshalIndent(state, "", "  ")
+	var data []byte
+	data, err = json.MarshalIndent(s.state, "", "  ")
 	if err != nil {
-		return err
+		return
 	}
 
 	// Write to disk
-	if err := renameio.WriteFile(path, data, 0644); err != nil {
-		return err
-	}
-
-	return nil
+	err = renameio.WriteFile(path, data, 0644)
+	return
 }
 
-// Read the state from disk
-func readState() (state *NodeState, err error) {
+// ReadState reads the state from disk
+func (s *stateStoreFS) ReadState() (err error) {
 	path := appconfig.Config.GetString("store")
 	logger.Println("Reading state from disk", path)
 
@@ -66,19 +79,19 @@ func readState() (state *NodeState, err error) {
 		}
 
 		// Parse JSON
-		state = &NodeState{}
-		err = json.Unmarshal(data, state)
+		s.state = &NodeState{}
+		err = json.Unmarshal(data, s.state)
 	} else {
 		logger.Println("Will create new state file", path)
 
 		// File doesn't exist, so load an empty state
 		sites := make([]SiteState, 0)
-		state = &NodeState{
+		s.state = &NodeState{
 			Sites: sites,
 		}
 
 		// Write the empty state to disk
-		err = writeState(state)
+		err = s.WriteState()
 	}
 
 	return
