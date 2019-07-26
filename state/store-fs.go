@@ -108,3 +108,8 @@ func (s *stateStoreFS) ReadState() (err error) {
 func (s *stateStoreFS) Healthy() (bool, error) {
 	return true, nil
 }
+
+// OnStateUpdate isn't used with this store
+func (s *stateStoreFS) OnStateUpdate(callback func()) {
+	// NOOP
+}

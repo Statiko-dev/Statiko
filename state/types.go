@@ -41,4 +41,5 @@ type stateStore interface {
 	WriteState() error
 	ReadState() error
 	Healthy() (bool, error)
+	OnStateUpdate(func())
 }

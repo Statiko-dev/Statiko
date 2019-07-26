@@ -34,6 +34,7 @@ type stateStoreEtcd struct {
 	client          *clientv3.Client
 	ctx             context.Context
 	lastRevisionPut int64
+	updateCallback  func()
 }
 
 // Init initializes the object
@@ -91,6 +92,11 @@ func (s *stateStoreEtcd) watch() {
 				if err != nil {
 					logger.Println("Error while parsing state", err)
 					s.state = oldState
+				}
+
+				// Invoke the callback as the state has been replaced
+				if s.updateCallback != nil {
+					s.updateCallback()
 				}
 			} else {
 				logger.Println("Ignoring an older state received from etcd: version", event.Kv.ModRevision)
@@ -193,4 +199,9 @@ func (s *stateStoreEtcd) Healthy() (healthy bool, err error) {
 	}
 
 	return
+}
+
+// OnStateUpdate stores the callback that is invoked when there's a new state from etcd
+func (s *stateStoreEtcd) OnStateUpdate(callback func()) {
+	s.updateCallback = callback
 }

@@ -228,3 +228,8 @@ func (m *Manager) DeleteSite(domain string) error {
 func (m *Manager) StoreHealth() (healthy bool, err error) {
 	return m.store.Healthy()
 }
+
+// OnStateUpdate stores the callback to invoke if the state is updated because of an external event
+func (m *Manager) OnStateUpdate(callback func()) {
+	m.store.OnStateUpdate(callback)
+}

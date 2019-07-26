@@ -19,6 +19,8 @@ package sync
 import (
 	"log"
 	"os"
+
+	"smplatform/state"
 )
 
 // Package-wide properties
@@ -30,4 +32,9 @@ var (
 func init() {
 	// Initialize the logger
 	logger = log.New(os.Stdout, "sync: ", log.Ldate|log.Ltime|log.LUTC)
+
+	// Set callback so if the state is updated because of external events, a sync is triggered
+	state.Instance.OnStateUpdate(func() {
+		QueueRun()
+	})
 }
