@@ -57,7 +57,10 @@ func DeploySiteHandler(c *gin.Context) {
 	site.App = &app
 
 	// Update the app
-	state.Instance.UpdateSite(site, true)
+	if err := state.Instance.UpdateSite(site, true); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
 
 	// Queue a sync
 	sync.QueueRun()

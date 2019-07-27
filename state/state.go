@@ -20,34 +20,47 @@ import (
 	"errors"
 	"time"
 
+	"smplatform/appconfig"
 	"smplatform/utils"
 )
 
 // Manager is the state manager class
 type Manager struct {
-	state   *NodeState
 	updated *time.Time
+	store   stateStore
 }
 
 // Init loads the state from the store
-func (m *Manager) Init() error {
-	// Read the state from disk
-	var err error
-	m.state, err = readState()
-	if err != nil {
-		return err
+func (m *Manager) Init() (err error) {
+	// Get store type
+	typ := appconfig.Config.GetString("state.store")
+	switch typ {
+	case "file":
+		m.store = &stateStoreFS{}
+	case "etcd":
+		m.store = &stateStoreEtcd{}
+	default:
+		err = errors.New("Invalid value for configuration `state.store`; valid options are `file` or `etcd`")
+		return
 	}
-
-	return nil
+	err = m.store.Init()
+	return
 }
 
 // DumpState exports the entire state
 func (m *Manager) DumpState() (*NodeState, error) {
-	return m.state, nil
+	return m.store.GetState(), nil
 }
 
 // ReplaceState replaces the full state for the node with the provided one
 func (m *Manager) ReplaceState(state *NodeState) error {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
 	// Ensure that errors aren't included
 	for _, s := range state.Sites {
 		if s.Error != nil {
@@ -59,15 +72,13 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 	}
 
 	// Replace the state
-	m.state = state
+	if err := m.store.SetState(state); err != nil {
+		return err
+	}
 	m.setUpdated()
 
 	// Write the file to disk
-	obj, err := m.DumpState()
-	if err != nil {
-		return err
-	}
-	if err := writeState(obj); err != nil {
+	if err := m.store.WriteState(); err != nil {
 		return err
 	}
 
@@ -87,12 +98,14 @@ func (m *Manager) LastUpdated() *time.Time {
 
 // GetSites returns the list of all sites
 func (m *Manager) GetSites() []SiteState {
-	return m.state.Sites
+	state := m.store.GetState()
+	return state.Sites
 }
 
 // GetSite returns the site object for a specific domain (including aliases)
 func (m *Manager) GetSite(domain string) *SiteState {
-	for _, s := range m.state.Sites {
+	sites := m.GetSites()
+	for _, s := range sites {
 		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
 			return &s
 		}
@@ -103,20 +116,24 @@ func (m *Manager) GetSite(domain string) *SiteState {
 
 // AddSite adds a site to the store
 func (m *Manager) AddSite(site *SiteState) error {
-	// Reset the error
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
+	// Reset the error in the site object
 	site.Error = nil
 	site.ErrorStr = nil
 
 	// Add the site
-	m.state.Sites = append(m.state.Sites, *site)
+	state := m.store.GetState()
+	state.Sites = append(state.Sites, *site)
 	m.setUpdated()
 
 	// Write the file to disk
-	obj, err := m.DumpState()
-	if err != nil {
-		return err
-	}
-	if err := writeState(obj); err != nil {
+	if err := m.store.WriteState(); err != nil {
 		return err
 	}
 
@@ -125,6 +142,13 @@ func (m *Manager) AddSite(site *SiteState) error {
 
 // UpdateSite updates a site with the same Domain
 func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
 	// Sync ErrorStr with Error
 	if site.Error != nil {
 		errorStr := site.Error.Error()
@@ -135,10 +159,11 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 
 	// Replace in the memory state
 	found := false
-	for i, s := range m.state.Sites {
+	state := m.store.GetState()
+	for i, s := range state.Sites {
 		if s.Domain == site.Domain {
 			// Replace the element
-			m.state.Sites[i] = *site
+			state.Sites[i] = *site
 
 			found = true
 			break
@@ -155,11 +180,7 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 	}
 
 	// Write the file to disk
-	obj, err := m.DumpState()
-	if err != nil {
-		return err
-	}
-	if err := writeState(obj); err != nil {
+	if err := m.store.WriteState(); err != nil {
 		return err
 	}
 
@@ -168,12 +189,21 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 
 // DeleteSite remvoes a site from the store
 func (m *Manager) DeleteSite(domain string) error {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
+	// Update the state
 	found := false
-	for i, s := range m.state.Sites {
+	state := m.store.GetState()
+	for i, s := range state.Sites {
 		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
 			// Remove the element
-			m.state.Sites[i] = m.state.Sites[len(m.state.Sites)-1]
-			m.state.Sites = m.state.Sites[:len(m.state.Sites)-1]
+			state.Sites[i] = state.Sites[len(state.Sites)-1]
+			state.Sites = state.Sites[:len(state.Sites)-1]
 
 			found = true
 			break
@@ -187,13 +217,19 @@ func (m *Manager) DeleteSite(domain string) error {
 	m.setUpdated()
 
 	// Write the file to disk
-	obj, err := m.DumpState()
-	if err != nil {
-		return err
-	}
-	if err := writeState(obj); err != nil {
+	if err := m.store.WriteState(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// StoreHealth returns true if the store is healthy
+func (m *Manager) StoreHealth() (healthy bool, err error) {
+	return m.store.Healthy()
+}
+
+// OnStateUpdate stores the callback to invoke if the state is updated because of an external event
+func (m *Manager) OnStateUpdate(callback func()) {
+	m.store.OnStateUpdate(callback)
 }

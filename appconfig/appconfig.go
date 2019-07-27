@@ -74,13 +74,17 @@ func (c *appConfig) Load() error {
 	viper.SetDefault("nodeName", hostname)
 
 	// Some settings can be set as env vars too
-	viper.BindEnv("auth", "PLATFORM_AUTH")
+	viper.BindEnv("auth", "AUTH")
 	viper.BindEnv("port", "PORT")
-	viper.BindEnv("store", "STATE_PATH")
-	viper.BindEnv("appRoot", "PLATFORM_APP_ROOT")
-	viper.BindEnv("nginx.commands.start", "PLATFORM_NGINX_START")
-	viper.BindEnv("nginx.commands.stop", "PLATFORM_NGINX_STOP")
-	viper.BindEnv("nginx.commands.restart", "PLATFORM_NGINX_RESTART")
+	viper.BindEnv("state.store", "STATE_STORE")
+	viper.BindEnv("state.file.path", "STATE_FILE_PATH")
+	viper.BindEnv("state.etcd.key", "STATE_ETCD_KEY")
+	viper.BindEnv("state.etcd.timeout", "STATE_ETCD_TIMEOUT")
+	viper.BindEnv("state.etcd.address", "STATE_ETCD_ADDRESS")
+	viper.BindEnv("appRoot", "APP_ROOT")
+	viper.BindEnv("nginx.commands.start", "NGINX_START")
+	viper.BindEnv("nginx.commands.stop", "NGINX_STOP")
+	viper.BindEnv("nginx.commands.restart", "NGINX_RESTART")
 	viper.BindEnv("azureKeyVault.name", "AZURE_KEYVAULT_NAME")
 	viper.BindEnv("azureKeyVault.servicePrincipal.tenantId", "AZURE_TENANT_ID")
 	viper.BindEnv("azureKeyVault.servicePrincipal.clientId", "AZURE_CLIENT_ID")
@@ -111,7 +115,17 @@ func (c *appConfig) GetString(key string) string {
 	return viper.GetString(key)
 }
 
-// GetBool returns the value as boolean
+// GetString returns the value as slice of strings
+func (c *appConfig) GetStringSlice(key string) []string {
+	return viper.GetStringSlice(key)
+}
+
+// GetBool returns the value as bool
 func (c *appConfig) GetBool(key string) bool {
 	return viper.GetBool(key)
+}
+
+// GetInt returns the value as int
+func (c *appConfig) GetInt(key string) int {
+	return viper.GetInt(key)
 }

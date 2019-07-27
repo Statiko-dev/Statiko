@@ -26,28 +26,48 @@ import (
 	"smplatform/utils"
 )
 
-// Store the state on disk
-func writeState(state *NodeState) error {
-	path := appconfig.Config.GetString("store")
+type stateStoreFS struct {
+	state *NodeState
+}
+
+// Init initializes the object
+func (s *stateStoreFS) Init() (err error) {
+	// Read the state from disk
+	err = s.ReadState()
+	return
+}
+
+// GetState returns the full state
+func (s *stateStoreFS) GetState() *NodeState {
+	return s.state
+}
+
+// StoreState replaces the current state
+func (s *stateStoreFS) SetState(state *NodeState) (err error) {
+	s.state = state
+	return
+}
+
+// WriteState stores the state on disk
+func (s *stateStoreFS) WriteState() (err error) {
+	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Writing state to disk", path)
 
 	// Convert to JSON
-	data, err := json.MarshalIndent(state, "", "  ")
+	var data []byte
+	data, err = json.MarshalIndent(s.state, "", "  ")
 	if err != nil {
-		return err
+		return
 	}
 
 	// Write to disk
-	if err := renameio.WriteFile(path, data, 0644); err != nil {
-		return err
-	}
-
-	return nil
+	err = renameio.WriteFile(path, data, 0644)
+	return
 }
 
-// Read the state from disk
-func readState() (state *NodeState, err error) {
-	path := appconfig.Config.GetString("store")
+// ReadState reads the state from disk
+func (s *stateStoreFS) ReadState() (err error) {
+	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Reading state from disk", path)
 
 	// Check if the file exists
@@ -66,20 +86,30 @@ func readState() (state *NodeState, err error) {
 		}
 
 		// Parse JSON
-		state = &NodeState{}
-		err = json.Unmarshal(data, state)
+		s.state = &NodeState{}
+		err = json.Unmarshal(data, s.state)
 	} else {
 		logger.Println("Will create new state file", path)
 
 		// File doesn't exist, so load an empty state
 		sites := make([]SiteState, 0)
-		state = &NodeState{
+		s.state = &NodeState{
 			Sites: sites,
 		}
 
 		// Write the empty state to disk
-		err = writeState(state)
+		err = s.WriteState()
 	}
 
 	return
+}
+
+// Healthy returns always true
+func (s *stateStoreFS) Healthy() (bool, error) {
+	return true, nil
+}
+
+// OnStateUpdate isn't used with this store
+func (s *stateStoreFS) OnStateUpdate(callback func()) {
+	// NOOP
 }

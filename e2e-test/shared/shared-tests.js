@@ -21,6 +21,7 @@ const {promisify} = require('util')
 const fs = require('fs')
 const request = require('supertest')
 const validator = require('validator')
+const yaml = require('js-yaml')
 
 const utils = require('./utils')
 const appData = require('./app-data')
@@ -40,6 +41,9 @@ const nginxUrl = process.env.NGINX_URL || 'localhost'
 // Supertest instances
 const nodeRequest = request('https://' + nodeUrl)
 const nginxRequest = request('https://' + nginxUrl)
+
+// Load node's config
+const nodeConfig = yaml.safeLoad(fs.readFileSync('/etc/smplatform/node-config.yaml'))
 
 // Checks the /status page
 async function checkStatus(sites) {
@@ -427,8 +431,10 @@ const tests = {
             // Check if directory exists
             assert(await utils.folderExists('/etc/smplatform'))
 
-            // Check for config file
-            assert(await utils.fileExists('/etc/smplatform/state.json'))
+            // Check for config file if storing on file
+            if ((process.env.STATE_STORE && process.env.STATE_STORE == 'file') || (nodeConfig && nodeConfig.state && nodeConfig.state.store == 'file')) {
+                assert(await utils.fileExists('/etc/smplatform/state.json'))
+            }
         }
     },
 

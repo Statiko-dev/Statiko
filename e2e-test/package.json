@@ -11,10 +11,11 @@
   "author": "Alessandro Segala (@ItalyPaleAle)",
   "license": "GPL-3.0-only",
   "dependencies": {
-    "mocha": "^6.1.4",
-    "mocha-junit-reporter": "^1.23.0",
+    "js-yaml": "^3.13.1",
+    "mocha": "^6.2.0",
+    "mocha-junit-reporter": "^1.23.1",
     "supertest": "^4.0.2",
-    "validator": "^11.0.0"
+    "validator": "^11.1.0"
   },
   "devDependencies": {
     "eslint": "^5.16.0"

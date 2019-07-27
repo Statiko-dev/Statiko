@@ -62,8 +62,7 @@ func CreateSiteHandler(c *gin.Context) {
 	site.TLSCertificateVersion = nil
 
 	// Add the website to the store
-	err := state.Instance.AddSite(site)
-	if err != nil {
+	if err := state.Instance.AddSite(site); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
@@ -107,8 +106,7 @@ func ShowSiteHandler(c *gin.Context) {
 func DeleteSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
 		// Delete the record
-		err := state.Instance.DeleteSite(domain)
-		if err != nil {
+		if err := state.Instance.DeleteSite(domain); err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
@@ -229,7 +227,10 @@ func PatchSiteHandler(c *gin.Context) {
 
 	// Update the site object if something has changed
 	if updated {
-		state.Instance.UpdateSite(site, true)
+		if err := state.Instance.UpdateSite(site, true); err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
 
 		// Queue a sync
 		sync.QueueRun()

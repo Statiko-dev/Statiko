@@ -1,5 +1,5 @@
 # Authorization token
-# Can also be passed with environmental variable PLATFORM_AUTH
+# Can also be passed with environmental variable AUTH
 auth: ""
 
 # Port the server is listening on (must be a string)
@@ -7,9 +7,29 @@ auth: ""
 # Can also be passed with environmental variable PORT
 port: "2265"
 
-# File containing the state persistently stored on disk
-# Can also be passed with environmental variable STATE_PATH
-store: "/etc/smplatform/state.json"
+# State storage configuration
+state:
+  # Where to store state - can be "file" or "etcd"
+  # Can also be passed with environmental variable STATE_STORE
+  store: "file"
+
+  # Configuration for when "store" is "file"
+  file:
+    # File containing the state persistently stored on disk
+    # Can also be passed with environmental variable STATE_FILE_PATH
+    path: "/etc/smplatform/state.json"
+
+  # Configuration for when "store" is "etcd"
+  etcd:
+    # Key where the state is stored in etcd
+    # Can also be passed with environmental variable STATE_ETCD_KEY
+    key: "smplatform"
+    # Timeout in ms
+    # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
+    timeout: 15000
+    # List of etcd node addresses to connect to, comma-separated
+    # Can also be passed with environmental variable STATE_ETCD_ADDRESS
+    address: "http://localhost:2379,http://etcd:2379"
 
 # Configuration for the nginx webserver
 nginx:
@@ -17,16 +37,16 @@ nginx:
   configPath: "/etc/nginx/"
   # Shell commands to start/stop/restart(reload) nginx
   commands:
-    # Can also be passed with environmental variable PLATFORM_NGINX_START
+    # Can also be passed with environmental variable NGINX_START
     start: "service nginx start"
-    # Can also be passed with environmental variable PLATFORM_NGINX_STOP
+    # Can also be passed with environmental variable NGINX_STOP
     stop: "service nginx stop"
-    # Can also be passed with environmental variable PLATFORM_NGINX_RESTART
+    # Can also be passed with environmental variable NGINX_RESTART
     restart: "[[ $(service nginx status) ]] && service nginx reload || service nginx restart"
 
 # Path
 # Use a folder inside /mnt (e.g. /mnt/data/) for Azure VMs to leverage the locally-attached SSD
-# Can also be passed with environmental variable PLATFORM_APP_ROOT
+# Can also be passed with environmental variable APP_ROOT
 appRoot: "/data/"
 
 # Azure Key Vault
