@@ -432,7 +432,7 @@ const tests = {
             assert(await utils.folderExists('/etc/smplatform'))
 
             // Check for config file if storing on file
-            if (nodeConfig && nodeConfig.state && nodeConfig.state.store == 'file') {
+            if ((process.env.STATE_STORE && process.env.STATE_STORE == 'file') || (nodeConfig && nodeConfig.state && nodeConfig.state.store == 'file')) {
                 assert(await utils.fileExists('/etc/smplatform/state.json'))
             }
         }
