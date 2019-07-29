@@ -155,7 +155,7 @@ func (akv *Certificate) GetCertificate(certificateName string, certificateVersio
 	}
 
 	// Request the certificate and key
-	akv.logger.Printf("Getting PFX for %s\n", certificateName)
+	akv.logger.Printf("Getting PFX for %s, version %s\n", certificateName, certificateVersion)
 	pfxKey, pfxCert, err := akv.requestCertificatePFX(certificateName, certificateVersion)
 	if err != nil {
 		return certificateVersion, nil, nil, err
@@ -168,7 +168,7 @@ func (akv *Certificate) GetCertificate(certificateName string, certificateVersio
 	}
 
 	// Convert to PEM
-	akv.logger.Printf("Converting to PEM for %s\n", certificateName)
+	akv.logger.Printf("Converting to PEM for %s, version %s\n", certificateName, certificateVersion)
 	keyBlock := &pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: keyX509,
