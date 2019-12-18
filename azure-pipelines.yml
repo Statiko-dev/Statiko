@@ -6,7 +6,7 @@ resources:
 
 variables:
   # Go
-  GOVERSION: '1.12'
+  GOVERSION: '1.13'
   GOROOT: '/usr/local/go$(GOVERSION)'
   GOPATH: '/home/vsts/go'
 
@@ -19,6 +19,8 @@ variables:
   testDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile'
   coverageDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile-coverage'
   testImageRepository: 'smplatform-test'
+
+# TODO: Switch to pipeline artifacts, then on non-build stages do not check out source code anymore (checkout: none)
 
 stages:
   - stage: build
@@ -46,7 +48,6 @@ stages:
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               GO111MODULE=on \
-              GOFLAGS=-mod=vendor \
                 go build \
                   -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
                   -o bin/smplatform_linux_amd64
@@ -60,7 +61,6 @@ stages:
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               GO111MODULE=on \
-              GOFLAGS=-mod=vendor \
                 go test \
                   -coverpkg=smplatform/... \
                   -c \
@@ -78,7 +78,6 @@ stages:
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               GO111MODULE=on \
-              GOFLAGS=-mod=vendor \
               GOOS=linux \
               GOARCH=arm64 \
                 go build \
@@ -96,7 +95,6 @@ stages:
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               GO111MODULE=on \
-              GOFLAGS=-mod=vendor \
               GOOS=linux \
               GOARCH=arm \
               GOARM=7 \
