@@ -49,7 +49,7 @@ stages:
 
               GO111MODULE=on \
                 go build \
-                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   -o bin/smplatform_linux_amd64
             displayName: "Build amd64"
           # Build amd64 with coverage
@@ -65,7 +65,7 @@ stages:
                   -coverpkg=smplatform/... \
                   -c \
                   -tags e2etests \
-                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   -o bin/smplatform_linux_amd64.test
             displayName: "Build amd64 with coverage"
           # Build arm64
@@ -81,7 +81,7 @@ stages:
               GOOS=linux \
               GOARCH=arm64 \
                 go build \
-                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   -o bin/smplatform_linux_arm64
             displayName: "Build arm64"
             condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
@@ -99,7 +99,7 @@ stages:
               GOARCH=arm \
               GOARM=7 \
                 go build \
-                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
+                  -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
                   -o bin/smplatform_linux_armhf
             displayName: "Build armhf"
             condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
