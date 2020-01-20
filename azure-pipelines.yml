@@ -29,7 +29,7 @@ stages:
       - job: build
         displayName: Build artifacts for Linux (amd64, arm64, armhf)
         pool:
-          vmImage: ubuntu-16.04
+          vmImage: ubuntu-18.04
         steps:
           # Set up go environment
           - bash: |
@@ -123,17 +123,7 @@ stages:
     jobs:
       - job: docker
         displayName: Containerize and test
-        strategy:
-          matrix:
-            amd64:
-              AGENT_POOL: 'Hosted Ubuntu 1604'
-              BUILD_ARCH: amd64
-              NODE_ARCH: x64
-            armhf:
-              AGENT_POOL: 'armhf'
-              BUILD_ARCH: armhf
-              NODE_ARCH: armv7l
-        pool: $(AGENT_POOL)
+        pool: ubuntu-18.04
         steps:
           # Download build artifacts from previous stage
           - task: DownloadBuildArtifacts@0
@@ -142,7 +132,6 @@ stages:
               buildType: current
               artifactName: drop
               downloadPath: '$(Build.ArtifactStagingDirectory)'
-              condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
           # Copy binaries from the artifacts staging directory
           - task: CopyFiles@2
             displayName: Copy binaries from the artifacts staging directory
@@ -150,7 +139,6 @@ stages:
               sourceFolder: '$(Build.ArtifactStagingDirectory)/drop'
               contents: '**/*'
               targetFolder: 'bin/'
-            condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
           # Build Docker image
           - task: Docker@2
             displayName: Build Docker image
@@ -160,15 +148,9 @@ stages:
               repository: $(imageRepository)
               dockerfile: $(dockerfilePath)
               containerRegistry: $(dockerRegistryServiceConnection)
-              arguments: |
-                --build-arg ARCH=$(BUILD_ARCH)
               tags: |
                 latest
-                latest-linux-$(BUILD_ARCH)
-                $(dockerTag)-linux-$(BUILD_ARCH)
-            condition: "and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))"
           # Build Docker test image with coverage
-          # Run this on amd64 only
           - bash: |
               set -e
               mkdir e2e-test/bin
@@ -176,22 +158,8 @@ stages:
               docker build \
                 -f $(coverageDockerfilePath) \
                 -t $(testImageRepository) \
-                --build-arg ARCH=$(BUILD_ARCH) \
-                --build-arg NODE_ARCH=$(NODE_ARCH) \
                 $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image with coverage
-            condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
-          # Build Docker test image
-          # Run this on archs different from amd64
-          - bash: |
-              docker build \
-                -f $(testDockerfilePath) \
-                -t $(testImageRepository) \
-                --build-arg ARCH=$(BUILD_ARCH) \
-                --build-arg NODE_ARCH=$(NODE_ARCH) \
-                $(Build.SourcesDirectory)/e2e-test
-            displayName: Build Docker test image
-            condition: and(succeeded(), ne(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
           # Run end-to-end tests
           - bash: |
               set -e
@@ -206,16 +174,13 @@ stages:
                 --add-host "smplatform.local:127.0.0.1" \
                 $(testImageRepository)
             displayName:  Run end-to-end tests
-            condition: and(succeeded(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))
           # Publish test results
           - task: PublishTestResults@2
             displayName: Publish test results
             inputs:
               testRunner: JUnit
               testResultsFiles: e2e-test/results/*.xml
-            condition: and(succeededOrFailed(), or(eq(variables['BUILD_ARCH'], 'amd64'), eq(variables['Build.SourceBranch'], 'refs/heads/master')))
           # Get coverage tools
-          # Run this on amd64 only
           - task: UniversalPackages@0
             inputs:
               command: download
@@ -224,9 +189,7 @@ stages:
               vstsFeedPackage: 'coverage-linux-amd64'
               vstsPackageVersion: 1.0.0
             displayName: Get coverage tools
-            condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Convert coverage results
-          # Run this on amd64 only
           - bash: |
               set -e
               chmod +x ./bin/gocov*
@@ -234,9 +197,7 @@ stages:
               sudo chmod 0666 e2e-test/results/*
               ./bin/gocov convert e2e-test/results/coverage.out | ./bin/gocov-xml > e2e-test/results/coverage.xml
             displayName: Convert coverage results
-            condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Publish coverage results
-          # Run this on amd64 only
           - task: PublishCodeCoverageResults@1
             inputs: 
               codeCoverageTool: Cobertura
@@ -253,8 +214,7 @@ stages:
               repository: $(imageRepository)
               containerRegistry: $(dockerRegistryServiceConnection)
               tags: |
-                latest-linux-$(BUILD_ARCH)
-                $(dockerTag)-linux-$(BUILD_ARCH)
+                latest
           # Post-build cleanup
           - bash: |
               # Delete files from disk
