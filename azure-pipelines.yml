@@ -123,7 +123,8 @@ stages:
     jobs:
       - job: docker
         displayName: Containerize and test
-        pool: ubuntu-18.04
+        pool: 
+          vmImage: ubuntu-18.04
         steps:
           # Download build artifacts from previous stage
           - task: DownloadBuildArtifacts@0
