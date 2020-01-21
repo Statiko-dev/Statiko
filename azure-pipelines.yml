@@ -20,8 +20,6 @@ variables:
   coverageDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile-coverage'
   testImageRepository: 'smplatform-test'
 
-# TODO: Switch to pipeline artifacts, then on non-build stages do not check out source code anymore (checkout: none)
-
 stages:
   - stage: build
     displayName: Build SMPlatform artifacts
@@ -181,6 +179,8 @@ stages:
             inputs:
               testRunner: JUnit
               testResultsFiles: e2e-test/results/*.xml
+            # This step always runs, even if the tests failed
+            condition: succeededOrFailed()
           # Get coverage tools
           - task: UniversalPackages@0
             inputs:
@@ -216,13 +216,14 @@ stages:
               tags: |
                 latest
           # Post-build cleanup
-          - bash: |
-              # Delete files from disk
-              sudo rm -rvf $(Agent.BuildDirectory) || true
-              sudo rm -rvf $(Build.SourcesDirectory) || true
-              sudo rm -rvf $(Build.ArtifactStagingDirectory) || true
-              # Remove Docker images
-              docker rmi -f $(docker images -q) || true
-            displayName: "Post-build cleanup"
-            # This step always runs, even if the pipeline failed
-            condition: always()
+          # Necessary only for self-hosted pipelines
+          #- bash: |
+          #    # Delete files from disk
+          #    sudo rm -rvf $(Agent.BuildDirectory) || true
+          #    sudo rm -rvf $(Build.SourcesDirectory) || true
+          #    sudo rm -rvf $(Build.ArtifactStagingDirectory) || true
+          #    # Remove Docker images
+          #    docker rmi -f $(docker images -q) || true
+          #  displayName: "Post-build cleanup"
+          #  # This step always runs, even if the pipeline failed
+          #  condition: always()
