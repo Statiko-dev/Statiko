@@ -113,9 +113,8 @@ describe('Manage sites', function() {
             const site = findSite(el.domain)
             assert(site)
 
-            assert.deepStrictEqual(Object.keys(el).sort(), ['clientCaching', 'tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+            assert.deepStrictEqual(Object.keys(el).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
             assert(!el.error)
-            assert.strictEqual(el.clientCaching, site.clientCaching)
             assert.strictEqual(el.tlsCertificate, site.tlsCertificate)
             if (site.tlsCertificate) {
                 assert.strictEqual(el.tlsCertificateVersion, tlsData[el.tlsCertificate])
@@ -145,9 +144,8 @@ describe('Manage sites', function() {
         // Tests for site1
         site = findSite('site1.local')
         assert(response.body)
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['clientCaching', 'tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
         assert(!response.body.error)
-        assert.strictEqual(response.body.clientCaching, site.clientCaching)
         assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
         if (site.tlsCertificate) {
             assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
@@ -165,9 +163,8 @@ describe('Manage sites', function() {
         // Tests for site2
         site = findSite('site2.local')
         assert(response.body)
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['clientCaching', 'tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
         assert(!response.body.error)
-        assert.strictEqual(response.body.clientCaching, site.clientCaching)
         assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
         if (site.tlsCertificate) {
             assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
@@ -189,7 +186,7 @@ describe('Manage sites', function() {
 
         // Update site1 multiple times
         const site = cloneObject(findSite('site1.local'))
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 3; i++) {
             await shared.nodeRequest
                 .patch('/site/site1.local')
                 .set('Authorization', shared.auth)
@@ -208,9 +205,8 @@ describe('Manage sites', function() {
 
             // Tests
             assert(response.body)
-            assert.deepStrictEqual(Object.keys(response.body).sort(), ['clientCaching', 'tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+            assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
             assert(!response.body.error)
-            assert.strictEqual(response.body.clientCaching, site.clientCaching)
             assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
             if (site.tlsCertificate) {
                 assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
@@ -219,8 +215,8 @@ describe('Manage sites', function() {
             assert.deepStrictEqual(response.body.app, null)
 
             // Check the nginx config
-            // Skip this for patch 4 as it shouldn't change
-            if (i <= 3) {
+            // Skip this for patch 3 as it shouldn't change
+            if (i <= 2) {
                 assert.equal(
                     (await fsReadFile('/etc/nginx/conf.d/site1.local.conf', 'utf8')).trim(),
                     (await fsReadFile('fixtures/nginx-site1patch' + i + '.conf', 'utf8')).trim()

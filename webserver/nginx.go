@@ -19,6 +19,7 @@ package webserver
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -94,6 +95,11 @@ func (n *NginxConfig) DesiredConfiguration(sites []state.SiteState) (config Conf
 
 	// Configuration for each site
 	for _, s := range sites {
+		// If there's a manifest, show it here
+		if s.App != nil && len(s.App.Manifest) > 0 {
+			fmt.Println("Manifest: ", s.App.Manifest)
+		}
+
 		// If the site/app failed to deploy, skip this
 		if s.Error != nil {
 			n.logger.Println("Skipping site with error (in DesiredConfiguration)", s.Domain)

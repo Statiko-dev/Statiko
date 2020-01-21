@@ -306,16 +306,15 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 
 	// Iterate through the sites looking for apps
 	requested := 0
+	appIndexes := make(map[string]int)
 	expectApps := make([]string, 1)
 	expectApps[0] = "_default"
-	for _, s := range sites {
+	for i, s := range sites {
 		// Reset the error
 		if s.Error != nil {
 			s.Error = nil
 			state.Instance.UpdateSite(&s, true)
 		}
-
-		app := s.App
 
 		// Check if the jobs channel is full
 		for len(jobs) == cap(jobs) {
@@ -325,18 +324,18 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 		}
 
 		// If there's no app, skip this
-		if app == nil {
+		if s.App == nil {
 			continue
 		}
 
 		// Check if we have the app deployed
-		folderName := app.Name + "-" + app.Version
+		folderName := s.App.Name + "-" + s.App.Version
 		exists, err := utils.PathExists(m.appRoot + "apps/" + folderName)
 		if err != nil {
 			return err
 		}
 		if !exists {
-			m.log.Println("Need to fetch ", app.Name, app.Version)
+			m.log.Println("Need to fetch ", s.App.Name, s.App.Version)
 
 			// We need to deploy the app
 			// Use the worker pool to handle concurrency
@@ -344,8 +343,9 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 			requested++
 		}
 
-		// Add app to expected list
+		// Add app to expected list and the index to the dictionary
 		expectApps = append(expectApps, folderName)
+		appIndexes[folderName] = i
 	}
 
 	// No more jobs; close the channel
@@ -359,6 +359,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 
 	// Look for extraneous folders in the /approot/apps directory
 	// Note that we are not deleting the apps' bundles from the cache, however - just the staged folder
+	// We are also scanning for manifest files here
 	files, err := ioutil.ReadDir(m.appRoot + "apps/")
 	if err != nil {
 		return err
@@ -375,6 +376,25 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 					// Do not return on error
 					m.log.Println("Error ignored while removing extraneous folder", m.appRoot+"apps/"+name, err)
 				}
+			}
+
+			// Check if there's a manifest file
+			manifestFile := m.appRoot + "apps/" + name + "/" + appconfig.Config.GetString("manifestFile")
+			exists, err := utils.FileExists(manifestFile)
+			if err != nil {
+				return err
+			}
+			if exists {
+				readBytes, err := ioutil.ReadFile(manifestFile)
+				if err != nil {
+					return err
+				}
+				// Get the index of the item in the slice to update
+				i, ok := appIndexes[name]
+				if !ok {
+					return errors.New("Cannot find index for app " + name)
+				}
+				sites[i].App.Manifest = string(readBytes)
 			}
 		} else {
 			// There shouldn't be any file; delete extraneous stuff

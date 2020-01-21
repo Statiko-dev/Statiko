@@ -74,6 +74,24 @@ func PathExists(path string) (bool, error) {
 	return err == nil, err
 }
 
+// FileExists returns true if the path exists on disk and it's not a folder
+func FileExists(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		// Ignore the error if it's a "not exists", that's the goal
+		if os.IsNotExist(err) {
+			err = nil
+		}
+		return false, err
+	}
+	if info.IsDir() {
+		// Exists and it's a folder
+		return false, nil
+	}
+	// Exists and it's a file (not a folder)
+	return true, nil
+}
+
 // FolderExists returns true if the path exists on disk and it's a folder
 func FolderExists(path string) (bool, error) {
 	info, err := os.Stat(path)

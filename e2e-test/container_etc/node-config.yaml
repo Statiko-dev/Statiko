@@ -92,3 +92,6 @@ tls:
 # Node name (optional; will default to the hostname)
 # Can also be passed with environmental variable NODE_NAME
 nodeName: "e2e-test"
+
+# Name for the manifest file inside app bundles
+manifestFile: "_smplatform.yaml"

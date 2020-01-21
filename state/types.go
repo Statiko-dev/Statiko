@@ -24,7 +24,6 @@ type NodeState struct {
 // SiteState represents the state of a single site
 type SiteState struct {
 	// Configuration
-	ClientCaching         bool    `json:"clientCaching"`
 	TLSCertificate        *string `json:"tlsCertificate"`
 	TLSCertificateVersion *string `json:"tlsCertificateVersion"`
 
@@ -45,6 +44,9 @@ type SiteApp struct {
 	// App details
 	Name    string `json:"name" binding:"required"`
 	Version string `json:"version" binding:"required"`
+
+	// App manifest (for internal use)
+	Manifest string `json:"-"`
 }
 
 // Internal use

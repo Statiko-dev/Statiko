@@ -24,7 +24,6 @@ const sitesData = {
         domain: 'site1.local',
         tlsCertificate: 'site1',
         tlsCertificateVersion: '72cd150c5f394bd190749cdb22d0f731',
-        clientCaching: true,
         aliases: [
             'site1-alias.local',
             'mysite.local'
@@ -33,7 +32,6 @@ const sitesData = {
     site2: {
         domain: 'site2.local',
         tlsCertificate: 'site2',
-        clientCaching: false,
         aliases: [
             'site2-alias.local'
         ]
@@ -41,7 +39,6 @@ const sitesData = {
     site3: {
         domain: 'site3.local',
         tlsCertificate: 'site3',
-        clientCaching: true,
         aliases: []
     },
 
@@ -49,13 +46,11 @@ const sitesData = {
     exists1: {
         domain: 'site3.local',
         tlsCertificate: 'site3',
-        clientCaching: true,
         aliases: ['not-existing.com']
     },
     exists2: {
         domain: 'not-existing.com',
         tlsCertificate: 'site3',
-        clientCaching: true,
         aliases: ['site3.local']
     }
 }
@@ -76,15 +71,12 @@ sitesData.site3app3.app = {
 
 // Patch requests for site1
 sitesData.site1patch1 = {
-    clientCaching: false
-}
-sitesData.site1patch2 = {
     aliases: ['testsite.local']
 }
-sitesData.site1patch3 = {
+sitesData.site1patch2 = {
     aliases: []
 }
-sitesData.site1patch4 = {
+sitesData.site1patch3 = {
     tlsCertificate: 'site3',
     tlsCertificateVersion: '8b164f4577244c4aa8eb54a31b45c70c'
 }

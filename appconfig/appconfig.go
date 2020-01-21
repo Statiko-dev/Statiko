@@ -93,6 +93,7 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("azureStorage.key", "AZURE_STORAGE_KEY")
 	viper.BindEnv("azureStorage.container", "AZURE_STORAGE_CONTAINER")
 	viper.BindEnv("nodeName", "NODE_NAME")
+	viper.BindEnv("manifestFile", "MANIFEST_FILE")
 
 	// Load config file
 	err := viper.ReadInConfig()

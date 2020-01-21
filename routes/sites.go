@@ -159,11 +159,6 @@ func PatchSiteHandler(c *gin.Context) {
 		t := reflect.TypeOf(v)
 
 		switch strings.ToLower(k) {
-		case "clientcaching":
-			if t.Kind() == reflect.Bool {
-				site.ClientCaching = v.(bool)
-				updated = true
-			}
 		case "tlscertificate":
 			if t != nil && t.Kind() == reflect.String {
 				str := v.(string)
