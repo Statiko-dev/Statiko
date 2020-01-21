@@ -96,6 +96,9 @@ func runner() error {
 			logger.Fatalln("[syncState] Error while restarting Nginx:", err)
 			return err
 		}
+
+		// Sleep for 0.5 seconds waiting for the server to restart
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	return nil
