@@ -33,6 +33,7 @@ RUN sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisor/conf.d/smplatform.c
 ENV MOCHA_FILE=/results/${ARCH}.xml
 CMD supervisord -c /etc/supervisor/supervisord.conf \
     && sleep 8 \
+    && supervisorctl status \
     && npm run test-ci \
     && supervisorctl stop all \
     && sleep 2

@@ -116,7 +116,7 @@ stages:
             inputs:
               artifactName: drop
   
-  # Build Docker container and run test for amd64
+  # Build Docker container and run tests for amd64
   - stage: docker
     displayName: Containerize and test
     dependsOn: build
@@ -204,7 +204,6 @@ stages:
               codeCoverageTool: Cobertura
               summaryFileLocation: $(Build.SourcesDirectory)/e2e-test/results/coverage.xml
             displayName: Publish coverage results
-            condition: and(succeeded(), eq(variables['BUILD_ARCH'], 'amd64'))
           # Push Docker image to container registry
           # Only run on master
           - task: Docker@2
