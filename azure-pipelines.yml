@@ -173,6 +173,14 @@ stages:
                 --add-host "smplatform.local:127.0.0.1" \
                 $(testImageRepository)
             displayName:  Run end-to-end tests
+          # Print logs
+          - bash: |
+              echo "### Test stdout ###\n"
+              cat e2e-test/results/stdout
+              echo "\n\n### Test stderr ###\n"
+              cat e2e-test/results/stderr
+            # This step always runs, even if the tests failed
+            condition: succeededOrFailed()
           # Publish test results
           - task: PublishTestResults@2
             displayName: Publish test results
