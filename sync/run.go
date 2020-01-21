@@ -97,8 +97,8 @@ func runner() error {
 			return err
 		}
 
-		// Sleep for 0.5 seconds waiting for the server to restart
-		time.Sleep(500 * time.Millisecond)
+		// Sleep for 0.15 seconds waiting for the server to restart
+		time.Sleep(150 * time.Millisecond)
 	}
 
 	return nil

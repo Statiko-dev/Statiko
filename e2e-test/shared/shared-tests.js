@@ -334,6 +334,9 @@ async function checkCacheDirectory(sites, apps) {
 
 // Waits until state syncs have completed
 async function waitForSync() {
+    // Wait for 0.5 seconds regardless
+    await utils.waitPromise(500)
+
     // Request the status
     let running = true
     while (running) {
