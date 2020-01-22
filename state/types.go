@@ -57,6 +57,7 @@ type AppManifest struct {
 		Headers       map[string]string `yaml:"headers"`
 	} `yaml:"files"`
 	Rewrite map[string]string `yaml:"rewrite"`
+	Page403 string            `yaml:"page403"`
 	Page404 string            `yaml:"page404"`
 }
 

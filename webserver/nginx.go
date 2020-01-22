@@ -325,11 +325,12 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 
 	// Get parameters
 	tplData := struct {
-		Item     *state.SiteState
-		AppRoot  string
-		Port     string
-		Protocol string
-		TLS      struct {
+		Item         *state.SiteState
+		AppRoot      string
+		Port         string
+		Protocol     string
+		ManifestFile string
+		TLS          struct {
 			Dhparams string
 			Node     struct {
 				Enabled     bool
@@ -338,10 +339,11 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 			}
 		}
 	}{
-		Item:     itemData,
-		AppRoot:  appconfig.Config.GetString("appRoot"),
-		Port:     appconfig.Config.GetString("port"),
-		Protocol: protocol,
+		Item:         itemData,
+		AppRoot:      appconfig.Config.GetString("appRoot"),
+		Port:         appconfig.Config.GetString("port"),
+		Protocol:     protocol,
+		ManifestFile: appconfig.Config.GetString("manifestFile"),
 		TLS: struct {
 			Dhparams string
 			Node     struct {
