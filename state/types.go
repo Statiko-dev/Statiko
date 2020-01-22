@@ -53,7 +53,8 @@ type SiteApp struct {
 type AppManifest struct {
 	// Rules for files
 	Files map[string]struct {
-		ClientCaching string `yaml:"clientCaching"`
+		ClientCaching string            `yaml:"clientCaching"`
+		Headers       map[string]string `yaml:"headers"`
 	} `yaml:"files"`
 	Rewrite map[string]string `yaml:"rewrite"`
 	Page404 string            `yaml:"page404"`
