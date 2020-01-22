@@ -19,7 +19,6 @@ package webserver
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -95,11 +94,6 @@ func (n *NginxConfig) DesiredConfiguration(sites []state.SiteState) (config Conf
 
 	// Configuration for each site
 	for _, s := range sites {
-		// If there's a manifest, show it here
-		if s.App != nil && len(s.App.Manifest) > 0 {
-			fmt.Println("Manifest: ", s.App.Manifest)
-		}
-
 		// If the site/app failed to deploy, skip this
 		if s.Error != nil {
 			n.logger.Println("Skipping site with error (in DesiredConfiguration)", s.Domain)
@@ -108,7 +102,7 @@ func (n *NginxConfig) DesiredConfiguration(sites []state.SiteState) (config Conf
 
 		key := "conf.d/" + s.Domain + ".conf"
 		var val []byte
-		val, err = n.createConfigurationFile("site.conf", s)
+		val, err = n.createConfigurationFile("site.conf", &s)
 		if err != nil {
 			return
 		}
@@ -312,15 +306,26 @@ func (n *NginxConfig) loadTemplates() error {
 }
 
 // Create a configuration file
-func (n *NginxConfig) createConfigurationFile(templateName string, itemData interface{}) ([]byte, error) {
+func (n *NginxConfig) createConfigurationFile(templateName string, itemData *state.SiteState) ([]byte, error) {
+	// Check if the current node is using HTTPS
 	protocol := "http"
 	if appconfig.Config.GetBool("tls.node.enabled") {
 		protocol = "https"
 	}
 
+	// Ensure that itemData.App.Manifest is set
+	if itemData != nil {
+		if itemData.App == nil {
+			itemData.App = &state.SiteApp{}
+		}
+		if itemData.App.Manifest == nil {
+			itemData.App.Manifest = &state.AppManifest{}
+		}
+	}
+
 	// Get parameters
 	tplData := struct {
-		Item     interface{}
+		Item     *state.SiteState
 		AppRoot  string
 		Port     string
 		Protocol string

@@ -19,4 +19,5 @@ require (
 	github.com/spf13/viper v1.6.2
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad
 	google.golang.org/grpc v1.26.0
+	gopkg.in/yaml.v2 v2.2.4
 )

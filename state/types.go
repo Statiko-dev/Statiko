@@ -46,7 +46,17 @@ type SiteApp struct {
 	Version string `json:"version" binding:"required"`
 
 	// App manifest (for internal use)
-	Manifest string `json:"-"`
+	Manifest *AppManifest `json:"-"`
+}
+
+// AppManifest represents the manifest of an app
+type AppManifest struct {
+	// Rules for files
+	Files map[string]struct {
+		ClientCaching string `yaml:"clientCaching"`
+	} `yaml:"files"`
+	Rewrite map[string]string `yaml:"rewrite"`
+	Page404 string            `yaml:"page404"`
 }
 
 // Internal use

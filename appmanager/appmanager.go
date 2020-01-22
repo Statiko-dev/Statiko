@@ -34,6 +34,8 @@ import (
 	"os"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gobuffalo/packr/v2"
@@ -394,7 +396,12 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 				if !ok {
 					return errors.New("Cannot find index for app " + name)
 				}
-				sites[i].App.Manifest = string(readBytes)
+				manifest := &state.AppManifest{}
+				err = yaml.Unmarshal(readBytes, manifest)
+				sites[i].App.Manifest = manifest
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			// There shouldn't be any file; delete extraneous stuff
