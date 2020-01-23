@@ -37,12 +37,19 @@ type SiteHealth struct {
 
 // NodeSync contains information on the sync status
 type NodeSync struct {
-	Running  bool       `json:"running"`
-	LastSync *time.Time `json:"lastSync"`
+	Running   bool       `json:"running"`
+	LastSync  *time.Time `json:"lastSync"`
+	SyncError string     `json:"syncError,omitempty"`
+}
+
+// NginxStatus contains information on the status of the Nginx server
+type NginxStatus struct {
+	Running bool `json:"running"`
 }
 
 // NodeStatus contains the current status of the node
 type NodeStatus struct {
+	Nginx  NginxStatus  `json:"nginx"`
 	Sync   NodeSync     `json:"sync"`
 	Health []SiteHealth `json:"health"`
 }

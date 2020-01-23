@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -41,8 +42,9 @@ type ConfigData map[string][]byte
 
 // NginxConfig creates the configuration for nginx
 type NginxConfig struct {
-	logger    *log.Logger
-	templates map[string]*template.Template
+	logger              *log.Logger
+	templates           map[string]*template.Template
+	clientCachingRegexp *regexp.Regexp
 }
 
 // Init initializes the object and loads the templates from file
@@ -55,6 +57,9 @@ func (n *NginxConfig) Init() error {
 	if err := n.loadTemplates(); err != nil {
 		return err
 	}
+
+	// Compile the regular expression for matching ClientCaching values in apps' manifests
+	n.clientCachingRegexp = regexp.MustCompile(`^[1-9][0-9]*(ms|s|m|h|d|w|M|y)$`)
 
 	return nil
 }
@@ -264,13 +269,65 @@ func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 	return updated, nil
 }
 
+// Status returns the status of the Nginx server
+func (n *NginxConfig) Status() (bool, error) {
+	result, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.status")).Output()
+	if err != nil {
+		n.logger.Printf("Error while checking Nginx server status: %s\n", err)
+		return false, err
+	}
+
+	running := false
+	resultStr := strings.TrimSpace(string(result))
+	if resultStr == "1" {
+		running = true
+	}
+
+	return running, nil
+}
+
+// EnsureServerRunning starts the Nginx server if it's not running already
+func (n *NginxConfig) EnsureServerRunning() error {
+	// Check if Nginx is running
+	running, err := n.Status()
+	if err != nil {
+		return err
+	}
+	if !running {
+		n.logger.Println("Starting Nginx server")
+		_, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.start")).Output()
+		if err != nil {
+			n.logger.Printf("Error while starting Nginx server: %s\n", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 // RestartServer restarts the Nginx server
 func (n *NginxConfig) RestartServer() error {
-	n.logger.Println("Restarting server")
-	_, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.restart")).Output()
+	// Check if Nginx is running
+	running, err := n.Status()
 	if err != nil {
-		n.logger.Panicf("Error while restarting server: %s\n", err)
 		return err
+	}
+	if running {
+		// Reload the configuration
+		n.logger.Println("Restarting Nginx server")
+		_, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.restart")).Output()
+		if err != nil {
+			n.logger.Printf("Error while restarting Nginx server: %s\n", err)
+			return err
+		}
+	} else {
+		// Start Nginx
+		n.logger.Println("Starting Nginx server")
+		_, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.start")).Output()
+		if err != nil {
+			n.logger.Printf("Error while starting Nginx server: %s\n", err)
+			return err
+		}
 	}
 
 	return nil
@@ -320,6 +377,29 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 		}
 		if itemData.App.Manifest == nil {
 			itemData.App.Manifest = &state.AppManifest{}
+		}
+
+		// Validate the app's manifest, skipping invalid values
+		if itemData.App.Manifest.Files != nil && len(itemData.App.Manifest.Files) > 0 {
+			for k, v := range itemData.App.Manifest.Files {
+				// If there's a ClientCaching value, ensure it's valid
+				if v.ClientCaching != "" {
+					if !n.clientCachingRegexp.MatchString(v.ClientCaching) {
+						n.logger.Println("Ignoring invalid value for clientCaching:", v.ClientCaching)
+						v.ClientCaching = ""
+					}
+				}
+
+				// Escape values in headers
+				if v.Headers != nil && len(v.Headers) > 0 {
+					v.CleanHeaders = make(map[string]string, len(v.Headers))
+					for hk, hv := range v.Headers {
+						v.CleanHeaders[escapeConfigString(hk)] = escapeConfigString(hv)
+					}
+				}
+
+				itemData.App.Manifest.Files[k] = v
+			}
 		}
 	}
 
@@ -393,4 +473,23 @@ func writeConfigFile(path string, val []byte) error {
 		return err
 	}
 	return nil
+}
+
+// Escapes characters in strings used in nginx's config files
+func escapeConfigString(in string) (out string) {
+	out = ""
+	for _, char := range in {
+		// Escape " and \
+		if char == '"' || char == '\\' {
+			out += "\\"
+		}
+		out += string(char)
+
+		// We can't escape the $ sign, but we can use the $dollar variable
+		// See: https://serverfault.com/a/854600/93929
+		if char == '$' {
+			out += "{dollar}"
+		}
+	}
+	return
 }

@@ -28,13 +28,6 @@ import (
 )
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site
-// @Summary Creates a new site
-// @Description Creates a new site in the local web server
-// @Accept json
-// @Param domain body string true "Domain name" minimum(1)
-// @Param tlsCertificate body string true "TLS Certificate name in the Key Vault" minimum(1)
-// @Failure 500
-// @Router /site [post]
 func CreateSiteHandler(c *gin.Context) {
 	// Get data from the form body
 	site := &state.SiteState{}

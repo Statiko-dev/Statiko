@@ -33,9 +33,6 @@ type InfoResponse struct {
 }
 
 // InfoHandler is the handler for GET /info, which returns information about the agent running
-// @Summary Returns information about the agent running
-// @Success 200 {array} actions.InfoResponse
-// @Router /info [get]
 func InfoHandler(c *gin.Context) {
 	hostname, err := os.Hostname()
 	if err != nil {

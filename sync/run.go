@@ -30,14 +30,17 @@ var semaphore = make(chan int, 1)
 // Last time the sync was started
 var lastSync *time.Time
 
+// Last sync error
+var syncError error
+
 // QueueRun is a thread-safe version of Run that ensures that only one sync can happen at a time
 func QueueRun() {
 	semaphore <- 1
+	syncError = nil
 	go func() {
-		err := runner()
-		if err != nil {
-			// TODO: DO SOMETHING
-			logger.Println(err)
+		syncError = runner()
+		if syncError != nil {
+			logger.Println("[syncState] Error returned by async run", syncError)
 		}
 		<-semaphore
 	}()
@@ -47,9 +50,9 @@ func QueueRun() {
 // You should use QueueRun in most cases
 func Run() error {
 	semaphore <- 1
-	err := runner()
+	syncError = runner()
 	<-semaphore
-	return err
+	return syncError
 }
 
 // IsRunning returns true if the sync is running in background
@@ -60,6 +63,11 @@ func IsRunning() bool {
 // LastSync returns the time when the last sync started
 func LastSync() *time.Time {
 	return lastSync
+}
+
+// SyncError returns the error (if any) during the last sync
+func SyncError() error {
+	return syncError
 }
 
 // Function actually executing the sync
@@ -77,7 +85,7 @@ func runner() error {
 	// First, sync apps
 	res, err := appmanager.Instance.SyncState(sites)
 	if err != nil {
-		logger.Fatalln("[syncState] Unrecoverable error while syncing apps:", err)
+		logger.Println("[syncState] Unrecoverable error while syncing apps:", err)
 		return err
 	}
 	restartRequired = restartRequired || res
@@ -85,7 +93,7 @@ func runner() error {
 	// Second, sync the web server configuration
 	res, err = webserver.Instance.SyncConfiguration(sites)
 	if err != nil {
-		logger.Fatalln("[syncState] Error while syncing Nginx configuration:", err)
+		logger.Println("[syncState] Error while syncing Nginx configuration:", err)
 		return err
 	}
 	restartRequired = restartRequired || res
@@ -93,7 +101,7 @@ func runner() error {
 	// If we've updated anything that requires restarting nginx, do it
 	if restartRequired {
 		if err := webserver.Instance.RestartServer(); err != nil {
-			logger.Fatalln("[syncState] Error while restarting Nginx:", err)
+			logger.Println("[syncState] Error while restarting Nginx:", err)
 			return err
 		}
 

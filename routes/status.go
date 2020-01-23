@@ -26,6 +26,7 @@ import (
 	"smplatform/state"
 	"smplatform/sync"
 	"smplatform/utils"
+	"smplatform/webserver"
 )
 
 // Last time the health checks were run
@@ -37,14 +38,7 @@ var stateUpdatedTime *time.Time
 // Cached health data
 var healthCache []utils.SiteHealth
 
-// StatusHandler is the handler for GET /status, which returns the status and health of the node
-// @Summary Returns the status and health of the node
-// @Description Returns an object listing the sites currently running and the apps deployed.
-// @Description This route is designed and optimized for periodic health-checks too.
-// @Descriptions In fact, responses are cached and served from memory for fast responses, unless any configuration has changed.
-// @Produce json
-// @Success 200 {array} actions.NodeStatus
-// @Router /status [get]
+// StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
 func StatusHandler(c *gin.Context) {
 	// Check if the state is healthy
 	healthy, err := state.Instance.StoreHealth()
@@ -59,10 +53,23 @@ func StatusHandler(c *gin.Context) {
 	// Response object
 	res := &utils.NodeStatus{}
 
+	// Nginx server status
+	// Ignore errors in this command
+	nginxStatus, _ := webserver.Instance.Status()
+	res.Nginx = utils.NginxStatus{
+		Running: nginxStatus,
+	}
+
 	// Sync status
+	syncError := sync.SyncError()
+	syncErrorStr := ""
+	if syncError != nil {
+		syncErrorStr = syncError.Error()
+	}
 	res.Sync = utils.NodeSync{
-		Running:  sync.IsRunning(),
-		LastSync: sync.LastSync(),
+		Running:   sync.IsRunning(),
+		LastSync:  sync.LastSync(),
+		SyncError: syncErrorStr,
 	}
 
 	// Check if we need to force a refresh
@@ -92,18 +99,61 @@ func StatusHandler(c *gin.Context) {
 			appTestedTime = time.Now()
 		}
 
-		hasError, hasAppError := updateHealthCache()
+		hasError := updateHealthCache()
 		res.Health = healthCache
 
 		if hasError {
+			statusCode = http.StatusServiceUnavailable
+
 			// If there's an error, make the test happen again right away
 			healthCache = nil
 		}
-		if hasError || hasAppError {
-			statusCode = http.StatusServiceUnavailable
-		}
 	} else {
 		res.Health = healthCache
+	}
+
+	// If we're requesting a domain only, filter the results
+	if domain := c.Param("domain"); len(domain) > 0 {
+		// Get the main domain for the site, if we're being passed an alias
+		siteObj := state.Instance.GetSite(domain)
+		if siteObj != nil && siteObj.Domain != "" {
+			// Main domain for the site
+			domain = siteObj.Domain
+
+			// Check if we have the health ofbject for this site, and if it has any deployment error
+			var domainHealth *utils.SiteHealth
+			appError := false
+			for _, el := range res.Health {
+				if el.Domain == domain {
+					domainHealth = &el
+					if el.Error != nil {
+						appError = true
+					}
+					break
+				}
+			}
+
+			if domainHealth != nil {
+				res.Health = make([]utils.SiteHealth, 1)
+				res.Health[0] = *domainHealth
+			} else {
+				res.Health = nil
+			}
+
+			// If there's a deployment error for the app, and we're requesting a domain only, return a 503 response
+			if appError {
+				statusCode = http.StatusServiceUnavailable
+			}
+		} else {
+			// Site not found, so return a 404
+			statusCode = http.StatusNotFound
+			res.Health = nil
+		}
+	}
+
+	// If Nginx isn't working, status code is always 503
+	if !nginxStatus {
+		statusCode = http.StatusServiceUnavailable
 	}
 
 	c.JSON(statusCode, res)
@@ -114,9 +164,8 @@ type healthcheckJob struct {
 	bundle string
 }
 
-func updateHealthCache() (hasError bool, hasAppError bool) {
+func updateHealthCache() (hasError bool) {
 	hasError = false
-	hasAppError = false
 
 	// Get list of sites
 	sites := state.Instance.GetSites()
@@ -136,7 +185,6 @@ func updateHealthCache() (hasError bool, hasAppError bool) {
 	for _, s := range sites {
 		// Skip sites that have deployment errors
 		if s.Error != nil {
-			hasAppError = true
 			healthCache = append(healthCache, utils.SiteHealth{
 				Domain:   s.Domain,
 				App:      nil,

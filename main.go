@@ -33,6 +33,7 @@ import (
 	"smplatform/middlewares"
 	"smplatform/routes"
 	"smplatform/sync"
+	"smplatform/webserver"
 )
 
 func main() {
@@ -53,11 +54,17 @@ func main() {
 		panic(err)
 	}
 
+	// Ensure Nginx is running
+	if err := webserver.Instance.EnsureServerRunning(); err != nil {
+		panic(err)
+	}
+
 	// Add middlewares
 	router.Use(middlewares.NodeName())
 
 	// Add routes
 	router.GET("/status", routes.StatusHandler)
+	router.GET("/status/:domain", routes.StatusHandler)
 	router.GET("/info", routes.InfoHandler)
 
 	// Routes that require authorization

@@ -55,6 +55,7 @@ type AppManifest struct {
 	Files map[string]struct {
 		ClientCaching string            `yaml:"clientCaching"`
 		Headers       map[string]string `yaml:"headers"`
+		CleanHeaders  map[string]string `yaml:"-"`
 	} `yaml:"files"`
 	Rewrite map[string]string `yaml:"rewrite"`
 	Page403 string            `yaml:"page403"`

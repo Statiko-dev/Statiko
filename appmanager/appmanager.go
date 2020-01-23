@@ -311,6 +311,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	appIndexes := make(map[string]int)
 	expectApps := make([]string, 1)
 	expectApps[0] = "_default"
+	fetchAppsList := make(map[string]int)
 	for i, s := range sites {
 		// Reset the error
 		if s.Error != nil {
@@ -337,12 +338,18 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 			return err
 		}
 		if !exists {
-			m.log.Println("Need to fetch ", s.App.Name, s.App.Version)
+			m.log.Println("Need to fetch", folderName)
 
-			// We need to deploy the app
-			// Use the worker pool to handle concurrency
-			jobs <- s
-			requested++
+			// Do not fetch this app if it's already being fetched
+			if _, ok := fetchAppsList[folderName]; ok {
+				m.log.Print("App", folderName, "is already being fetched")
+			} else {
+				// We need to deploy the app
+				// Use the worker pool to handle concurrency
+				fetchAppsList[folderName] = 1
+				jobs <- s
+				requested++
+			}
 		}
 
 		// Add app to expected list and the index to the dictionary

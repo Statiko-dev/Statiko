@@ -85,6 +85,7 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("nginx.commands.start", "NGINX_START")
 	viper.BindEnv("nginx.commands.stop", "NGINX_STOP")
 	viper.BindEnv("nginx.commands.restart", "NGINX_RESTART")
+	viper.BindEnv("nginx.commands.status", "NGINX_STATUS")
 	viper.BindEnv("azureKeyVault.name", "AZURE_KEYVAULT_NAME")
 	viper.BindEnv("azureKeyVault.servicePrincipal.tenantId", "AZURE_TENANT_ID")
 	viper.BindEnv("azureKeyVault.servicePrincipal.clientId", "AZURE_CLIENT_ID")
@@ -93,7 +94,6 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("azureStorage.key", "AZURE_STORAGE_KEY")
 	viper.BindEnv("azureStorage.container", "AZURE_STORAGE_CONTAINER")
 	viper.BindEnv("nodeName", "NODE_NAME")
-	viper.BindEnv("manifestFile", "MANIFEST_FILE")
 
 	// Load config file
 	err := viper.ReadInConfig()
