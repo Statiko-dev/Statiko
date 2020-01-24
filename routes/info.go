@@ -25,8 +25,8 @@ import (
 	"smplatform/buildinfo"
 )
 
-// InfoResponse is the response for the /info request
-type InfoResponse struct {
+// infoResponse is the response for the /info route
+type infoResponse struct {
 	AuthMethod string `json:"authMethod"`
 	Version    string `json:"version"`
 	Hostname   string `json:"hostname"`
@@ -40,7 +40,7 @@ func InfoHandler(c *gin.Context) {
 		return
 	}
 
-	info := InfoResponse{
+	info := infoResponse{
 		AuthMethod: "sharedkey",
 		Version:    buildinfo.BuildID + " (" + buildinfo.CommitHash + "; " + buildinfo.BuildTime + ")",
 		Hostname:   hostname,
