@@ -37,7 +37,7 @@ nginx:
   configPath: "/etc/nginx/"
   # User running nginx
   # Can also be passed with environmental variable NGINX_USER
-  user: "nginx"
+  user: "www-data"
   # Shell commands to start/stop/restart(reload) nginx
   commands:
     # Can also be passed with environmental variable NGINX_START
