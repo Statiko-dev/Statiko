@@ -410,6 +410,7 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 		Port         string
 		Protocol     string
 		ManifestFile string
+		User         string
 		TLS          struct {
 			Dhparams string
 			Node     struct {
@@ -424,6 +425,7 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 		Port:         appconfig.Config.GetString("port"),
 		Protocol:     protocol,
 		ManifestFile: appconfig.Config.GetString("manifestFile"),
+		User:         appconfig.Config.GetString("nginx.user"),
 		TLS: struct {
 			Dhparams string
 			Node     struct {

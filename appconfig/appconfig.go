@@ -82,6 +82,7 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("state.etcd.timeout", "STATE_ETCD_TIMEOUT")
 	viper.BindEnv("state.etcd.address", "STATE_ETCD_ADDRESS")
 	viper.BindEnv("appRoot", "APP_ROOT")
+	viper.BindEnv("nginx.user", "NGINX_USER")
 	viper.BindEnv("nginx.commands.start", "NGINX_START")
 	viper.BindEnv("nginx.commands.stop", "NGINX_STOP")
 	viper.BindEnv("nginx.commands.restart", "NGINX_RESTART")

@@ -583,6 +583,11 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
 	resp, err := blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
+		if stgErr, ok := err.(azblob.StorageError); !ok {
+			err = fmt.Errorf("Network error while downloading the signature: %s", err.Error())
+		} else {
+			err = fmt.Errorf("Azure Storage error while downloading the signature: %s", stgErr.Response().Status)
+		}
 		return err
 	}
 
@@ -613,6 +618,11 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	blobURL = azblob.NewBlobURL(*u, m.azureStoragePipeline)
 	resp, err = blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
+		if stgErr, ok := err.(azblob.StorageError); !ok {
+			err = fmt.Errorf("Network error while downloading the archive: %s", err.Error())
+		} else {
+			err = fmt.Errorf("Azure Storage error while downloading the archive: %s", stgErr.Response().Status)
+		}
 		return err
 	}
 	body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})

@@ -44,7 +44,25 @@ module.exports = {
         app: 'app3',
         version: '200',
         contents: {
-            'index.html': 'bdb096fbdc2ca7dc1f23470f9e51384a'
+            '403.html': 'e9f3ffd6f02ff6485585745aeda1f651',
+            '404.html': 'dc39a4bece6c7c794063c716af8102c0',
+            '_smplatform.yaml': '32dbbc01749ce295cd36f9e3aa2f0daa',
+            'index.html': 'bdb096fbdc2ca7dc1f23470f9e51384a',
+            'mike-erskine-b4AD8zSAozk-unsplash.jpg': '9dbbfd4205fe99c5bd77093b2e034747'
+        },
+        headers: {
+            '404.html': {
+                'x-test-header': 'Hello world',
+                'expires': '2d',
+                'pragma': 'public',
+                'cache-control': 'max-age=172800, public',
+            },
+            'mike-erskine-b4AD8zSAozk-unsplash.jpg': {
+                'x-media-type': 'Images',
+                'expires': '1M',
+                'pragma': 'public',
+                'cache-control': 'max-age=2592000, public',
+            }
         }
     }
 }

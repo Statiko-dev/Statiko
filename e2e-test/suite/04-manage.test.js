@@ -44,7 +44,7 @@ describe('Manage sites', function() {
     // Function that returns the object for a given site
     const findSite = (domain) => {
         for (const k in deployed) {
-            if (deployed.hasOwnProperty(k)) {
+            if (Object.prototype.hasOwnProperty.call(deployed, k)) {
                 if (deployed[k].domain == domain) {
                     return deployed[k]
                 }
@@ -192,9 +192,11 @@ describe('Manage sites', function() {
                 .set('Authorization', shared.auth)
                 .send(sitesData['site1patch' + i])
                 .expect(204)
-
             // Update the local data
             Object.assign(site, sitesData['site1patch' + i])
+
+            // Wait for sync
+            await shared.waitForSync()
 
             // Request the site's details
             const response = await shared.nodeRequest
@@ -220,7 +222,7 @@ describe('Manage sites', function() {
                 assert.equal(
                     (await fsReadFile('/etc/nginx/conf.d/site1.local.conf', 'utf8')).trim(),
                     (await fsReadFile('fixtures/nginx-site1patch' + i + '.conf', 'utf8')).trim()
-                )
+                    , 'File comparison failed for nginx-site1patch' + i + '.conf')
             }
         }
 

@@ -52,7 +52,7 @@ async function checkStatus(sites) {
         .get('/status')
         .expect('Content-Type', /json/)
         .expect(200)
-    assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'sync'])
+    assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'nginx', 'sync'])
 
     // Check the sync object
     assert(Object.keys(response.body.sync).length == 2)
@@ -63,10 +63,13 @@ async function checkStatus(sites) {
     // Must have run within the last 5 mins
     assert(Date.now() - lastSync.getTime() < 5 * 60 * 1000)
 
+    // Check the nginx object
+    assert.deepStrictEqual(response.body.nginx, {running: true})
+
     // Function that returns the object for a given site
     const findSite = (domain) => {
         for (const k in sites) {
-            if (sites.hasOwnProperty(k)) {
+            if (Object.prototype.hasOwnProperty.call(sites, k)) {
                 if (sites[k].domain == domain) {
                     return sites[k]
                 }
@@ -153,7 +156,7 @@ async function checkDataDirectory(sites) {
     const appContents = function(find) {
         // Iterate through the apps
         for (const key in appData) {
-            if (appData.hasOwnProperty(key)) {
+            if (Object.prototype.hasOwnProperty.call(appData, key)) {
                 const str = appData[key].app + '-' + appData[key].version
                 if (str == find) {
                     return appData[key].contents
@@ -175,7 +178,7 @@ async function checkDataDirectory(sites) {
             const contents = appContents(expectApps[i])
             assert((await fsReaddir('/data/apps/' + expectApps[i])).length == Object.keys(contents).length)
             for (const file in contents) {
-                if (contents.hasOwnProperty(file)) {
+                if (Object.prototype.hasOwnProperty.call(contents, file)) {
                     const hash = contents[file]
                     const content = await fsReadFile('/data/apps/' + expectApps[i] + '/' + file)
                     assert.strictEqual(hash, utils.md5String(content))
@@ -219,7 +222,7 @@ async function checkNginxConfig(sites) {
                 assert.equal(
                     (await fsReadFile('/etc/nginx/conf.d/' + k + '.conf', 'utf8')).trim(),
                     (await fsReadFile('fixtures/nginx-' + k + '.conf', 'utf8')).trim()
-                )
+                    , 'Error with site ' + k)
             }
         }
     }
@@ -236,6 +239,8 @@ async function checkNginxSite(site, appDeployed) {
         .get('/')
         .set('Host', site.domain)
         .expect(statusCode)
+
+    const promises = []
     
     // If an app has been deployed
     if (appDeployed) {
@@ -247,22 +252,49 @@ async function checkNginxSite(site, appDeployed) {
         assert.strictEqual(indexHash, appDeployed.contents['index.html'])
 
         // Check the other files (if any)
-        const promises = []
         for (const key in appDeployed.contents) {
-            if (appDeployed.contents.hasOwnProperty(key)) {
+            if (Object.prototype.hasOwnProperty.call(appDeployed.contents, key)) {
                 if (key == 'index.html') {
                     continue
                 }
+
+                // If the key is the manifest file, expect a 404
+                if (key == '_smplatform.yaml') {
+                    const p = nginxRequest
+                        .get('/' + key)
+                        .set('Host', site.domain)
+                        .expect(404)
+                    promises.push(p)
+                    continue
+                }
                 
-                const p = nginxRequest
+                let p = nginxRequest
                     .get('/' + key)
                     .set('Host', site.domain)
                     .expect(200)
-                    .then((res) => {
-                        assert(res.body)
-                        // Ensure the contents match
-                        assert.strictEqual(utils.md5String(res.body), appDeployed.contents[key])
-                    })
+                if (appDeployed.headers && appDeployed.headers[key]) {
+                    for (let header in appDeployed.headers[key]) {
+                        if (!Object.prototype.hasOwnProperty.call(appDeployed.headers[key], header)) {
+                            continue
+                        }
+
+                        header = header.toLowerCase()
+                        if (header == 'expires') {
+                            // Just check that it's a RFC-2822-formatted date
+                            // Based on https://stackoverflow.com/q/9352003/192024
+                            p = p.expect(header, /^(?:(Sun|Mon|Tue|Wed|Thu|Fri|Sat),\s+)?(0[1-9]|[1-2]?[0-9]|3[01])\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(19[0-9]{2}|[2-9][0-9]{3})\s+(2[0-3]|[0-1][0-9]):([0-5][0-9])(?::(60|[0-5][0-9]))?\s+([-\+][0-9]{2}[0-5][0-9]|(?:UT|GMT|(?:E|C|M|P)(?:ST|DT)|[A-IK-Z]))(\s+|\(([^\(\)]+|\\\(|\\\))*\))*$/)
+                        }
+                        else {
+                            p = p.expect(header, appDeployed.headers[key][header])
+                        }
+                    }
+                }
+                p = p.then((res) => {
+                    assert(res.body && ((res.text && res.text.length) || (res.body && res.body.length)))
+                    // Ensure the contents match
+                    const body = (res.body && res.body.length) ? res.body : res.text
+                    assert.strictEqual(utils.md5String(body), appDeployed.contents[key])
+                })
                 promises.push(p)
             }
         }
@@ -274,7 +306,7 @@ async function checkNginxSite(site, appDeployed) {
         .set('Host', site.domain)
         .expect(301)
         .expect('Location', 'https://' + site.domain + '/__hello')
-    const promises = [p]
+    promises.push(p)
 
     // Test aliases, which should all redirect
     site.aliases.map((el) => {
@@ -304,7 +336,7 @@ async function checkCacheDirectory(sites, apps) {
     // TLS Certificates in cache
     if (sites) {
         for (const k in sites) {
-            if (!sites.hasOwnProperty(k)) {
+            if (!Object.prototype.hasOwnProperty.call(sites, k)) {
                 continue
             }
 
@@ -323,7 +355,7 @@ async function checkCacheDirectory(sites, apps) {
     // Cached apps' bundles
     if (apps) {
         for (const k in apps) {
-            if (!apps.hasOwnProperty(k)) {
+            if (!Object.prototype.hasOwnProperty.call(apps, k)) {
                 continue
             }
 
