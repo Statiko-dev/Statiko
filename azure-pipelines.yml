@@ -17,7 +17,6 @@ variables:
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile'
   dockerTag: '$(Build.BuildNumber)'
   testDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile'
-  coverageDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile-coverage'
   testImageRepository: 'smplatform-test'
 
 stages:
@@ -45,6 +44,10 @@ stages:
               BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
+              # Disable CGO so the binary can run on Alpine
+              CGO_ENABLED=0 \
+              GOOS=linux \
+              GOARCH=amd64 \
               GO111MODULE=on \
                 go build \
                   -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$BUILD_TIME -X smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
@@ -58,6 +61,10 @@ stages:
               BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
+              # Disable CGO so the binary can run on Alpine
+              CGO_ENABLED=0 \
+              GOOS=linux \
+              GOARCH=amd64 \
               GO111MODULE=on \
                 go test \
                   -coverpkg=smplatform/... \
@@ -149,13 +156,14 @@ stages:
               containerRegistry: $(dockerRegistryServiceConnection)
               tags: |
                 latest
-          # Build Docker test image with coverage
+          # Build Docker test images
           - bash: |
               set -e
               mkdir e2e-test/bin
               cp bin/*.test e2e-test/bin
+              # To stop at the test image (without coverage), add "--target testimage"
               docker build \
-                -f $(coverageDockerfilePath) \
+                -f $(testDockerfilePath) \
                 -t $(testImageRepository) \
                 $(Build.SourcesDirectory)/e2e-test
             displayName: Build Docker test image with coverage

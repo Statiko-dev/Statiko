@@ -1,4 +1,7 @@
-FROM italypaleale/smplatform:latest
+###
+### First stage: test image
+###
+FROM italypaleale/smplatform:latest AS testimage
 
 # Install Node.js which is necessary for running tests
 # Source: https://raw.githubusercontent.com/nodejs/docker-node/master/12/alpine3.11/Dockerfile
@@ -98,3 +101,13 @@ CMD rm -f /etc/smplatform/state.json \
     && npm run test-ci \
     && supervisorctl stop all \
     && sleep 2
+
+###
+### Second stage: test image with coverage
+###
+FROM testimage 
+
+# Copy the binary with the coverage test, then change the command in the supervisord.conf
+RUN mv bin/smplatform_linux_amd64.test /usr/local/bin/smplatform.test \
+    && chmod +x /usr/local/bin/smplatform.test \
+    && sed -i 's/\/usr\/local\/bin\/smplatform/\/usr\/local\/bin\/smplatform.test -test.run "^TestRunMain$" -test.coverprofile=\/results\/coverage.out/' /etc/supervisord.conf 
