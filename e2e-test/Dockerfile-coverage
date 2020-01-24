@@ -95,7 +95,8 @@ RUN mv bin/smplatform_linux_amd64.test /usr/local/bin/smplatform.test \
 
 # When the container starts, start supervisord, then run tests
 ENV MOCHA_FILE=/results/smplatform.xml
-CMD supervisord -c /etc/supervisord.conf \
+CMD rm -f /etc/smplatform/state.json \
+    && supervisord -c /etc/supervisord.conf \
     && sleep 8 \
     && supervisorctl status \
     && npm run test-ci \

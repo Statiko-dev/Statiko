@@ -85,13 +85,14 @@ COPY . .
 RUN npm ci
 
 # Configure supervisord to run as daemon
-RUN sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisor/smplatform.conf \
-    && sed -i 's/\/dev\/fd\/1/\/results\/stdout/' /etc/supervisor/smplatform.conf \
-    && sed -i 's/\/dev\/fd\/2/\/results\/stderr/' /etc/supervisor/smplatform.conf
+RUN sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisord.conf \
+    && sed -i 's/\/dev\/fd\/1/\/results\/stdout/' /etc/supervisord.conf \
+    && sed -i 's/\/dev\/fd\/2/\/results\/stderr/' /etc/supervisord.conf
 
 # When the container starts, start supervisord, then run tests
 ENV MOCHA_FILE=/results/smplatform.xml
-CMD supervisord -c /etc/supervisor/supervisord.conf \
+CMD rm -f /etc/smplatform/state.json \
+    && supervisord -c /etc/supervisord.conf \
     && sleep 8 \
     && supervisorctl status \
     && npm run test-ci \
