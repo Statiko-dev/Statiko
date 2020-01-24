@@ -71,7 +71,9 @@ RUN addgroup -g 1000 node \
     && rm "node-v$NODE_VERSION.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt; \
   fi \
   && rm -f "node-v$NODE_VERSION-linux-$ARCH-musl.tar.xz" \
-  && apk del .build-deps
+  && apk del .build-deps \
+  # Tools useful for debugging
+  && apk add --no-cache curl jq
 
 # Add the CA
 COPY misc/ca.crt /usr/local/share/ca-certificates/italypaleale-ci.crt
