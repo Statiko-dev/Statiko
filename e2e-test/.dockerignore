@@ -1,3 +1,5 @@
+Dockerfile*
+.eslintrc*
 node_modules/
 *.log
 results/
