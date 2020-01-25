@@ -135,10 +135,10 @@ func (akv *Certificate) requestCertificatePFX(certificateName string, certificat
 }
 
 // GetCertificate returns the certificate and key from Azure Key Vault, encoded as PEM
-func (akv *Certificate) GetCertificate(certificateName string, certificateVersion string) (string, []byte, []byte, error) {
+func (akv *Certificate) GetCertificate(certificateName string, certificateVersion string) (string, []byte, []byte, *x509.Certificate, error) {
 	// Error if there's no authenticated client yet
 	if !akv.authenticated {
-		return certificateVersion, nil, nil, errors.New("Need to invoke GetKeyVaultClient() first")
+		return certificateVersion, nil, nil, nil, errors.New("Need to invoke GetKeyVaultClient() first")
 	}
 
 	// If we don't have a version specified, request the last one
@@ -147,10 +147,10 @@ func (akv *Certificate) GetCertificate(certificateName string, certificateVersio
 		var err error
 		certificateVersion, err = akv.getCertificateLastVersion(certificateName)
 		if err != nil {
-			return certificateVersion, nil, nil, err
+			return certificateVersion, nil, nil, nil, err
 		}
 		if certificateVersion == "" {
-			return certificateVersion, nil, nil, errors.New("Certificate not found")
+			return certificateVersion, nil, nil, nil, errors.New("Certificate not found")
 		}
 	}
 
@@ -158,13 +158,13 @@ func (akv *Certificate) GetCertificate(certificateName string, certificateVersio
 	akv.logger.Printf("Getting PFX for %s, version %s\n", certificateName, certificateVersion)
 	pfxKey, pfxCert, err := akv.requestCertificatePFX(certificateName, certificateVersion)
 	if err != nil {
-		return certificateVersion, nil, nil, err
+		return certificateVersion, nil, nil, nil, err
 	}
 
 	// Marshal the x509 key
 	keyX509, err := x509.MarshalPKCS8PrivateKey(pfxKey)
 	if err != nil {
-		return certificateVersion, nil, nil, err
+		return certificateVersion, nil, nil, nil, err
 	}
 
 	// Convert to PEM
@@ -183,5 +183,5 @@ func (akv *Certificate) GetCertificate(certificateName string, certificateVersio
 	var certPEM bytes.Buffer
 	pem.Encode(&certPEM, certBlock)
 
-	return certificateVersion, certPEM.Bytes(), keyPEM.Bytes(), nil
+	return certificateVersion, certPEM.Bytes(), keyPEM.Bytes(), pfxCert, nil
 }

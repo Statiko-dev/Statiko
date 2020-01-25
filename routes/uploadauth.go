@@ -37,8 +37,7 @@ type uploadAuthRequest struct {
 
 // uploadAuthResponse is the response from the POST /uploadauth route
 type uploadAuthResponse struct {
-	ArchiveURL   string `json:"archiveUrl"`
-	SignatureURL string `json:"signatureUrl"`
+	ArchiveURL string `json:"archiveUrl"`
 }
 
 // UploadAuthHandler is the handler for POST /uploadauth, which returns the SAS token to authorize uploads to Azure Blob Storage
@@ -108,7 +107,7 @@ func UploadAuthHandler(c *gin.Context) {
 		BlobName:      archiveName,
 
 		// Get a blob-level SAS token
-		Permissions: azblob.BlobSASPermissions{Write: true}.String(),
+		Permissions: azblob.BlobSASPermissions{Read: true, Write: true}.String(),
 	}
 	archiveSasQueryParams, err := blobSASSigValues.NewSASQueryParameters(credential)
 	if err != nil {
@@ -118,22 +117,9 @@ func UploadAuthHandler(c *gin.Context) {
 	archiveQp := archiveSasQueryParams.Encode()
 	signedArchiveURL := archiveURL + "?" + archiveQp
 
-	// Generate a SAS token for the app's signature
-	signatureName := archiveName + ".sig"
-	blobSASSigValues.BlobName = signatureName
-	signatureSasQueryParams, err := blobSASSigValues.NewSASQueryParameters(credential)
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	signatureQp := signatureSasQueryParams.Encode()
-	signedSignatureURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s/%s?%s",
-		azureStorageAccount, azureStorageContainer, signatureName, signatureQp)
-
 	// Reponse
 	response := uploadAuthResponse{
-		ArchiveURL:   signedArchiveURL,
-		SignatureURL: signedSignatureURL,
+		ArchiveURL: signedArchiveURL,
 	}
 
 	c.JSON(http.StatusOK, response)

@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package appmanager
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/rsa"
@@ -575,48 +574,13 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 func (m *Manager) FetchBundle(bundle string, version string) error {
 	archiveName := bundle + "-" + version + ".tar.bz2"
 
-	// Get the signature
-	u, err := url.Parse(m.azureStorageURL + archiveName + ".sig")
+	// Get the archive
+	u, err := url.Parse(m.azureStorageURL + archiveName)
 	if err != nil {
 		return err
 	}
 	blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
 	resp, err := blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
-	if err != nil {
-		if stgErr, ok := err.(azblob.StorageError); !ok {
-			err = fmt.Errorf("Network error while downloading the signature: %s", err.Error())
-		} else {
-			err = fmt.Errorf("Azure Storage error while downloading the signature: %s", stgErr.Response().Status)
-		}
-		return err
-	}
-
-	// Signature is encoded as base64
-	signatureB64 := &bytes.Buffer{}
-	reader := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
-	_, err = signatureB64.ReadFrom(reader)
-	defer reader.Close()
-	if err != nil {
-		return err
-	}
-
-	// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
-	signature := make([]byte, 513)
-	len, err := base64.StdEncoding.Decode(signature, signatureB64.Bytes())
-	if err != nil {
-		return err
-	}
-	if len != 512 {
-		return errors.New("Invalid signature length")
-	}
-
-	// Get the archive
-	u, err = url.Parse(m.azureStorageURL + archiveName)
-	if err != nil {
-		return err
-	}
-	blobURL = azblob.NewBlobURL(*u, m.azureStoragePipeline)
-	resp, err = blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
 			err = fmt.Errorf("Network error while downloading the archive: %s", err.Error())
@@ -626,6 +590,27 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 		return err
 	}
 	body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
+	defer body.Close()
+
+	// Get the signature from the blob's metadata
+	metadata := resp.NewMetadata()
+	if metadata == nil {
+		return errors.New("Blob's metadata is empty")
+	}
+	signatureB64, ok := metadata["signature"]
+	if !ok || len(signatureB64) < 1 {
+		return errors.New("Blob's metadata does not contain a signature")
+	}
+
+	// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
+	signature := make([]byte, 513)
+	len, err := base64.StdEncoding.Decode(signature, []byte(signatureB64))
+	if err != nil {
+		return err
+	}
+	if len != 512 {
+		return errors.New("Invalid signature length")
+	}
 
 	// The stream is split between two readers: one for the hashing, one for writing the stream to disk
 	h := sha256.New()
@@ -801,7 +786,8 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCer
 		}
 		var cert []byte
 		var key []byte
-		tlsCertificateVersion, cert, key, err = m.akv.GetCertificate(tlsCertificate, tlsCertificateVersion)
+		var certObj *x509.Certificate
+		tlsCertificateVersion, cert, key, certObj, err = m.akv.GetCertificate(tlsCertificate, tlsCertificateVersion)
 		if err != nil {
 			return tlsCertificateVersion, err
 		}
@@ -816,7 +802,31 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCer
 		if err := writeData(key, cachePathKey); err != nil {
 			return tlsCertificateVersion, err
 		}
+
+		// Check the certificate's details
+		if m.InspectCertificate(tlsCertificate, certObj); err != nil {
+			return tlsCertificateVersion, err
+		}
 	}
 
 	return tlsCertificateVersion, nil
+}
+
+// InspectCertificate loads a X.509 certificate and checks its details, such as expiration
+func (m *Manager) InspectCertificate(name string, cert *x509.Certificate) error {
+	now := time.Now()
+
+	// Check "NotBefore"
+	if !cert.NotBefore.Before(now) {
+		// Print a warning
+		m.log.Println("[Warn] Certificate's NotBefore is in the future:", name, cert.NotBefore)
+	}
+
+	// Check "NotAfter"
+	if cert.NotAfter.Before(now) {
+		// Print a warning
+		m.log.Println("[Warn] Certificate has expired:", name, cert.NotAfter)
+	}
+
+	return nil
 }
