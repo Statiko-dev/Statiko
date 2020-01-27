@@ -95,6 +95,8 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("azureStorage.key", "AZURE_STORAGE_KEY")
 	viper.BindEnv("azureStorage.container", "AZURE_STORAGE_CONTAINER")
 	viper.BindEnv("nodeName", "NODE_NAME")
+	viper.BindEnv("notifications.method", "NOTIFICATIONS_METHOD")
+	viper.BindEnv("notifications.webhook.url", "NOTIFICATIONS_WEBHOOK_URL")
 
 	// Load config file
 	err := viper.ReadInConfig()

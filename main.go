@@ -31,6 +31,7 @@ import (
 
 	"smplatform/appconfig"
 	"smplatform/middlewares"
+	"smplatform/notifications"
 	"smplatform/routes"
 	"smplatform/sync"
 	"smplatform/webserver"
@@ -39,6 +40,11 @@ import (
 func main() {
 	// Seed rand
 	rand.Seed(time.Now().UnixNano())
+
+	// Init notifications client
+	if err := notifications.InitNotifications(); err != nil {
+		panic(err)
+	}
 
 	// If we're in production mode, set Gin to "release" mode
 	if appconfig.ENV == "production" {

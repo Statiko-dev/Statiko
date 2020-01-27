@@ -100,3 +100,15 @@ nodeName: "e2e-test"
 
 # Name for the manifest file inside app bundles
 manifestFile: "_smplatform.yaml"
+
+# Notifications to admin
+notifications:
+  # Notification method; "webhook" is the only supported value for now
+  # Can also be passed with environmental variable NOTIFICATIONS_METHOD
+  method: "off"
+  # Configuration for when method is "webhook"
+  webhook:
+    # URL to invoke
+    # Message is a POST request containing payload `{"value1": "message"}`
+    # Can also be passed with environmental variable NOTIFICATIONS_WEBHOOK_URL
+    url: ""

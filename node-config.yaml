@@ -100,3 +100,15 @@ nodeName: ""
 
 # Name for the manifest file inside app bundles
 manifestFile: "_smplatform.yaml"
+
+# Notifications to admin
+notifications:
+  # Notification method: "webhook" or "off"
+  # Can also be passed with environmental variable NOTIFICATIONS_METHOD
+  method: "webhook"
+  # Configuration for when method is "webhook"
+  webhook:
+    # URL to invoke
+    # Message is a POST request containing payload `{"value1": "message"}`
+    # Can also be passed with environmental variable NOTIFICATIONS_WEBHOOK_URL
+    url: "https://maker.ifttt.com/trigger/<event>/with/key/<key>"
