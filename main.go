@@ -35,6 +35,7 @@ import (
 	"smplatform/routes"
 	"smplatform/sync"
 	"smplatform/webserver"
+	"smplatform/worker"
 )
 
 func main() {
@@ -59,6 +60,9 @@ func main() {
 	if err := sync.Run(); err != nil {
 		panic(err)
 	}
+
+	// Start all background workers
+	worker.StartWorker()
 
 	// Ensure Nginx is running
 	if err := webserver.Instance.EnsureServerRunning(); err != nil {
