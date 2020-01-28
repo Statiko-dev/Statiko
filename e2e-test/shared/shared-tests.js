@@ -171,7 +171,7 @@ async function checkDataDirectory(sites) {
 
     for (let i = 0; i < expectApps.length; i++) {
         if (expectApps[i] == '_default') {
-            assert((await fsReaddir('/data/apps/_default')).length == 1)
+            assert.equal((await fsReaddir('/data/apps/_default')).length, 3, 'Default app folder contains a wrong number of files')
         }
         else {
             // Check all files and their md5 hash
