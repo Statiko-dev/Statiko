@@ -13,6 +13,7 @@ require (
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
 	github.com/etcd-io/etcd v3.3.18+incompatible
 	github.com/gin-gonic/gin v1.5.0
+	github.com/gobuffalo/packd v0.3.0
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/google/renameio v0.1.0
 	github.com/google/uuid v1.1.1 // indirect

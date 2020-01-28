@@ -33,12 +33,12 @@ import (
 	"os"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/gobuffalo/packd"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/google/renameio"
+	"gopkg.in/yaml.v2"
 
 	"smplatform/appconfig"
 	"smplatform/azurekeyvault"
@@ -459,17 +459,20 @@ func (m *Manager) WriteDefaultApp() error {
 		return err
 	}
 
-	// Write the default website page
-	welcome, err := m.box.Find("smplatform-welcome.html")
+	// Write the default website
+	err := m.box.Walk(func(path string, file packd.File) error {
+		defer file.Close()
+		f, err := os.Create(m.appRoot + "apps/_default/" + path)
+		defer f.Close()
+		if err != nil {
+			return err
+		}
+		io.Copy(f, file)
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(m.appRoot + "apps/_default/smplatform-welcome.html")
-	defer f.Close()
-	if err != nil {
-		return err
-	}
-	f.Write(welcome)
 
 	return nil
 }
