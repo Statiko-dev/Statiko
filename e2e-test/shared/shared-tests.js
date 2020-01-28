@@ -144,7 +144,7 @@ async function checkDataDirectory(sites) {
         assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/www'))
         if (expectSites[i] == '_default') {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'www'])
-            assert((await fsReaddir('/data/sites/' + expectSites[i] + '/www')).length == 1)
+            assert((await fsReaddir('/data/sites/' + expectSites[i] + '/www')).length == 3)
         }
         else {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])
