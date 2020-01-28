@@ -39,7 +39,7 @@ func (c *appConfig) Load() error {
 
 	// Set environment
 	ENV = os.Getenv("GO_ENV")
-	if len(ENV) < 1 {
+	if ENV == "" {
 		// Check if we have something hardcoded at build-time
 		if len(buildinfo.ENV) > 0 {
 			ENV = buildinfo.ENV
@@ -55,6 +55,12 @@ func (c *appConfig) Load() error {
 
 	// Look for a config file named node-config.(json|yaml|toml|...)
 	viper.SetConfigName("node-config")
+
+	// Check if we have a path for the config file
+	configFilePath := os.Getenv("CONFIG_FILE_PATH")
+	if configFilePath != "" {
+		viper.AddConfigPath(configFilePath)
+	}
 
 	// Look in /etc/smplatform
 	viper.AddConfigPath("/etc/smplatform/")
