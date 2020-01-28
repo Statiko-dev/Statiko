@@ -85,20 +85,16 @@ func (s *stateStoreFS) ReadState() (err error) {
 			return
 		}
 
-		// Parse JSON
-		s.state = &NodeState{}
-		err = json.Unmarshal(data, s.state)
-	} else {
-		logger.Println("Will create new state file", path)
-
-		// File doesn't exist, so load an empty state
-		sites := make([]SiteState, 0)
-		s.state = &NodeState{
-			Sites: sites,
+		// File exists, but it's empty
+		if len(data) == 0 {
+			s.createStateFile(path)
+		} else {
+			// Parse JSON
+			s.state = &NodeState{}
+			err = json.Unmarshal(data, s.state)
 		}
-
-		// Write the empty state to disk
-		err = s.WriteState()
+	} else {
+		s.createStateFile(path)
 	}
 
 	return
@@ -112,4 +108,19 @@ func (s *stateStoreFS) Healthy() (bool, error) {
 // OnStateUpdate isn't used with this store
 func (s *stateStoreFS) OnStateUpdate(callback func()) {
 	// NOOP
+}
+
+func (s *stateStoreFS) createStateFile(path string) (err error) {
+	logger.Println("Will create new state file", path)
+
+	// File doesn't exist, so load an empty state
+	sites := make([]SiteState, 0)
+	s.state = &NodeState{
+		Sites: sites,
+	}
+
+	// Write the empty state to disk
+	err = s.WriteState()
+
+	return
 }
