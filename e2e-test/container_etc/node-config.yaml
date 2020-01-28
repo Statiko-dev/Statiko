@@ -65,7 +65,7 @@ azureKeyVault:
     # Can also be passed with environmental variable AZURE_TENANT_ID
     tenantId: "de366b7a-4861-4e17-b67b-8e3cdd4f2408"
     # Can also be passed with environmental variable AZURE_CLIENT_ID
-    clientId: "34675237-94d6-42e2-b406-944837f2b3e7"
+    clientId: "797c905d-b49a-4ddf-9425-80e39b3c0a19"
     # Can also be passed with environmental variable AZURE_CLIENT_SECRET
     clientSecret: ""
 
