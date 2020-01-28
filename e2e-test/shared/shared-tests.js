@@ -144,7 +144,7 @@ async function checkDataDirectory(sites) {
         assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/www'))
         if (expectSites[i] == '_default') {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'www'])
-            assert((await fsReaddir('/data/sites/' + expectSites[i] + '/www')).length == 3)
+            assert.equal((await fsReaddir('/data/sites/' + expectSites[i] + '/www')).length, 3, 'Default app folder contains a wrong number of files')
         }
         else {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])
