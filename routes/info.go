@@ -18,10 +18,10 @@ package routes
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 
+	"smplatform/appconfig"
 	"smplatform/buildinfo"
 )
 
@@ -34,16 +34,10 @@ type infoResponse struct {
 
 // InfoHandler is the handler for GET /info, which returns information about the agent running
 func InfoHandler(c *gin.Context) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
 	info := infoResponse{
 		AuthMethod: "sharedkey",
 		Version:    buildinfo.BuildID + " (" + buildinfo.CommitHash + "; " + buildinfo.BuildTime + ")",
-		Hostname:   hostname,
+		Hostname:   appconfig.Config.GetString("nodeName"),
 	}
 
 	c.JSON(http.StatusOK, info)
