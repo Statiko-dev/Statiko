@@ -98,6 +98,14 @@ func ShowSiteHandler(c *gin.Context) {
 // DeleteSiteHandler is the handler for DELETE /site/{domain}, which deletes a site
 func DeleteSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
+		// Get the site from the state object to check if it exists
+		if site := state.Instance.GetSite(domain); site == nil {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "Domain name not found",
+			})
+			return
+		}
+
 		// Delete the record
 		if err := state.Instance.DeleteSite(domain); err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
