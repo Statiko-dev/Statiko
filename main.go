@@ -95,7 +95,7 @@ func main() {
 		authorized.PUT("/state", routes.PutStateHandler) // Alias
 
 		authorized.POST("/uploadauth", routes.UploadAuthHandler)
-		authorized.GET("/keyvaultname", routes.KeyVaultNameHandler)
+		authorized.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
 	}
 
 	// HTTP Server

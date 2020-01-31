@@ -97,3 +97,17 @@ GOARM=7 \
     -ldflags "-X smplatform/buildinfo.ENV=production -X smplatform/buildinfo.BuildID=$BUILD_ID -X smplatform/buildinfo.BuildTime=$(date -u +'%Y-%m-%dT%H:%M:%S') -X smplatform/buildinfo.CommitHash=$(git log --pretty=format:'%h' -n 1)" \
     -o bin/smplatform_linux_armhf
 ````
+
+## Azure Key Vault
+
+Create a new key for codesigning:
+
+````sh
+az keyvault key create \
+  --name codesign \
+  --vault-name $VAULT_NAME \
+  --kty RSA \
+  --size 4096 \
+  --protection software \
+  --ops sign verify
+````

@@ -23,7 +23,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -57,7 +56,6 @@ type Manager struct {
 
 	// Internals
 	codeSignKey *rsa.PublicKey
-	akv         *azurekeyvault.Certificate
 	log         *log.Logger
 	box         *packr.Box
 	ctx         context.Context
@@ -66,7 +64,7 @@ type Manager struct {
 // Init the object
 func (m *Manager) Init() error {
 	// Logger
-	m.log = log.New(os.Stdout, "webapp-manager: ", log.Ldate|log.Ltime|log.LUTC)
+	m.log = log.New(os.Stdout, "appmanager: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Init properties from env vars
 	m.appRoot = appconfig.Config.GetString("appRoot")
@@ -88,15 +86,6 @@ func (m *Manager) Init() error {
 			MaxTries: 3,
 		},
 	})
-
-	// Initialize the Azure Key Vault client
-	m.akv = &azurekeyvault.Certificate{
-		Ctx:       m.ctx,
-		VaultName: appconfig.Config.GetString("azureKeyVault.name"),
-	}
-	if err := m.akv.Init(); err != nil {
-		return err
-	}
 
 	// Load the code signing key
 	if err := m.LoadSigningKey(); err != nil {
@@ -488,23 +477,22 @@ func (m *Manager) ActivateApp(app string, domain string) error {
 
 // LoadSigningKey loads the code signing public key
 func (m *Manager) LoadSigningKey() error {
-	// Load certificate from cache
-	m.log.Println("Loading code signing key at " + appconfig.Config.GetString("codesignKey"))
-	dataPEM, err := ioutil.ReadFile(appconfig.Config.GetString("codesignKey"))
-	if err != nil {
-		return err
-	}
+	keyName := appconfig.Config.GetString("azureKeyVault.codesignKey.name")
+	keyVersion := appconfig.Config.GetString("azureKeyVault.codesignKey.version")
 
-	// Parse the key
-	block, _ := pem.Decode(dataPEM)
-	if block == nil || block.Type != "PUBLIC KEY" {
-		return errors.New("Cannot decode PEM block containing public key")
-	}
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	// Request the key from Azure Key Vault
+	m.log.Printf("Requesting code signing key %s (%s)\n", keyName, keyVersion)
+	keyVersion, pubKey, err := azurekeyvault.GetInstance().GetPublicKey(keyName, keyVersion)
 	if err != nil {
 		return err
 	}
-	m.codeSignKey = pub.(*rsa.PublicKey)
+	m.log.Println("Received code signing key with version", keyVersion)
+	m.codeSignKey = pubKey
+
+	// Check if we have a new key version
+	if keyVersion != "" && keyVersion != "latest" {
+		appconfig.Config.Set("azureKeyVault.codesignKey.version", keyVersion)
+	}
 
 	return nil
 }
@@ -595,24 +583,25 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
 	defer body.Close()
 
-	// Get the signature from the blob's metadata
+	// Get the signature from the blob's metadata, if any
+	var signature []byte
 	metadata := resp.NewMetadata()
-	if metadata == nil {
-		return errors.New("Blob's metadata is empty")
+	if metadata != nil {
+		signatureB64, ok := metadata["signature"]
+		if ok && signatureB64 != "" {
+			// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
+			signature = make([]byte, 513)
+			len, err := base64.StdEncoding.Decode(signature, []byte(signatureB64))
+			if err != nil {
+				return err
+			}
+			if len != 512 {
+				return errors.New("Invalid signature length")
+			}
+		}
 	}
-	signatureB64, ok := metadata["signature"]
-	if !ok || len(signatureB64) < 1 {
-		return errors.New("Blob's metadata does not contain a signature")
-	}
-
-	// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
-	signature := make([]byte, 513)
-	len, err := base64.StdEncoding.Decode(signature, []byte(signatureB64))
-	if err != nil {
-		return err
-	}
-	if len != 512 {
-		return errors.New("Invalid signature length")
+	if signature == nil && appconfig.Config.GetBool("disallowUnsignedApps") {
+		return errors.New("Bundle does not have a signature, but unsigned apps are not allowed by this node's configuration")
 	}
 
 	// The stream is split between two readers: one for the hashing, one for writing the stream to disk
@@ -646,16 +635,20 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	hashed := h.Sum(nil)
 	m.log.Printf("SHA256 checksum for bundle %s is %x\n", bundle, hashed)
 
-	// Verify the digital signature
-	// (Need to grab the first 512 bytes from the signature only)
-	err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature[:512])
-	if err != nil {
-		m.log.Printf("Signature mismatch for bundle %s-%s\n", bundle, version)
+	// Verify the digital signature if present
+	if signature != nil {
+		// (Need to grab the first 512 bytes from the signature only)
+		err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature[:512])
+		if err != nil {
+			m.log.Printf("Signature mismatch for bundle %s-%s\n", bundle, version)
 
-		// File needs to be deleted if signature is invalid
-		deleteFile = true
+			// File needs to be deleted if signature is invalid
+			deleteFile = true
 
-		return err
+			return err
+		}
+	} else {
+		m.log.Printf("WARN Bundle %s-%s did not contain a signature; skipping integrity and origin check\n", bundle, version)
 	}
 
 	return nil
@@ -784,13 +777,10 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCer
 	if !exists {
 		// Fetch the certificate and key as PEM
 		m.log.Println("Request TLS certificate from key vault: " + tlsCertificate)
-		if err := m.akv.GetKeyVaultClient(); err != nil {
-			return tlsCertificateVersion, err
-		}
 		var cert []byte
 		var key []byte
 		var certObj *x509.Certificate
-		tlsCertificateVersion, cert, key, certObj, err = m.akv.GetCertificate(tlsCertificate, tlsCertificateVersion)
+		tlsCertificateVersion, cert, key, certObj, err = azurekeyvault.GetInstance().GetCertificate(tlsCertificate, tlsCertificateVersion)
 		if err != nil {
 			return tlsCertificateVersion, err
 		}

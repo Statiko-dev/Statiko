@@ -79,6 +79,9 @@ func (c *appConfig) Load() error {
 	hostname, _ := os.Hostname()
 	viper.SetDefault("nodeName", hostname)
 
+	// Other default values
+	viper.SetDefault("azureKeyVault.codesignKey.version", "latest")
+
 	// Some settings can be set as env vars too
 	viper.BindEnv("auth", "AUTH")
 	viper.BindEnv("port", "PORT")
@@ -97,6 +100,8 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("azureKeyVault.servicePrincipal.tenantId", "AZURE_TENANT_ID")
 	viper.BindEnv("azureKeyVault.servicePrincipal.clientId", "AZURE_CLIENT_ID")
 	viper.BindEnv("azureKeyVault.servicePrincipal.clientSecret", "AZURE_CLIENT_SECRET")
+	viper.BindEnv("azureKeyVault.codesignKey.name", "CODESIGN_KEY_NAME")
+	viper.BindEnv("azureKeyVault.codesignKey.version", "CODESIGN_KEY_VERSION")
 	viper.BindEnv("azureStorage.account", "AZURE_STORAGE_ACCOUNT")
 	viper.BindEnv("azureStorage.key", "AZURE_STORAGE_KEY")
 	viper.BindEnv("azureStorage.container", "AZURE_STORAGE_CONTAINER")
@@ -138,4 +143,10 @@ func (c *appConfig) GetBool(key string) bool {
 // GetInt returns the value as int
 func (c *appConfig) GetInt(key string) int {
 	return viper.GetInt(key)
+}
+
+// Set a new value in the configuration
+// Note that the value is only stored in memory and not written to disk
+func (c *appConfig) Set(key string, value interface{}) {
+	viper.Set(key, value)
 }

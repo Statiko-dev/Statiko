@@ -60,6 +60,16 @@ azureKeyVault:
   # Can also be passed with environmental variable AZURE_KEYVAULT_NAME
   name: "smplatform-ci-akv"
 
+  # Code signing key
+  codesignKey:
+    # Name of the code signing key inside the Key Vault
+    # Can also be passed with environmental variable CODESIGN_KEY_NAME
+    name: "codesign"
+    # Version of the code signing key inside the Key Vault
+    # Defaults to the latest one if empty
+    # Can also be passed with environmental variable CODESIGN_KEY_VERSION
+    version: ""
+
   # Service Principal to access the Key Vault
   servicePrincipal:
     # Can also be passed with environmental variable AZURE_TENANT_ID
@@ -81,9 +91,6 @@ azureStorage:
   # Can also be passed with environmental variable AZURE_STORAGE_CONTAINER
   container: "apps"
 
-# Code signing public key
-codesignKey: "/etc/smplatform/codesign.pub"
-
 # TLS
 tls:
   # Diffie-Hellman parameters used by all TLS-enabled sites
@@ -100,6 +107,9 @@ nodeName: "e2e-test"
 
 # Name for the manifest file inside app bundles
 manifestFile: "_smplatform.yaml"
+
+# Set to true to require all deployed apps to be cryptographically signed
+disallowUnsignedApps: true
 
 # Notifications to admin
 notifications:
