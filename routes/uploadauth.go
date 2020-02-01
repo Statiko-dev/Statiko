@@ -58,9 +58,9 @@ func UploadAuthHandler(c *gin.Context) {
 	}
 
 	// Get Azure Storage configuration
-	azureStorageAccount := appconfig.Config.GetString("azureStorage.account")
-	azureStorageKey := appconfig.Config.GetString("azureStorage.key")
-	azureStorageContainer := appconfig.Config.GetString("azureStorage.container")
+	azureStorageAccount := appconfig.Config.GetString("azure.storage.account")
+	azureStorageKey := appconfig.Config.GetString("azure.storage.key")
+	azureStorageContainer := appconfig.Config.GetString("azure.storage.appsContainer")
 	credential, err := azblob.NewSharedKeyCredential(azureStorageAccount, azureStorageKey)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)

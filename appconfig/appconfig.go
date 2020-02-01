@@ -80,7 +80,7 @@ func (c *appConfig) Load() error {
 	viper.SetDefault("nodeName", hostname)
 
 	// Other default values
-	viper.SetDefault("azureKeyVault.codesignKey.version", "latest")
+	viper.SetDefault("azure.keyVault.codesignKey.version", "latest")
 
 	// Some settings can be set as env vars too
 	viper.BindEnv("auth", "AUTH")
@@ -96,15 +96,15 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("nginx.commands.stop", "NGINX_STOP")
 	viper.BindEnv("nginx.commands.restart", "NGINX_RESTART")
 	viper.BindEnv("nginx.commands.status", "NGINX_STATUS")
-	viper.BindEnv("azureKeyVault.name", "AZURE_KEYVAULT_NAME")
-	viper.BindEnv("azureKeyVault.servicePrincipal.tenantId", "AZURE_TENANT_ID")
-	viper.BindEnv("azureKeyVault.servicePrincipal.clientId", "AZURE_CLIENT_ID")
-	viper.BindEnv("azureKeyVault.servicePrincipal.clientSecret", "AZURE_CLIENT_SECRET")
-	viper.BindEnv("azureKeyVault.codesignKey.name", "CODESIGN_KEY_NAME")
-	viper.BindEnv("azureKeyVault.codesignKey.version", "CODESIGN_KEY_VERSION")
-	viper.BindEnv("azureStorage.account", "AZURE_STORAGE_ACCOUNT")
-	viper.BindEnv("azureStorage.key", "AZURE_STORAGE_KEY")
-	viper.BindEnv("azureStorage.container", "AZURE_STORAGE_CONTAINER")
+	viper.BindEnv("azure.app.tenantId", "AZURE_TENANT_ID")
+	viper.BindEnv("azure.app.clientId", "AZURE_CLIENT_ID")
+	viper.BindEnv("azure.app.clientSecret", "AZURE_CLIENT_SECRET")
+	viper.BindEnv("azure.keyVault.name", "AZURE_KEYVAULT_NAME")
+	viper.BindEnv("azure.keyVault.codesignKey.name", "CODESIGN_KEY_NAME")
+	viper.BindEnv("azure.keyVault.codesignKey.version", "CODESIGN_KEY_VERSION")
+	viper.BindEnv("azure.storage.account", "AZURE_STORAGE_ACCOUNT")
+	viper.BindEnv("azure.storage.key", "AZURE_STORAGE_KEY")
+	viper.BindEnv("azure.storage.appsContainer", "AZURE_STORAGE_APPS_CONTAINER")
 	viper.BindEnv("nodeName", "NODE_NAME")
 	viper.BindEnv("notifications.method", "NOTIFICATIONS_METHOD")
 	viper.BindEnv("notifications.webhook.url", "NOTIFICATIONS_WEBHOOK_URL")

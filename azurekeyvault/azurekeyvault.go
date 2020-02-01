@@ -47,7 +47,7 @@ func GetInstance() *Client {
 	if instance == nil {
 		// Initialize the singleton
 		instance = &Client{
-			VaultName: appconfig.Config.GetString("azureKeyVault.name"),
+			VaultName: appconfig.Config.GetString("azure.keyVault.name"),
 		}
 		if err := instance.Init(); err != nil {
 			panic(err)
@@ -92,15 +92,15 @@ func (akv *Client) initKeyVaultClient() error {
 	akv.KeyVault = keyvault.New()
 
 	// If we have the auth data in the appconfig, expose them as env vars so the Azure SDK picks them up
-	tenantID := appconfig.Config.GetString("azureKeyVault.servicePrincipal.tenantId")
+	tenantID := appconfig.Config.GetString("azure.app.tenantId")
 	if len(tenantID) > 0 {
 		os.Setenv("AZURE_TENANT_ID", tenantID)
 	}
-	clientID := appconfig.Config.GetString("azureKeyVault.servicePrincipal.clientId")
+	clientID := appconfig.Config.GetString("azure.app.clientId")
 	if len(clientID) > 0 {
 		os.Setenv("AZURE_CLIENT_ID", clientID)
 	}
-	clientSecret := appconfig.Config.GetString("azureKeyVault.servicePrincipal.clientSecret")
+	clientSecret := appconfig.Config.GetString("azure.app.clientSecret")
 	if len(clientSecret) > 0 {
 		os.Setenv("AZURE_CLIENT_SECRET", clientSecret)
 	}
@@ -121,7 +121,6 @@ func (akv *Client) GetPublicKey(keyName string, keyVersion string) (string, *rsa
 	var err error
 	if keyVersion == "" || keyVersion == "latest" {
 		keyVersion, err = akv.getKeyLastVersion(keyName)
-		fmt.Println(keyVersion)
 		if err != nil {
 			return keyVersion, nil, err
 		}

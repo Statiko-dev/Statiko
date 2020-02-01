@@ -54,24 +54,11 @@ nginx:
 # Can also be passed with environmental variable APP_ROOT
 appRoot: "/data/"
 
-# Azure Key Vault
-azureKeyVault:
-  # Name of the Key Vault
-  # Can also be passed with environmental variable AZURE_KEYVAULT_NAME
-  name: ""
+# Azure configuration
+azure:
 
-  # Code signing key
-  codesignKey:
-    # Name of the code signing key inside the Key Vault
-    # Can also be passed with environmental variable CODESIGN_KEY_NAME
-    name: "codesign"
-    # Version of the code signing key inside the Key Vault
-    # Defaults to the latest one if empty
-    # Can also be passed with environmental variable CODESIGN_KEY_VERSION
-    version: ""
-
-  # Service Principal to access the Key Vault
-  servicePrincipal:
+  # App / Service Principal details
+  app:
     # Can also be passed with environmental variable AZURE_TENANT_ID
     tenantId: ""
     # Can also be passed with environmental variable AZURE_CLIENT_ID
@@ -79,17 +66,33 @@ azureKeyVault:
     # Can also be passed with environmental variable AZURE_CLIENT_SECRET
     clientSecret: ""
 
-# Azure Storage
-azureStorage:
-  # Storage account name
-  # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
-  account: ""
-  # Storage account key
-  # Can also be passed with environmental variable AZURE_STORAGE_KEY
-  key: ""
-  # Container name
-  # Can also be passed with environmental variable AZURE_STORAGE_CONTAINER
-  container: ""
+  # Azure Storage
+  storage:
+    # Storage account name
+    # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
+    account: ""
+    # Storage account key
+    # Can also be passed with environmental variable AZURE_STORAGE_KEY
+    key: ""
+    # Container name
+    # Can also be passed with environmental variable AZURE_STORAGE_APPS_CONTAINER
+    appsContainer: ""
+
+  # Azure Key Vault
+  keyVault:
+    # Name of the Key Vault
+    # Can also be passed with environmental variable AZURE_KEYVAULT_NAME
+    name: ""
+
+    # Code signing key
+    codesignKey:
+      # Name of the code signing key inside the Key Vault
+      # Can also be passed with environmental variable CODESIGN_KEY_NAME
+      name: "codesign"
+      # Version of the code signing key inside the Key Vault
+      # Defaults to the latest one if null
+      # Can also be passed with environmental variable CODESIGN_KEY_VERSION
+      version: null
 
 # TLS
 tls:

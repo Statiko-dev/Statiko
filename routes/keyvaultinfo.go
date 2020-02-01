@@ -28,8 +28,8 @@ import (
 // KeyVaultInfoHandler is the handler for GET /keyvaultinfo, which returns the name of the Azure Key Vault instance used
 func KeyVaultInfoHandler(c *gin.Context) {
 	// Ensure we have all the data
-	codesignKeyName := appconfig.Config.GetString("azureKeyVault.codesignKey.name")
-	codesignKeyVersion := appconfig.Config.GetString("azureKeyVault.codesignKey.version")
+	codesignKeyName := appconfig.Config.GetString("azure.keyVault.codesignKey.name")
+	codesignKeyVersion := appconfig.Config.GetString("azure.keyVault.codesignKey.version")
 	if codesignKeyName == "" || codesignKeyVersion == "" || codesignKeyVersion == "latest" {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 			"error": "Empty codesign key name or version, or latest version hasn't been resolved yet",

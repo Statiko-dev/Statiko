@@ -70,9 +70,9 @@ func (m *Manager) Init() error {
 	m.appRoot = appconfig.Config.GetString("appRoot")
 
 	// Get Azure Storage configuration
-	azureStorageAccount := appconfig.Config.GetString("azureStorage.account")
-	azureStorageKey := appconfig.Config.GetString("azureStorage.key")
-	azureStorageContainer := appconfig.Config.GetString("azureStorage.container")
+	azureStorageAccount := appconfig.Config.GetString("azure.storage.account")
+	azureStorageKey := appconfig.Config.GetString("azure.storage.key")
+	azureStorageContainer := appconfig.Config.GetString("azure.storage.appsContainer")
 	m.azureStorageURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s/", azureStorageAccount, azureStorageContainer)
 
 	// Azure Storage pipeline
@@ -477,8 +477,8 @@ func (m *Manager) ActivateApp(app string, domain string) error {
 
 // LoadSigningKey loads the code signing public key
 func (m *Manager) LoadSigningKey() error {
-	keyName := appconfig.Config.GetString("azureKeyVault.codesignKey.name")
-	keyVersion := appconfig.Config.GetString("azureKeyVault.codesignKey.version")
+	keyName := appconfig.Config.GetString("azure.keyVault.codesignKey.name")
+	keyVersion := appconfig.Config.GetString("azure.keyVault.codesignKey.version")
 
 	// Request the key from Azure Key Vault
 	m.log.Printf("Requesting code signing key %s (%s)\n", keyName, keyVersion)
@@ -491,7 +491,7 @@ func (m *Manager) LoadSigningKey() error {
 
 	// Check if we have a new key version
 	if keyVersion != "" && keyVersion != "latest" {
-		appconfig.Config.Set("azureKeyVault.codesignKey.version", keyVersion)
+		appconfig.Config.Set("azure.keyVault.codesignKey.version", keyVersion)
 	}
 
 	return nil
