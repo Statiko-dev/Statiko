@@ -83,7 +83,7 @@ func (c *appConfig) Load() error {
 	viper.SetDefault("azure.keyVault.codesignKey.version", "latest")
 
 	// Some settings can be set as env vars too
-	viper.BindEnv("auth", "AUTH")
+	viper.BindEnv("auth.psk.key", "AUTH_KEY")
 	viper.BindEnv("port", "PORT")
 	viper.BindEnv("state.store", "STATE_STORE")
 	viper.BindEnv("state.file.path", "STATE_FILE_PATH")

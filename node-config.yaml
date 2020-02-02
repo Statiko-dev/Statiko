@@ -1,6 +1,18 @@
-# Authorization token
-# Can also be passed with environmental variable AUTH
-auth: ""
+# Authorization for managing the node
+auth:
+  # Authorize with a pre-shared key
+  psk:
+    # Enabled
+    enabled: yes
+    # Key
+    # Can also be passed with environmental variable AUTH_KEY
+    key: ""
+
+  # Authorize with an OAuth 2.0 access token issued by Azure AD
+  # See the "azure.app" dictionary below for app's details
+  azureAD:
+    # Enabled
+    enabled: yes
 
 # Port the server is listening on (must be a string)
 # Defaults to 2265 if not set

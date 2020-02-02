@@ -11,6 +11,7 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/etcd-io/etcd v3.3.18+incompatible
 	github.com/gin-gonic/gin v1.5.0
 	github.com/gobuffalo/packd v0.3.0

@@ -17,9 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package utils
 
 import (
+	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"math/big"
 	"math/rand"
 	"net/http"
 )
@@ -33,11 +36,11 @@ func RequestJSON(client *http.Client, url string, target interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode >= 399 {
 		b, _ := ioutil.ReadAll(resp.Body)
 		return errors.New(string(b))
 	}
-	defer resp.Body.Close()
 
 	// Decode the JSON into the target
 	err = json.NewDecoder(resp.Body).Decode(target)
@@ -57,6 +60,32 @@ func StringInSlice(list []string, a string) bool {
 	return false
 }
 
+// ParseRSAPublicKey converts a public RSA key represented by base64-encoded modulus and exponent into a rsa.PublicKey object
+func ParseRSAPublicKey(nStr string, eStr string) (*rsa.PublicKey, error) {
+	pubKey := &rsa.PublicKey{}
+
+	// Modulus
+	nData, err := base64.RawURLEncoding.DecodeString(nStr)
+	if err != nil {
+		return nil, err
+	}
+	n := &big.Int{}
+	n.SetBytes(nData)
+	pubKey.N = n
+
+	// Public exponent
+	eData, err := base64.RawURLEncoding.DecodeString(eStr)
+	if err != nil {
+		return nil, err
+	}
+	e := big.Int{}
+	e.SetBytes(eData)
+	pubKey.E = int(e.Int64())
+
+	return pubKey, nil
+}
+
+// Letters used for random string generation
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // RandString returns a random string of n bytes

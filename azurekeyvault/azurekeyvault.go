@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -37,6 +36,7 @@ import (
 	"golang.org/x/crypto/pkcs12"
 
 	"smplatform/appconfig"
+	"smplatform/utils"
 )
 
 // Singleton for Client
@@ -166,25 +166,11 @@ func (akv *Client) GetPublicKey(keyName string, keyVersion string) (string, *rsa
 	if key.N == nil || *key.N == "" || key.E == nil || *key.E == "" {
 		return keyVersion, nil, errors.New("Invalid key: missing N or E parameters")
 	}
-	pubKey := &rsa.PublicKey{}
 
-	// Modulus
-	nData, err := base64.RawURLEncoding.DecodeString(*key.N)
+	pubKey, err := utils.ParseRSAPublicKey(*key.N, *key.E)
 	if err != nil {
 		return keyVersion, nil, err
 	}
-	n := &big.Int{}
-	n.SetBytes(nData)
-	pubKey.N = n
-
-	// Public exponent
-	eData, err := base64.RawURLEncoding.DecodeString(*key.E)
-	if err != nil {
-		return keyVersion, nil, err
-	}
-	e := big.Int{}
-	e.SetBytes(eData)
-	pubKey.E = int(e.Int64())
 
 	return keyVersion, pubKey, nil
 }
