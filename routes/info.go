@@ -19,7 +19,6 @@ package routes
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,17 +28,24 @@ import (
 
 // infoResponse is the response for the /info route
 type infoResponse struct {
-	AuthMethods    []string `json:"authMethods"`
-	AzureADAuthURL string   `json:"azureADAuthURL,omitempty"`
-	Version        string   `json:"version"`
-	Hostname       string   `json:"hostname"`
+	AuthMethods []string             `json:"authMethods"`
+	AzureAD     *azureADInfoResponse `json:"azureAD,omitempty"`
+	Version     string               `json:"version"`
+	Hostname    string               `json:"hostname"`
+}
+
+// azureADInfoResponse is part of the infoResponse struct
+type azureADInfoResponse struct {
+	AuthorizeURL string `json:"authorizeUrl"`
+	TokenURL     string `json:"tokenUrl"`
+	ClientID     string `json:"clientId"`
 }
 
 // InfoHandler is the handler for GET /info, which returns information about the agent running
 func InfoHandler(c *gin.Context) {
 	// Check auth info
 	authMethods := make([]string, 0)
-	azureADAuthURL := ""
+	var azureADInfo *azureADInfoResponse
 	if appconfig.Config.GetBool("auth.psk.enabled") {
 		authMethods = append(authMethods, "psk")
 	}
@@ -49,16 +55,20 @@ func InfoHandler(c *gin.Context) {
 		// Get the URL where users can authenticate
 		tenantId := appconfig.Config.GetString("azure.app.tenantId")
 		clientId := appconfig.Config.GetString("azure.app.clientId")
-		redirectURL := url.QueryEscape("http://localhost:3993")
-		azureADAuthURL = fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize?client_id=%s&response_type=code&redirect_uri=%s&response_mode=query&domain_hint=organizations&scope=openid", tenantId, clientId, redirectURL)
+
+		azureADInfo = &azureADInfoResponse{
+			AuthorizeURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantId),
+			TokenURL:     fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantId),
+			ClientID:     clientId,
+		}
 	}
 
 	// Response
 	info := infoResponse{
-		AuthMethods:    authMethods,
-		AzureADAuthURL: azureADAuthURL,
-		Version:        buildinfo.BuildID + " (" + buildinfo.CommitHash + "; " + buildinfo.BuildTime + ")",
-		Hostname:       appconfig.Config.GetString("nodeName"),
+		AuthMethods: authMethods,
+		AzureAD:     azureADInfo,
+		Version:     buildinfo.BuildID + " (" + buildinfo.CommitHash + "; " + buildinfo.BuildTime + ")",
+		Hostname:    appconfig.Config.GetString("nodeName"),
 	}
 
 	c.JSON(http.StatusOK, info)

@@ -39,12 +39,15 @@ describe('Health check', function() {
 
         assert(response.body)
         assert(Object.keys(response.body).length == 4)
-        assert.deepEqual(response.body.authMethods, ['psk', 'azureAD'])
+        assert.deepEqual(response.body.authMethods.sort(), ['azureAD', 'psk'])
         assert(response.body.version)
         assert(/(([0-9]{8}\.[0-9]+)|([0-9]+)) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\))/.test(response.body.version))
         assert(response.body.hostname)
-        assert(response.body.azureADAuthURL)
-        assert(response.body.azureADAuthURL.startsWith('https://login.microsoftonline.com'))
+        assert(response.body.azureAD)
+        assert.equal(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
+        assert(response.body.azureAD.authorizeUrl.startsWith('https://login.microsoftonline.com'))
+        assert(response.body.azureAD.tokenUrl.startsWith('https://login.microsoftonline.com'))
+        assert.equal(response.body.azureAD.clientId.length, 36)
     })
 
     it('Get node info via proxy', async function() {
@@ -55,12 +58,15 @@ describe('Health check', function() {
 
         assert(response.body)
         assert(Object.keys(response.body).length == 4)
-        assert.deepEqual(response.body.authMethods, ['psk', 'azureAD'])
+        assert.deepEqual(response.body.authMethods.sort(), ['azureAD', 'psk'])
         assert(response.body.version)
         assert(/(([0-9]{8}\.[0-9]+)|([0-9]+)) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\))/.test(response.body.version))
         assert(response.body.hostname)
-        assert(response.body.azureADAuthURL)
-        assert(response.body.azureADAuthURL.startsWith('https://login.microsoftonline.com'))
+        assert(response.body.azureAD)
+        assert.equal(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
+        assert(response.body.azureAD.authorizeUrl.startsWith('https://login.microsoftonline.com'))
+        assert(response.body.azureAD.tokenUrl.startsWith('https://login.microsoftonline.com'))
+        assert.equal(response.body.azureAD.clientId.length, 36)
     })
 
     it('Check platform data directory', shared.tests.checkDataDirectory())
