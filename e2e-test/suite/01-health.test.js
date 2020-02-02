@@ -38,11 +38,13 @@ describe('Health check', function() {
             .expect(200)
 
         assert(response.body)
-        assert(Object.keys(response.body).length == 3)
-        assert(response.body.authMethod == 'sharedkey')
+        assert(Object.keys(response.body).length == 4)
+        assert.deepEqual(response.body.authMethods, ['psk', 'azureAD'])
         assert(response.body.version)
         assert(/(([0-9]{8}\.[0-9]+)|([0-9]+)) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\))/.test(response.body.version))
         assert(response.body.hostname)
+        assert(response.body.azureADAuthURL)
+        assert(response.body.azureADAuthURL.startsWith('https://login.microsoftonline.com'))
     })
 
     it('Get node info via proxy', async function() {
@@ -52,11 +54,13 @@ describe('Health check', function() {
             .expect(200)
 
         assert(response.body)
-        assert(Object.keys(response.body).length == 3)
-        assert(response.body.authMethod == 'sharedkey')
+        assert(Object.keys(response.body).length == 4)
+        assert.deepEqual(response.body.authMethods, ['psk', 'azureAD'])
         assert(response.body.version)
         assert(/(([0-9]{8}\.[0-9]+)|([0-9]+)) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\))/.test(response.body.version))
         assert(response.body.hostname)
+        assert(response.body.azureADAuthURL)
+        assert(response.body.azureADAuthURL.startsWith('https://login.microsoftonline.com'))
     })
 
     it('Check platform data directory', shared.tests.checkDataDirectory())
