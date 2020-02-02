@@ -62,6 +62,11 @@ func Auth() gin.HandlerFunc {
 		// Remove spaces around token
 		auth = strings.TrimSpace(auth)
 
+		// If the token begins with "Bearer ", remove that (we make it optional)
+		if strings.HasPrefix(auth, "Bearer ") {
+			auth = auth[7:]
+		}
+
 		if len(auth) != 0 {
 			// If pre-shared keys are allowed, check if there's a match
 			if appconfig.Config.GetBool("auth.psk.enabled") && auth == appconfig.Config.GetString("auth.psk.key") {
