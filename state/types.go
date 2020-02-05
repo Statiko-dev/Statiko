@@ -18,7 +18,8 @@ package state
 
 // NodeState represents the global state of the node
 type NodeState struct {
-	Sites []SiteState `json:"sites"`
+	Sites   []SiteState       `json:"sites"`
+	Secrets map[string][]byte `json:"secrets"`
 }
 
 // SiteState represents the state of a single site
@@ -68,6 +69,7 @@ type AppManifest struct {
 // Interface for the state stores
 type stateStore interface {
 	Init() error
+	IsLeader() bool
 	GetState() *NodeState
 	SetState(*NodeState) error
 	WriteState() error

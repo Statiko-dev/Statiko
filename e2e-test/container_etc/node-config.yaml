@@ -14,6 +14,11 @@ auth:
     # Enabled
     enabled: yes
 
+# Encryption key for secrets. Must be a base64-encoded (standard encoding) key of 128-bit (16 byte).
+# Generate it with a command like `openssl rand 16 | base64`
+# Can also be passed with environmental variable SECRETS_ENCRYPTION_KEY
+secretsEncryptionKey: "aQZg30UrCUgu0TfdNvIeLg=="
+
 # Port the server is listening on (must be a string)
 # Defaults to 2265 if not set
 # Can also be passed with environmental variable PORT

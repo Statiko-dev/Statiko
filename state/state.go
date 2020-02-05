@@ -17,7 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
+	"io"
 	"time"
 
 	"smplatform/appconfig"
@@ -40,7 +45,7 @@ func (m *Manager) Init() (err error) {
 	case "etcd":
 		m.store = &stateStoreEtcd{}
 	default:
-		err = errors.New("Invalid value for configuration `state.store`; valid options are `file` or `etcd`")
+		err = errors.New("invalid value for configuration `state.store`; valid options are `file` or `etcd`")
 		return
 	}
 	err = m.store.Init()
@@ -180,7 +185,7 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 	}
 
 	if !found {
-		return errors.New("Site not found")
+		return errors.New("site not found")
 	}
 
 	// Check if we need to set the object as updated
@@ -220,7 +225,7 @@ func (m *Manager) DeleteSite(domain string) error {
 	}
 
 	if !found {
-		return errors.New("Site not found")
+		return errors.New("site not found")
 	}
 
 	m.setUpdated()
@@ -241,4 +246,108 @@ func (m *Manager) StoreHealth() (healthy bool, err error) {
 // OnStateUpdate stores the callback to invoke if the state is updated because of an external event
 func (m *Manager) OnStateUpdate(callback func()) {
 	m.store.OnStateUpdate(callback)
+}
+
+// GetSecret returns the value for a secret (encrypted in the state)
+func (m *Manager) GetSecret(key string) (string, error) {
+	// Check if we have a secret for this key
+	state := m.store.GetState()
+	if state.Secrets == nil {
+		state.Secrets = make(map[string][]byte)
+	}
+	encValue, found := state.Secrets[key]
+	if !found || encValue == nil || len(encValue) < 12 {
+		return "", nil
+	}
+
+	// Get the cipher
+	aesgcm, err := m.getSecretsCipher()
+	if err != nil {
+		return "", err
+	}
+
+	// Decrypt the secret
+	// First 12 bytes of the value are the nonce
+	value, err := aesgcm.Open(nil, encValue[0:12], encValue[12:], nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(value), nil
+}
+
+// SetSecret sets the value for a secret (encrypted in the state)
+func (m *Manager) SetSecret(key string, value []byte) error {
+	// Get the cipher
+	aesgcm, err := m.getSecretsCipher()
+	if err != nil {
+		return err
+	}
+
+	// Get a nonce
+	nonce := make([]byte, 12)
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return err
+	}
+
+	// Encrypt the secret
+	encValue := aesgcm.Seal(nil, nonce, value, nil)
+
+	// Store the value
+	state := m.store.GetState()
+	if state.Secrets == nil {
+		state.Secrets = make(map[string][]byte)
+	}
+	state.Secrets[key] = append(nonce, encValue...)
+
+	// Set the state as updated as we might need a re-sync
+	m.setUpdated()
+
+	// Write the file to disk
+	if err := m.store.WriteState(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Returns a cipher for AES-GCM-128 initialized
+func (m *Manager) getSecretsCipher() (cipher.AEAD, error) {
+	// Get the symmetric encryption key
+	encKey, err := m.getSecretsEncryptionKey()
+	if err != nil {
+		return nil, err
+	}
+
+	// Init the AES-GCM cipher
+	block, err := aes.NewCipher(encKey)
+	if err != nil {
+		return nil, err
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	return aesgcm, nil
+}
+
+// Returns the value of the secrets symmetric encryption key from the configuration file
+func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
+	// Get the key
+	encKeyB64 := appconfig.Config.GetString("secretsEncryptionKey")
+	if len(encKeyB64) != 24 {
+		return nil, errors.New("empty or invalid 'secretsEncryptionKey' value in configuration file")
+	}
+
+	// Decode base64
+	encKey, err := base64.StdEncoding.DecodeString(encKeyB64)
+	if err != nil {
+		return nil, err
+	}
+	if len(encKey) != 16 {
+		return nil, errors.New("invalid length of 'secretsEncryptionKey'")
+	}
+
+	return encKey, nil
 }

@@ -84,6 +84,7 @@ func (c *appConfig) Load() error {
 
 	// Some settings can be set as env vars too
 	viper.BindEnv("auth.psk.key", "AUTH_KEY")
+	viper.BindEnv("secretsEncryptionKey", "SECRETS_ENCRYPTION_KEY")
 	viper.BindEnv("port", "PORT")
 	viper.BindEnv("state.store", "STATE_STORE")
 	viper.BindEnv("state.file.path", "STATE_FILE_PATH")

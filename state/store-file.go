@@ -37,6 +37,12 @@ func (s *stateStoreFile) Init() (err error) {
 	return
 }
 
+// IsLeader returns true if the current node is the leader of the cluster
+func (s *stateStoreFile) IsLeader() bool {
+	// When storing state in a file, we're operating in single-node mode, so we're always the leader
+	return true
+}
+
 // GetState returns the full state
 func (s *stateStoreFile) GetState() *NodeState {
 	return s.state

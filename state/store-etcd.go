@@ -110,6 +110,12 @@ func (s *stateStoreEtcd) watch() {
 	return
 }
 
+// IsLeader returns true if the current node is the leader of the cluster
+func (s *stateStoreEtcd) IsLeader() bool {
+	// Not yet implemented
+	return false
+}
+
 // GetState returns the full state
 func (s *stateStoreEtcd) GetState() *NodeState {
 	return s.state
