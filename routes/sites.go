@@ -54,6 +54,14 @@ func CreateSiteHandler(c *gin.Context) {
 	// Ensure the TLS Certificate Version is empty
 	site.TLSCertificateVersion = nil
 
+	// Self-signed TLS certificates
+	if *site.TLSCertificate == "selfsigned" {
+		site.TLSCertificateSelfSigned = true
+		site.TLSCertificate = nil
+	} else {
+		site.TLSCertificateSelfSigned = false
+	}
+
 	// Add the website to the store
 	if err := state.Instance.AddSite(site); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -163,11 +171,18 @@ func PatchSiteHandler(c *gin.Context) {
 		case "tlscertificate":
 			if t != nil && t.Kind() == reflect.String {
 				str := v.(string)
-				site.TLSCertificate = &str
+				if str == "selfsigned" {
+					site.TLSCertificate = nil
+					site.TLSCertificateSelfSigned = true
+				} else {
+					site.TLSCertificate = &str
+					site.TLSCertificateSelfSigned = false
+				}
 				updatedTLS = true
 				updated = true
 			} else if t == nil {
 				site.TLSCertificate = nil
+				site.TLSCertificateSelfSigned = false
 				updatedTLS = true
 				updated = true
 			}
@@ -217,7 +232,7 @@ func PatchSiteHandler(c *gin.Context) {
 	}
 
 	// If we have updated the TLS certificate, but not the version, reset the version
-	if updatedTLS && (!updatedTLSVersion || site.TLSCertificate == nil) {
+	if updatedTLS && (!updatedTLSVersion || site.TLSCertificate == nil || site.TLSCertificateSelfSigned) {
 		site.TLSCertificateVersion = nil
 	}
 

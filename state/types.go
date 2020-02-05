@@ -24,8 +24,9 @@ type NodeState struct {
 // SiteState represents the state of a single site
 type SiteState struct {
 	// Configuration
-	TLSCertificate        *string `json:"tlsCertificate"`
-	TLSCertificateVersion *string `json:"tlsCertificateVersion"`
+	TLSCertificateSelfSigned bool    `json:"tlsCertificateSelfSigned"`
+	TLSCertificate           *string `json:"tlsCertificate"`
+	TLSCertificateVersion    *string `json:"tlsCertificateVersion"`
 
 	// Domains: primary and aliases
 	Domain  string   `json:"domain" binding:"required,ne=_default"`

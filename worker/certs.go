@@ -28,6 +28,7 @@ import (
 
 	"smplatform/appconfig"
 	"smplatform/notifications"
+	"smplatform/sync"
 	"smplatform/utils"
 )
 
@@ -73,6 +74,7 @@ func certsWorker() error {
 	certsLogger.Println("Starting certs worker")
 
 	now := time.Now()
+	needsSync := false
 
 	// Scan all sites on disk
 	appRoot := appconfig.Config.GetString("appRoot")
@@ -107,6 +109,12 @@ func certsWorker() error {
 			return err
 		}
 
+		// Is this certificate self-signed?
+		selfSigned := false
+		if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == utils.SelfSignedCertificateIssuer {
+			selfSigned = true
+		}
+
 		// Check if we sent a notification for expiring certificates already
 		sent, found := certsNotifications[site]
 		if !found {
@@ -114,31 +122,45 @@ func certsWorker() error {
 		}
 
 		// Check expiry date
-		// Note: we are assuming 24-hour days, which isn't always correct but it's fine in this case
 		exp := cert.NotAfter
-		for i := 0; i < len(checks); i++ {
-			// If the certificate has expired
-			if exp.Before(now.Add(time.Duration(checks[i]*24) * time.Hour)) {
-				// If we haven't already sent this notification
-				if i < sent {
-					message := "Certificate for " + site + " "
-					if checks[i] == -2 {
-						message += "has expired over 2 days ago"
-					} else if checks[i] == -1 {
-						message += "has expired 1 day ago"
-					} else if checks[i] == 0 {
-						message += "has expired today"
-					} else if checks[i] == 1 {
-						message += "is expiring today"
-					} else {
-						message += fmt.Sprintf("expires in %d days", checks[i])
+		if selfSigned {
+			// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than 7 days left
+			if exp.Before(now.Add(time.Duration(7 * 24 * time.Hour))) {
+				certsLogger.Println("Certificate for site", site, "is expiring in less than 7 days; queueing a sync to regenerate it")
+				// We'll queue a sync
+				needsSync = true
+			}
+		} else {
+			// Note: we are assuming 24-hour days, which isn't always correct but it's fine in this case
+			for i := 0; i < len(checks); i++ {
+				// If the certificate has expired
+				if exp.Before(now.Add(time.Duration(checks[i]*24) * time.Hour)) {
+					// If we haven't already sent this notification
+					if i < sent {
+						message := "Certificate for " + site + " "
+						if checks[i] == -2 {
+							message += "has expired over 2 days ago"
+						} else if checks[i] == -1 {
+							message += "has expired 1 day ago"
+						} else if checks[i] == 0 {
+							message += "has expired today"
+						} else if checks[i] == 1 {
+							message += "is expiring today"
+						} else {
+							message += fmt.Sprintf("expires in %d days", checks[i])
+						}
+						certsNotifications[site] = i
+						go notifications.SendNotification(message)
+						break
 					}
-					certsNotifications[site] = i
-					go notifications.SendNotification(message)
-					break
 				}
 			}
 		}
+	}
+
+	// If we need to queue a sync
+	if needsSync {
+		sync.QueueRun()
 	}
 
 	return nil
