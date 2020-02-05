@@ -56,7 +56,7 @@ func GenerateCertificate(domains ...string) (keyPEM []byte, certPEM []byte, err 
 	tpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 	tpl.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageDataEncipherment
 	tpl.IsCA = false
-	tpl.NotAfter = now.Add(8760 * time.Hour) // 1 year
+	tpl.NotAfter = now.Add(43800 * time.Hour) // 5 year
 	tpl.NotBefore = now
 	tpl.SerialNumber = big.NewInt(1)
 	tpl.SignatureAlgorithm = x509.SHA256WithRSA
