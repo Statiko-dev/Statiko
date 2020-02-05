@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"smplatform/appconfig"
+	"smplatform/certificates"
 	"smplatform/notifications"
 	"smplatform/sync"
 	"smplatform/utils"
@@ -45,7 +46,7 @@ var certMonitorChecks []int
 func startCertMonitorWorker() {
 	// Set variables
 	certMonitorInterval := time.Duration(24 * time.Hour) // Run every 24 hours
-	certMonitorLogger = log.New(os.Stdout, "[cert-monitor]", log.Flags())
+	certMonitorLogger = log.New(os.Stdout, "worker/cert-monitor: ", log.Flags())
 	certMonitorNotifications = make(map[string]int)
 
 	// Notification days
@@ -56,14 +57,14 @@ func startCertMonitorWorker() {
 		// Run right away
 		err := certMonitorWorker()
 		if err != nil {
-			certMonitorLogger.Println("cert-monitor worker error:", err)
+			certMonitorLogger.Println("Worker error:", err)
 		}
 
 		// Run on ticker
 		for range ticker.C {
 			err := certMonitorWorker()
 			if err != nil {
-				certMonitorLogger.Println("cert-monitor worker error:", err)
+				certMonitorLogger.Println("Worker error:", err)
 			}
 		}
 	}()
@@ -111,7 +112,7 @@ func certMonitorWorker() error {
 
 		// Is this certificate self-signed?
 		selfSigned := false
-		if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == utils.SelfSignedCertificateIssuer {
+		if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer {
 			selfSigned = true
 		}
 

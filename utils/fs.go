@@ -123,3 +123,31 @@ func EnsureFolder(path string) error {
 
 	return nil
 }
+
+// CertificateExists checks if the certificate and key exist on disk
+func CertificateExists(cert string, key string) (exists bool, err error) {
+	exists, err = PathExists(cert)
+	if err != nil || !exists {
+		return
+	}
+	exists, err = PathExists(key)
+	if err != nil || !exists {
+		return
+	}
+	return
+}
+
+// WriteData writes a byte slice to disk
+func WriteData(data []byte, path string) error {
+	f, err := os.Create(path)
+	defer f.Close()
+
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		return err
+	}
+
+	return f.Close()
+}

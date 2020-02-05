@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package utils
+package certificates
 
 import (
 	"bytes"
@@ -90,6 +90,8 @@ func GenerateCertificate(domains ...string) (keyPEM []byte, certPEM []byte, err 
 		return
 	}
 	certPEM = buf.Bytes()
+
+	logger.Println("Generated self-signed certificate for", domains[0])
 
 	return
 }

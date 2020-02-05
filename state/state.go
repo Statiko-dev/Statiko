@@ -249,7 +249,7 @@ func (m *Manager) OnStateUpdate(callback func()) {
 }
 
 // GetSecret returns the value for a secret (encrypted in the state)
-func (m *Manager) GetSecret(key string) (string, error) {
+func (m *Manager) GetSecret(key string) ([]byte, error) {
 	// Check if we have a secret for this key
 	state := m.store.GetState()
 	if state.Secrets == nil {
@@ -257,27 +257,27 @@ func (m *Manager) GetSecret(key string) (string, error) {
 	}
 	encValue, found := state.Secrets[key]
 	if !found || encValue == nil || len(encValue) < 12 {
-		return "", nil
+		return nil, nil
 	}
 
 	// Get the cipher
 	aesgcm, err := m.getSecretsCipher()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Decrypt the secret
 	// First 12 bytes of the value are the nonce
 	value, err := aesgcm.Open(nil, encValue[0:12], encValue[12:], nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(value), nil
+	return value, nil
 }
 
 // SetSecret sets the value for a secret (encrypted in the state)
-func (m *Manager) SetSecret(key string, value []byte) error {
+func (m *Manager) SetSecret(key string, value []byte, setUpdated bool) error {
 	// Get the cipher
 	aesgcm, err := m.getSecretsCipher()
 	if err != nil {
@@ -301,7 +301,9 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	state.Secrets[key] = append(nonce, encValue...)
 
 	// Set the state as updated as we might need a re-sync
-	m.setUpdated()
+	if setUpdated {
+		m.setUpdated()
+	}
 
 	// Write the file to disk
 	if err := m.store.WriteState(); err != nil {
