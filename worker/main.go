@@ -18,5 +18,5 @@ package worker
 
 // StartWorker starts all the background workers
 func StartWorker() {
-	startCertsWorker()
+	startCertMonitorWorker()
 }

@@ -36,7 +36,7 @@ func (m *Manager) Init() (err error) {
 	typ := appconfig.Config.GetString("state.store")
 	switch typ {
 	case "file":
-		m.store = &stateStoreFS{}
+		m.store = &stateStoreFile{}
 	case "etcd":
 		m.store = &stateStoreEtcd{}
 	default:
@@ -45,6 +45,11 @@ func (m *Manager) Init() (err error) {
 	}
 	err = m.store.Init()
 	return
+}
+
+// IsLeader returns true if the current node is the leader of the cluster
+func (m *Manager) IsLeader() bool {
+	return m.store.IsLeader()
 }
 
 // DumpState exports the entire state

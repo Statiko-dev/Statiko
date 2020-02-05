@@ -26,30 +26,30 @@ import (
 	"smplatform/utils"
 )
 
-type stateStoreFS struct {
+type stateStoreFile struct {
 	state *NodeState
 }
 
 // Init initializes the object
-func (s *stateStoreFS) Init() (err error) {
+func (s *stateStoreFile) Init() (err error) {
 	// Read the state from disk
 	err = s.ReadState()
 	return
 }
 
 // GetState returns the full state
-func (s *stateStoreFS) GetState() *NodeState {
+func (s *stateStoreFile) GetState() *NodeState {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *stateStoreFS) SetState(state *NodeState) (err error) {
+func (s *stateStoreFile) SetState(state *NodeState) (err error) {
 	s.state = state
 	return
 }
 
 // WriteState stores the state on disk
-func (s *stateStoreFS) WriteState() (err error) {
+func (s *stateStoreFile) WriteState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Writing state to disk", path)
 
@@ -66,7 +66,7 @@ func (s *stateStoreFS) WriteState() (err error) {
 }
 
 // ReadState reads the state from disk
-func (s *stateStoreFS) ReadState() (err error) {
+func (s *stateStoreFile) ReadState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Reading state from disk", path)
 
@@ -101,16 +101,16 @@ func (s *stateStoreFS) ReadState() (err error) {
 }
 
 // Healthy returns always true
-func (s *stateStoreFS) Healthy() (bool, error) {
+func (s *stateStoreFile) Healthy() (bool, error) {
 	return true, nil
 }
 
 // OnStateUpdate isn't used with this store
-func (s *stateStoreFS) OnStateUpdate(callback func()) {
+func (s *stateStoreFile) OnStateUpdate(callback func()) {
 	// NOOP
 }
 
-func (s *stateStoreFS) createStateFile(path string) (err error) {
+func (s *stateStoreFile) createStateFile(path string) (err error) {
 	logger.Println("Will create new state file", path)
 
 	// File doesn't exist, so load an empty state

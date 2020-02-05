@@ -33,45 +33,45 @@ import (
 )
 
 // Logger for this file
-var certsLogger *log.Logger
+var certMonitorLogger *log.Logger
 
 // Notifications sent
-var certsNotifications map[string]int
+var certMonitorNotifications map[string]int
 
 // Send notifications when the certificate is expiring in N days
-var checks []int
+var certMonitorChecks []int
 
 // In background, periodically check for expired certificates
-func startCertsWorker() {
+func startCertMonitorWorker() {
 	// Set variables
-	certsInterval := time.Duration(24 * time.Hour) // Run every 24 hours
-	certsLogger = log.New(os.Stdout, "[certs]", log.Flags())
-	certsNotifications = make(map[string]int)
+	certMonitorInterval := time.Duration(24 * time.Hour) // Run every 24 hours
+	certMonitorLogger = log.New(os.Stdout, "[cert-monitor]", log.Flags())
+	certMonitorNotifications = make(map[string]int)
 
 	// Notification days
-	checks = []int{-2, -1, 0, 1, 2, 3, 7, 14, 30}
+	certMonitorChecks = []int{-2, -1, 0, 1, 2, 3, 7, 14, 30}
 
-	ticker := time.NewTicker(certsInterval)
+	ticker := time.NewTicker(certMonitorInterval)
 	go func() {
 		// Run right away
-		err := certsWorker()
+		err := certMonitorWorker()
 		if err != nil {
-			certsLogger.Println("certs worker error:", err)
+			certMonitorLogger.Println("cert-monitor worker error:", err)
 		}
 
 		// Run on ticker
 		for range ticker.C {
-			err := certsWorker()
+			err := certMonitorWorker()
 			if err != nil {
-				certsLogger.Println("certs worker error:", err)
+				certMonitorLogger.Println("cert-monitor worker error:", err)
 			}
 		}
 	}()
 }
 
 // Look up all certificates to look for those expiring
-func certsWorker() error {
-	certsLogger.Println("Starting certs worker")
+func certMonitorWorker() error {
+	certMonitorLogger.Println("Starting cert-monitor worker")
 
 	now := time.Now()
 	needsSync := false
@@ -95,7 +95,7 @@ func certsWorker() error {
 		}
 
 		// Read the TLS certificate
-		certsLogger.Println("Reading certificate for site", site)
+		certMonitorLogger.Println("Reading certificate for site", site)
 		certData, err := ioutil.ReadFile(appRoot + "sites/" + site + "/tls/certificate.pem")
 		if err != nil {
 			return err
@@ -116,9 +116,9 @@ func certsWorker() error {
 		}
 
 		// Check if we sent a notification for expiring certificates already
-		sent, found := certsNotifications[site]
+		sent, found := certMonitorNotifications[site]
 		if !found {
-			sent = len(checks)
+			sent = len(certMonitorChecks)
 		}
 
 		// Check expiry date
@@ -126,30 +126,30 @@ func certsWorker() error {
 		if selfSigned {
 			// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than 7 days left
 			if exp.Before(now.Add(time.Duration(7 * 24 * time.Hour))) {
-				certsLogger.Println("Certificate for site", site, "is expiring in less than 7 days; queueing a sync to regenerate it")
+				certMonitorLogger.Println("Certificate for site", site, "is expiring in less than 7 days; queueing a sync to regenerate it")
 				// We'll queue a sync
 				needsSync = true
 			}
 		} else {
 			// Note: we are assuming 24-hour days, which isn't always correct but it's fine in this case
-			for i := 0; i < len(checks); i++ {
+			for i := 0; i < len(certMonitorChecks); i++ {
 				// If the certificate has expired
-				if exp.Before(now.Add(time.Duration(checks[i]*24) * time.Hour)) {
+				if exp.Before(now.Add(time.Duration(certMonitorChecks[i]*24) * time.Hour)) {
 					// If we haven't already sent this notification
 					if i < sent {
 						message := "Certificate for " + site + " "
-						if checks[i] == -2 {
+						if certMonitorChecks[i] == -2 {
 							message += "has expired over 2 days ago"
-						} else if checks[i] == -1 {
+						} else if certMonitorChecks[i] == -1 {
 							message += "has expired 1 day ago"
-						} else if checks[i] == 0 {
+						} else if certMonitorChecks[i] == 0 {
 							message += "has expired today"
-						} else if checks[i] == 1 {
+						} else if certMonitorChecks[i] == 1 {
 							message += "is expiring today"
 						} else {
-							message += fmt.Sprintf("expires in %d days", checks[i])
+							message += fmt.Sprintf("expires in %d days", certMonitorChecks[i])
 						}
-						certsNotifications[site] = i
+						certMonitorNotifications[site] = i
 						go notifications.SendNotification(message)
 						break
 					}
