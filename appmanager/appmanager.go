@@ -236,7 +236,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 				continue
 			}
 			updated = updated || u
-		} else if s.TLSCertificate != nil {
+		} else if s.TLSCertificate != nil && *s.TLSCertificate != "" {
 			// Check if the TLS certs are in place, if needed
 			certVersion := ""
 			if s.TLSCertificateVersion != nil {
