@@ -113,8 +113,9 @@ describe('Manage sites', function() {
             const site = findSite(el.domain)
             assert(site)
 
-            assert.deepStrictEqual(Object.keys(el).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+            assert.deepStrictEqual(Object.keys(el).sort(), ['tlsCertificate', 'tlsCertificateSelfSigned', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
             assert(!el.error)
+            assert(!el.tlsCertificateSelfSigned)
             assert.strictEqual(el.tlsCertificate, site.tlsCertificate)
             if (site.tlsCertificate) {
                 assert.strictEqual(el.tlsCertificateVersion, tlsData[el.tlsCertificate])
@@ -144,8 +145,9 @@ describe('Manage sites', function() {
         // Tests for site1
         site = findSite('site1.local')
         assert(response.body)
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateSelfSigned', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
         assert(!response.body.error)
+        assert(!response.body.tlsCertificateSelfSigned)
         assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
         if (site.tlsCertificate) {
             assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
@@ -163,8 +165,9 @@ describe('Manage sites', function() {
         // Tests for site2
         site = findSite('site2.local')
         assert(response.body)
-        assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+        assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateSelfSigned', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
         assert(!response.body.error)
+        assert(!response.body.tlsCertificateSelfSigned)
         assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
         if (site.tlsCertificate) {
             assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])
@@ -207,8 +210,9 @@ describe('Manage sites', function() {
 
             // Tests
             assert(response.body)
-            assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
+            assert.deepStrictEqual(Object.keys(response.body).sort(), ['tlsCertificate', 'tlsCertificateSelfSigned', 'tlsCertificateVersion', 'domain', 'aliases', 'error', 'app'].sort())
             assert(!response.body.error)
+            assert(!response.body.tlsCertificateSelfSigned)
             assert.strictEqual(response.body.tlsCertificate, site.tlsCertificate)
             if (site.tlsCertificate) {
                 assert.strictEqual(response.body.tlsCertificateVersion, tlsData[response.body.tlsCertificate])

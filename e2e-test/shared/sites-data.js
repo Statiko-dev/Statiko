@@ -23,6 +23,7 @@ const sitesData = {
     site1: {
         domain: 'site1.local',
         tlsCertificate: 'site1',
+        tlsCertificateSelfSigned: false,
         tlsCertificateVersion: '72cd150c5f394bd190749cdb22d0f731',
         aliases: [
             'site1-alias.local',
@@ -32,6 +33,7 @@ const sitesData = {
     site2: {
         domain: 'site2.local',
         tlsCertificate: 'site2',
+        tlsCertificateSelfSigned: false,
         aliases: [
             'site2-alias.local'
         ]
@@ -39,6 +41,7 @@ const sitesData = {
     site3: {
         domain: 'site3.local',
         tlsCertificate: 'site3',
+        tlsCertificateSelfSigned: false,
         aliases: []
     },
 
