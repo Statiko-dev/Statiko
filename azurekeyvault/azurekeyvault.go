@@ -30,7 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/keyvault/auth"
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/v7.0/keyvault"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"golang.org/x/crypto/pkcs12"
@@ -91,21 +90,7 @@ func (akv *Client) initKeyVaultClient() error {
 	// Create a new client
 	akv.KeyVault = keyvault.New()
 
-	// If we have the auth data in the appconfig, expose them as env vars so the Azure SDK picks them up
-	tenantID := appconfig.Config.GetString("azure.app.tenantId")
-	if len(tenantID) > 0 {
-		os.Setenv("AZURE_TENANT_ID", tenantID)
-	}
-	clientID := appconfig.Config.GetString("azure.app.clientId")
-	if len(clientID) > 0 {
-		os.Setenv("AZURE_CLIENT_ID", clientID)
-	}
-	clientSecret := appconfig.Config.GetString("azure.app.clientSecret")
-	if len(clientSecret) > 0 {
-		os.Setenv("AZURE_CLIENT_SECRET", clientSecret)
-	}
-
-	authorizer, err := auth.NewAuthorizerFromEnvironment()
+	authorizer, err := utils.GetAzureAuthorizer("keyvault")
 	if err != nil {
 		return err
 	}

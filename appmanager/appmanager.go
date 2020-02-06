@@ -59,7 +59,6 @@ type Manager struct {
 	codeSignKey *rsa.PublicKey
 	log         *log.Logger
 	box         *packr.Box
-	ctx         context.Context
 }
 
 // Init the object
@@ -72,16 +71,16 @@ func (m *Manager) Init() error {
 
 	// Get Azure Storage configuration
 	azureStorageAccount := appconfig.Config.GetString("azure.storage.account")
-	azureStorageKey := appconfig.Config.GetString("azure.storage.key")
 	azureStorageContainer := appconfig.Config.GetString("azure.storage.appsContainer")
 	m.azureStorageURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s/", azureStorageAccount, azureStorageContainer)
 
-	// Azure Storage pipeline
-	m.ctx = context.Background()
-	credential, err := azblob.NewSharedKeyCredential(azureStorageAccount, azureStorageKey)
+	// Azure Storage authorization
+	credential, err := utils.GetAzureStorageCredentials()
 	if err != nil {
 		return err
 	}
+
+	// Azure Storage pipeline
 	m.azureStoragePipeline = azblob.NewPipeline(credential, azblob.PipelineOptions{
 		Retry: azblob.RetryOptions{
 			MaxTries: 3,
@@ -608,7 +607,7 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 		return err
 	}
 	blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
-	resp, err := blobURL.Download(m.ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+	resp, err := blobURL.Download(context.TODO(), 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
 			err = fmt.Errorf("Network error while downloading the archive: %s", err.Error())

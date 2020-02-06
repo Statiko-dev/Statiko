@@ -87,9 +87,6 @@ azure:
     # Storage account name
     # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
     account: "smplatformcistorage"
-    # Storage account key
-    # Can also be passed with environmental variable AZURE_STORAGE_KEY
-    key: ""
     # Container name
     # Can also be passed with environmental variable AZURE_STORAGE_APPS_CONTAINER
     appsContainer: "apps"
@@ -128,7 +125,7 @@ nodeName: "e2e-test"
 manifestFile: "_smplatform.yaml"
 
 # Set to true to require all deployed apps to be cryptographically signed
-disallowUnsignedApps: true
+disallowUnsignedApps: false
 
 # Notifications to admin
 notifications:

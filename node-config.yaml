@@ -88,9 +88,6 @@ azure:
     # Storage account name
     # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
     account: ""
-    # Storage account key
-    # Can also be passed with environmental variable AZURE_STORAGE_KEY
-    key: ""
     # Container name
     # Can also be passed with environmental variable AZURE_STORAGE_APPS_CONTAINER
     appsContainer: ""
