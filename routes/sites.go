@@ -51,13 +51,11 @@ func CreateSiteHandler(c *gin.Context) {
 		}
 	}
 
-	// Ensure the TLS Certificate Version is empty
-	site.TLSCertificateVersion = nil
-
 	// Self-signed TLS certificates are default when no value is specified, or when value is "selfsigned"
 	if site.TLSCertificate == nil || *site.TLSCertificate == "" || *site.TLSCertificate == "selfsigned" {
 		site.TLSCertificateSelfSigned = true
 		site.TLSCertificate = nil
+		site.TLSCertificateVersion = nil
 	} else {
 		site.TLSCertificateSelfSigned = false
 	}

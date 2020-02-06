@@ -115,7 +115,7 @@ func (m *Manager) SyncState(sites []state.SiteState) (updated bool, err error) {
 		return
 	}
 
-	// Sync certificates
+	// Sync self-signed certificates
 	u, err := certificates.SyncCertificates(sites)
 	if err != nil {
 		return
@@ -251,7 +251,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 				state.Instance.UpdateSite(&s, true)
 				continue
 			}
-			if u || certVersion == "" || certVersion != version {
+			if certVersion != version {
 				certVersion = version
 				s.TLSCertificateVersion = &version
 				state.Instance.UpdateSite(&s, false)
@@ -786,10 +786,11 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCer
 	var err error
 
 	// Check if we have the files in cache
-	cachePathCert := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".cert.pem"
-	cachePathKey := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".key.pem"
 	exists := false
 	if len(tlsCertificateVersion) > 0 {
+		cachePathCert := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".cert.pem"
+		cachePathKey := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".key.pem"
+
 		// Check if all the files exist already
 		exists, err = utils.CertificateExists(cachePathCert, cachePathKey)
 		if err != nil {
@@ -808,6 +809,9 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCer
 		if err != nil {
 			return tlsCertificateVersion, err
 		}
+
+		cachePathCert := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".cert.pem"
+		cachePathKey := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".key.pem"
 
 		// Write to cache
 		if err := utils.WriteData(cert, cachePathCert); err != nil {

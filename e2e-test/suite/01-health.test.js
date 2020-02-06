@@ -51,8 +51,7 @@ describe('Health check', function() {
         }
         assert(response.body.hostname)
         assert(response.body.azureAD)
-        console.log(response.body.azureAD)
-        assert.equal(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
+        assert.deepEqual(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
         assert(response.body.azureAD.authorizeUrl.startsWith('https://login.microsoftonline.com'))
         assert(response.body.azureAD.tokenUrl.startsWith('https://login.microsoftonline.com'))
         assert.equal(response.body.azureAD.clientId.length, 36)
@@ -78,7 +77,7 @@ describe('Health check', function() {
         }
         assert(response.body.hostname)
         assert(response.body.azureAD)
-        assert.equal(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
+        assert.deepEqual(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
         assert(response.body.azureAD.authorizeUrl.startsWith('https://login.microsoftonline.com'))
         assert(response.body.azureAD.tokenUrl.startsWith('https://login.microsoftonline.com'))
         assert.equal(response.body.azureAD.clientId.length, 36)

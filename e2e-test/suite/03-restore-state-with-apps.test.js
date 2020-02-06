@@ -25,7 +25,7 @@ const shared = require('../shared/shared-tests')
 const sitesData = require('../shared/sites-data')
 const appData = require('../shared/app-data')
 
-describe('Restore state with apps', function() {
+describe.skip('Restore state with apps', function() {
     // The state to create
     // Compared to before, we've removed site1 and added site3
     const stateData = {

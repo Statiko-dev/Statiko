@@ -30,7 +30,7 @@ const appData = require('../shared/app-data')
 const tlsData = require('../shared/tls-data')
 const shared = require('../shared/shared-tests')
 
-describe('Manage sites', function() {
+describe.skip('Manage sites', function() {
     // Sites deployed
     // In the previous test, we had these 2 deployed
     const deployed = [
