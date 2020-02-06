@@ -69,7 +69,8 @@ type AppManifest struct {
 // Interface for the state stores
 type stateStore interface {
 	Init() error
-	IsLeader() bool
+	AcquireLock() (interface{}, error)
+	ReleaseLock(interface{}) error
 	GetState() *NodeState
 	SetState(*NodeState) error
 	WriteState() error

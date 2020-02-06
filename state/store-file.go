@@ -37,10 +37,16 @@ func (s *stateStoreFile) Init() (err error) {
 	return
 }
 
-// IsLeader returns true if the current node is the leader of the cluster
-func (s *stateStoreFile) IsLeader() bool {
-	// When storing state in a file, we're operating in single-node mode, so we're always the leader
-	return true
+// AcquireLock acquires a lock on the state before making changes, across all nodes in the cluster
+func (s *stateStoreFile) AcquireLock() (interface{}, error) {
+	// When storing state in a file, we're operating in single-node mode
+	return nil, nil
+}
+
+// ReleaseLock releases the lock on the state
+func (s *stateStoreFile) ReleaseLock(leaseID interface{}) error {
+	// When storing state in a file, we're operating in single-node mode
+	return nil
 }
 
 // GetState returns the full state

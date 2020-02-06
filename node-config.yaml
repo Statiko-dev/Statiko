@@ -38,9 +38,9 @@ state:
 
   # Configuration for when "store" is "etcd"
   etcd:
-    # Key where the state is stored in etcd
-    # Can also be passed with environmental variable STATE_ETCD_KEY
-    key: "smplatform"
+    # Prefix for keys used by smplatform in etcd
+    # Can also be passed with environmental variable STATE_ETCD_KEY_PREFIX
+    keyPrefix: "smplatform"
     # Timeout in ms
     # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
     timeout: 15000

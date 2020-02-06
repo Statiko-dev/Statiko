@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -29,10 +30,15 @@ import (
 	"smplatform/appconfig"
 )
 
+// Maximum lock duration, in seconds
+const etcdLockDuration = 20
+
 type stateStoreEtcd struct {
 	state           *NodeState
 	client          *clientv3.Client
 	ctx             context.Context
+	stateKey        string
+	lockKey         string
 	lastRevisionPut int64
 	updateCallback  func()
 }
@@ -41,6 +47,8 @@ type stateStoreEtcd struct {
 func (s *stateStoreEtcd) Init() (err error) {
 	s.ctx = context.Background()
 	s.lastRevisionPut = 0
+	s.stateKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/state"
+	s.lockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/lock"
 
 	// Connect to the etcd cluster
 	addr := strings.Split(appconfig.Config.GetString("state.etcd.address"), ",")
@@ -70,9 +78,8 @@ func (s *stateStoreEtcd) getContext() (context.Context, context.CancelFunc) {
 // Starts the watcher for changes in etcd
 func (s *stateStoreEtcd) watch() {
 	// Start watching for changes in the key
-	key := appconfig.Config.GetString("state.etcd.key")
 	ctx, cancel := context.WithCancel(s.ctx)
-	rch := s.client.Watch(ctx, key)
+	rch := s.client.Watch(ctx, s.stateKey)
 
 	for resp := range rch {
 		for _, event := range resp.Events {
@@ -98,7 +105,8 @@ func (s *stateStoreEtcd) watch() {
 				if s.updateCallback != nil {
 					s.updateCallback()
 				}
-			} else {
+			} else if event.Kv.ModRevision < s.lastRevisionPut {
+				// Ignoring the case ==, which means we just received the state we just committed
 				logger.Println("Ignoring an older state received from etcd: version", event.Kv.ModRevision)
 			}
 		}
@@ -110,10 +118,68 @@ func (s *stateStoreEtcd) watch() {
 	return
 }
 
-// IsLeader returns true if the current node is the leader of the cluster
-func (s *stateStoreEtcd) IsLeader() bool {
-	// Not yet implemented
-	return false
+// AcquireLock acquires a lock on the state before making changes, across all nodes in the cluster
+func (s *stateStoreEtcd) AcquireLock() (interface{}, error) {
+	var leaseID clientv3.LeaseID
+
+	// Get a lease
+	ctx, cancel := s.getContext()
+	lease, err := s.client.Grant(ctx, etcdLockDuration)
+	cancel()
+	if err != nil {
+		return leaseID, err
+	}
+	leaseID = lease.ID
+
+	// Try to acquire the lock
+	i := etcdLockDuration + 5
+	for i > 0 {
+		logger.Println("Acquiring etcd lock")
+
+		lockValue := fmt.Sprintf("%s-%d", appconfig.Config.GetString("nodeName"), time.Now().UnixNano())
+		ctx, cancel = s.getContext()
+		txn := s.client.Txn(ctx)
+		res, err := txn.If(
+			clientv3.Compare(clientv3.Version(s.lockKey), "=", 0),
+		).Then(
+			clientv3.OpPut(s.lockKey, lockValue, clientv3.WithLease(leaseID)),
+		).Commit()
+		cancel()
+
+		if err != nil {
+			return leaseID, err
+		}
+
+		// If this succeeded, we got the lock
+		if res.Succeeded {
+			break
+		} else {
+			// Someone else has a lock, so sleep for 1 second
+			logger.Printf("Another etcd node has a lock - waiting (timeout in %d seconds)\n", i)
+			time.Sleep(1000 * time.Millisecond)
+			i--
+		}
+	}
+
+	if i == 0 {
+		return leaseID, errors.New("could not obtain a lock - timeout occurred")
+	}
+
+	return leaseID, nil
+}
+
+// ReleaseLock releases the lock on the state
+func (s *stateStoreEtcd) ReleaseLock(leaseID interface{}) error {
+	// Revoke the lease
+	ctx, cancel := s.getContext()
+	_, err := s.client.Revoke(ctx, leaseID.(clientv3.LeaseID))
+	cancel()
+	if err != nil {
+		return err
+	}
+	logger.Println("Released etcd lock")
+
+	return nil
 }
 
 // GetState returns the full state
@@ -143,9 +209,8 @@ func (s *stateStoreEtcd) WriteState() (err error) {
 
 	// Store in etcd
 	var res *clientv3.PutResponse
-	key := appconfig.Config.GetString("state.etcd.key")
 	ctx, cancel := s.getContext()
-	res, err = s.client.Put(ctx, key, string(data))
+	res, err = s.client.Put(ctx, s.stateKey, string(data))
 	cancel()
 	if err != nil {
 		s.lastRevisionPut = 0
@@ -161,9 +226,8 @@ func (s *stateStoreEtcd) ReadState() (err error) {
 	logger.Println("Reading state from etcd")
 
 	// Read the state
-	key := appconfig.Config.GetString("state.etcd.key")
 	ctx, cancel := s.getContext()
-	resp, err := s.client.Get(ctx, key)
+	resp, err := s.client.Get(ctx, s.stateKey)
 	cancel()
 	if err != nil {
 		return

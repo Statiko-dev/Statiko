@@ -52,9 +52,14 @@ func (m *Manager) Init() (err error) {
 	return
 }
 
-// IsLeader returns true if the current node is the leader of the cluster
-func (m *Manager) IsLeader() bool {
-	return m.store.IsLeader()
+// AcquireLock acquires a lock on the state before making changes, across all nodes in the cluster
+func (m *Manager) AcquireLock() (interface{}, error) {
+	return m.store.AcquireLock()
+}
+
+// ReleaseLock releases the lock on the state
+func (m *Manager) ReleaseLock(leaseID interface{}) error {
+	return m.store.ReleaseLock(leaseID)
 }
 
 // DumpState exports the entire state
@@ -84,6 +89,13 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 			s.TLSCertificateVersion = nil
 		}
 	}
+
+	// Lock
+	leaseID, err := m.AcquireLock()
+	if err != nil {
+		return err
+	}
+	defer m.ReleaseLock(leaseID)
 
 	// Replace the state
 	if err := m.store.SetState(state); err != nil {
@@ -141,6 +153,13 @@ func (m *Manager) AddSite(site *SiteState) error {
 	site.Error = nil
 	site.ErrorStr = nil
 
+	// Lock
+	leaseID, err := m.AcquireLock()
+	if err != nil {
+		return err
+	}
+	defer m.ReleaseLock(leaseID)
+
 	// Add the site
 	state := m.store.GetState()
 	state.Sites = append(state.Sites, *site)
@@ -170,6 +189,13 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 	} else {
 		site.ErrorStr = nil
 	}
+
+	// Lock
+	leaseID, err := m.AcquireLock()
+	if err != nil {
+		return err
+	}
+	defer m.ReleaseLock(leaseID)
 
 	// Replace in the memory state
 	found := false
@@ -209,6 +235,13 @@ func (m *Manager) DeleteSite(domain string) error {
 	if !healthy {
 		return err
 	}
+
+	// Lock
+	leaseID, err := m.AcquireLock()
+	if err != nil {
+		return err
+	}
+	defer m.ReleaseLock(leaseID)
 
 	// Update the state
 	found := false
@@ -277,7 +310,7 @@ func (m *Manager) GetSecret(key string) ([]byte, error) {
 }
 
 // SetSecret sets the value for a secret (encrypted in the state)
-func (m *Manager) SetSecret(key string, value []byte, setUpdated bool) error {
+func (m *Manager) SetSecret(key string, value []byte) error {
 	// Get the cipher
 	aesgcm, err := m.getSecretsCipher()
 	if err != nil {
@@ -293,6 +326,13 @@ func (m *Manager) SetSecret(key string, value []byte, setUpdated bool) error {
 	// Encrypt the secret
 	encValue := aesgcm.Seal(nil, nonce, value, nil)
 
+	// Lock
+	leaseID, err := m.AcquireLock()
+	if err != nil {
+		return err
+	}
+	defer m.ReleaseLock(leaseID)
+
 	// Store the value
 	state := m.store.GetState()
 	if state.Secrets == nil {
@@ -300,10 +340,7 @@ func (m *Manager) SetSecret(key string, value []byte, setUpdated bool) error {
 	}
 	state.Secrets[key] = append(nonce, encValue...)
 
-	// Set the state as updated as we might need a re-sync
-	if setUpdated {
-		m.setUpdated()
-	}
+	m.setUpdated()
 
 	// Write the file to disk
 	if err := m.store.WriteState(); err != nil {

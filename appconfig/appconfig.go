@@ -88,7 +88,7 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("port", "PORT")
 	viper.BindEnv("state.store", "STATE_STORE")
 	viper.BindEnv("state.file.path", "STATE_FILE_PATH")
-	viper.BindEnv("state.etcd.key", "STATE_ETCD_KEY")
+	viper.BindEnv("state.etcd.keyPrefix", "STATE_ETCD_KEY_PREFIX")
 	viper.BindEnv("state.etcd.timeout", "STATE_ETCD_TIMEOUT")
 	viper.BindEnv("state.etcd.address", "STATE_ETCD_ADDRESS")
 	viper.BindEnv("appRoot", "APP_ROOT")

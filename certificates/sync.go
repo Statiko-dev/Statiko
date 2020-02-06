@@ -91,11 +91,11 @@ func processSite(site *state.SiteState) (updated bool, err error) {
 		}
 
 		// Add to the state store
-		err = state.Instance.SetSecret(storePathKey, keyPEM, false)
+		err = state.Instance.SetSecret(storePathKey, keyPEM)
 		if err != nil {
 			return
 		}
-		err = state.Instance.SetSecret(storePathCert, certPEM, false)
+		err = state.Instance.SetSecret(storePathCert, certPEM)
 		if err != nil {
 			return
 		}
