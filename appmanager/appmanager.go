@@ -69,16 +69,20 @@ func (m *Manager) Init() error {
 	// Init properties from env vars
 	m.appRoot = appconfig.Config.GetString("appRoot")
 
-	// Get Azure Storage configuration
-	azureStorageAccount := appconfig.Config.GetString("azure.storage.account")
-	azureStorageContainer := appconfig.Config.GetString("azure.storage.appsContainer")
-	m.azureStorageURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s/", azureStorageAccount, azureStorageContainer)
-
 	// Azure Storage authorization
 	credential, err := utils.GetAzureStorageCredentials()
 	if err != nil {
 		return err
 	}
+
+	// Get Azure Storage configuration
+	azureStorageAccount := appconfig.Config.GetString("azure.storage.account")
+	azureStorageContainer := appconfig.Config.GetString("azure.storage.appsContainer")
+	azureStorageSuffix, err := utils.GetAzureStorageEndpointSuffix()
+	if err != nil {
+		return err
+	}
+	m.azureStorageURL = fmt.Sprintf("https://%s.blob.%s/%s/", azureStorageAccount, azureStorageSuffix, azureStorageContainer)
 
 	// Azure Storage pipeline
 	m.azureStoragePipeline = azblob.NewPipeline(credential, azblob.PipelineOptions{

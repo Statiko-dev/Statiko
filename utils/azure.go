@@ -83,6 +83,18 @@ func GetAzureEndpoint(service string) (endpoint string, err error) {
 	return
 }
 
+// GetAzureStorageEndpointSuffix returns the endpoint suffix for Azure Storage in this environment
+func GetAzureStorageEndpointSuffix() (string, error) {
+	if azureEnv == nil {
+		err := initAzure()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return azureEnv.StorageEndpointSuffix, nil
+}
+
 // GetAzureOAuthConfig returns the adal.OAuthConfig object that can be used to authenticate against Azure resources
 func GetAzureOAuthConfig() (*adal.OAuthConfig, error) {
 	// Check if we've built the objects already
