@@ -401,6 +401,27 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 				itemData.App.Manifest.Files[k] = v
 			}
 		}
+		if itemData.App.Manifest.Locations != nil && len(itemData.App.Manifest.Locations) > 0 {
+			for k, v := range itemData.App.Manifest.Locations {
+				// If there's a ClientCaching value, ensure it's valid
+				if v.ClientCaching != "" {
+					if !n.clientCachingRegexp.MatchString(v.ClientCaching) {
+						n.logger.Println("Ignoring invalid value for clientCaching:", v.ClientCaching)
+						v.ClientCaching = ""
+					}
+				}
+
+				// Escape values in headers
+				if v.Headers != nil && len(v.Headers) > 0 {
+					v.CleanHeaders = make(map[string]string, len(v.Headers))
+					for hk, hv := range v.Headers {
+						v.CleanHeaders[escapeConfigString(hk)] = escapeConfigString(hv)
+					}
+				}
+
+				itemData.App.Manifest.Locations[k] = v
+			}
+		}
 	}
 
 	// Get parameters

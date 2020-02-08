@@ -51,17 +51,20 @@ type SiteApp struct {
 	Manifest *AppManifest `json:"-"`
 }
 
+// AppOptions is used by the AppManifest struct to represent options for a specific location or file type
+type AppOptions struct {
+	ClientCaching string            `yaml:"clientCaching"`
+	Headers       map[string]string `yaml:"headers"`
+	CleanHeaders  map[string]string `yaml:"-"`
+}
+
 // AppManifest represents the manifest of an app
 type AppManifest struct {
-	// Rules for files
-	Files map[string]struct {
-		ClientCaching string            `yaml:"clientCaching"`
-		Headers       map[string]string `yaml:"headers"`
-		CleanHeaders  map[string]string `yaml:"-"`
-	} `yaml:"files"`
-	Rewrite map[string]string `yaml:"rewrite"`
-	Page403 string            `yaml:"page403"`
-	Page404 string            `yaml:"page404"`
+	Files     map[string]AppOptions `yaml:"files"`
+	Locations map[string]AppOptions `yaml:"locations"`
+	Rewrite   map[string]string     `yaml:"rewrite"`
+	Page403   string                `yaml:"page403"`
+	Page404   string                `yaml:"page404"`
 }
 
 // Internal use
