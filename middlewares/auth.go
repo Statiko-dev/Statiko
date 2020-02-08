@@ -94,8 +94,8 @@ func Auth() gin.HandlerFunc {
 					// Check claims
 					if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 						// Perform some extra checks: iss, aud, then ensure exp and nbf are present (they were validated already)
-						audience := appconfig.Config.GetString("azure.app.clientId")
-						tenant := appconfig.Config.GetString("azure.app.tenantId")
+						audience := appconfig.Config.GetString("auth.azureAD.clientId")
+						tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
 						issuer := strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
 						if claims["iss"] == issuer && claims["aud"] == audience && claims["exp"] != "" && claims["nbf"] != "" {
 							// All good
@@ -135,7 +135,7 @@ func getTokenSigningKey(kid string) (key *rsa.PublicKey, err error) {
 	}
 
 	// Need to request the key
-	tenant := appconfig.Config.GetString("azure.app.tenantId")
+	tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
 	issuer := strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
 	url := strings.Replace(azureADJWKS, "{tenant}", tenant, 1)
 	logger.Println("Fetching JWKS from " + url)

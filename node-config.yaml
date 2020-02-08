@@ -9,10 +9,15 @@ auth:
     key: ""
 
   # Authorize with an OAuth 2.0 access token issued by Azure AD
-  # See the "azure.app" dictionary below for app's details
   azureAD:
     # Enabled
     enabled: yes
+    # Tenant ID of the application used to authenticate users
+    # Can also be passed with environmental variable AUTH_AZUREAD_TENANT_ID
+    tenantId: ""
+    # Client ID of the application used to authenticate users
+    # Can also be passed with environmental variable AUTH_AZUREAD_CLIENT_ID
+    clientId: ""
 
 # Encryption key for secrets. Must be a base64-encoded (standard encoding) key of 128-bit (16 byte).
 # Generate it with a command like `openssl rand 16 | base64`
@@ -74,8 +79,8 @@ appRoot: "/data/"
 # Azure configuration
 azure:
 
-  # App / Service Principal details
-  app:
+  # Service Principal details
+  sp:
     # Can also be passed with environmental variable AZURE_TENANT_ID
     tenantId: ""
     # Can also be passed with environmental variable AZURE_CLIENT_ID

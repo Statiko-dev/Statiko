@@ -53,8 +53,8 @@ func InfoHandler(c *gin.Context) {
 		authMethods = append(authMethods, "azureAD")
 
 		// Get the URL where users can authenticate
-		tenantId := appconfig.Config.GetString("azure.app.tenantId")
-		clientId := appconfig.Config.GetString("azure.app.clientId")
+		tenantId := appconfig.Config.GetString("auth.azureAD.tenantId")
+		clientId := appconfig.Config.GetString("auth.azureAD.clientId")
 
 		azureADInfo = &azureADInfoResponse{
 			AuthorizeURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantId),

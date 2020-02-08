@@ -84,6 +84,8 @@ func (c *appConfig) Load() error {
 
 	// Some settings can be set as env vars too
 	viper.BindEnv("auth.psk.key", "AUTH_KEY")
+	viper.BindEnv("auth.azureAD.tenantId", "AUTH_AZUREAD_TENANT_ID")
+	viper.BindEnv("auth.azureAD.clientId", "AUTH_AZUREAD_CLIENT_ID")
 	viper.BindEnv("secretsEncryptionKey", "SECRETS_ENCRYPTION_KEY")
 	viper.BindEnv("port", "PORT")
 	viper.BindEnv("state.store", "STATE_STORE")
@@ -97,9 +99,9 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("nginx.commands.stop", "NGINX_STOP")
 	viper.BindEnv("nginx.commands.restart", "NGINX_RESTART")
 	viper.BindEnv("nginx.commands.status", "NGINX_STATUS")
-	viper.BindEnv("azure.app.tenantId", "AZURE_TENANT_ID")
-	viper.BindEnv("azure.app.clientId", "AZURE_CLIENT_ID")
-	viper.BindEnv("azure.app.clientSecret", "AZURE_CLIENT_SECRET")
+	viper.BindEnv("azure.sp.tenantId", "AZURE_TENANT_ID")
+	viper.BindEnv("azure.sp.clientId", "AZURE_CLIENT_ID")
+	viper.BindEnv("azure.sp.clientSecret", "AZURE_CLIENT_SECRET")
 	viper.BindEnv("azure.keyVault.name", "AZURE_KEYVAULT_NAME")
 	viper.BindEnv("azure.keyVault.codesignKey.name", "CODESIGN_KEY_NAME")
 	viper.BindEnv("azure.keyVault.codesignKey.version", "CODESIGN_KEY_VERSION")
