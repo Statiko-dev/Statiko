@@ -26,11 +26,11 @@ import (
 	"os"
 	"time"
 
-	"smplatform/appconfig"
-	"smplatform/certificates"
-	"smplatform/notifications"
-	"smplatform/sync"
-	"smplatform/utils"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/certificates"
+	"github.com/ItalyPaleAle/smplatform/notifications"
+	"github.com/ItalyPaleAle/smplatform/sync"
+	"github.com/ItalyPaleAle/smplatform/utils"
 )
 
 // Logger for this file

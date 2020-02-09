@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/appconfig"
-	"smplatform/azurekeyvault"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/azurekeyvault"
 )
 
 // KeyVaultInfoHandler is the handler for GET /keyvaultinfo, which returns the name of the Azure Key Vault instance used

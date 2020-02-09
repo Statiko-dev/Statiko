@@ -20,7 +20,7 @@ import (
 	"log"
 	"os"
 
-	"smplatform/state"
+	"github.com/ItalyPaleAle/smplatform/state"
 )
 
 // Package-wide properties

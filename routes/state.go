@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/state"
-	"smplatform/sync"
+	"github.com/ItalyPaleAle/smplatform/state"
+	"github.com/ItalyPaleAle/smplatform/sync"
 )
 
 // GetStateHandler is the handler for GET /state, which dumps the state

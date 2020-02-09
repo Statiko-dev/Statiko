@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
 )
 
 // NotificationWebhook is the class that sends notifications to a webhook

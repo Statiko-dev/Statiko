@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"smplatform/buildinfo"
+	"github.com/ItalyPaleAle/smplatform/buildinfo"
 )
 
 type appConfig struct {

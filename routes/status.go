@@ -23,10 +23,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/state"
-	"smplatform/sync"
-	"smplatform/utils"
-	"smplatform/webserver"
+	"github.com/ItalyPaleAle/smplatform/state"
+	"github.com/ItalyPaleAle/smplatform/sync"
+	"github.com/ItalyPaleAle/smplatform/utils"
+	"github.com/ItalyPaleAle/smplatform/webserver"
 )
 
 // Last time the health checks were run

@@ -25,7 +25,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
 
-	"smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
 )
 
 var (

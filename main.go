@@ -29,13 +29,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/appconfig"
-	"smplatform/middlewares"
-	"smplatform/notifications"
-	"smplatform/routes"
-	"smplatform/sync"
-	"smplatform/webserver"
-	"smplatform/worker"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/middlewares"
+	"github.com/ItalyPaleAle/smplatform/notifications"
+	"github.com/ItalyPaleAle/smplatform/routes"
+	"github.com/ItalyPaleAle/smplatform/sync"
+	"github.com/ItalyPaleAle/smplatform/webserver"
+	"github.com/ItalyPaleAle/smplatform/worker"
 )
 
 func main() {

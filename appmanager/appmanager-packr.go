@@ -5,4 +5,4 @@
 // and any other packr generated files.
 package appmanager
 
-import _ "smplatform/packrd"
+import _ "github.com/ItalyPaleAle/smplatform/packrd"

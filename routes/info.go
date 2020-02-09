@@ -22,8 +22,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/appconfig"
-	"smplatform/buildinfo"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/buildinfo"
 )
 
 // infoResponse is the response for the /info route

@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"smplatform/state"
-	"smplatform/sync"
+	"github.com/ItalyPaleAle/smplatform/state"
+	"github.com/ItalyPaleAle/smplatform/sync"
 )
 
 // DeploySiteHandler is the handler for POST/PUT /site/{domain}/app, which deploys an app

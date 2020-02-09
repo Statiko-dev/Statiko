@@ -27,7 +27,7 @@ import (
 	"github.com/etcd-io/etcd/clientv3"
 	"google.golang.org/grpc/connectivity"
 
-	"smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
 )
 
 // Maximum lock duration, in seconds

@@ -34,8 +34,8 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 
-	"smplatform/appconfig"
-	"smplatform/utils"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/utils"
 )
 
 // uploadAuthRequest is the request body for the POST /uploadauth route

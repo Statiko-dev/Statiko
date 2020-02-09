@@ -22,9 +22,9 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"reflect"
-	"smplatform/appconfig"
-	"smplatform/state"
-	"smplatform/utils"
+	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/smplatform/state"
+	"github.com/ItalyPaleAle/smplatform/utils"
 	"sort"
 	"time"
 )

@@ -1,4 +1,4 @@
-module smplatform
+module github.com/ItalyPaleAle/smplatform
 
 go 1.13
 
