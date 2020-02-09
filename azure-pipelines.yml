@@ -1,3 +1,6 @@
+# Required secret variables:
+# - AZURE_CLIENT_SECRET: Secret key for the Azure Service Principal
+
 trigger:
   - master
 
@@ -67,7 +70,7 @@ stages:
               GOARCH=amd64 \
               GO111MODULE=on \
                 go test \
-                  -coverpkg=statiko/... \
+                  -coverpkg=github.com/ItalyPaleAle/statiko/... \
                   -c \
                   -tags e2etests \
                   -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
@@ -174,7 +177,6 @@ stages:
                 --rm \
                 -v $(pwd)/e2e-test/container_etc:/etc/statiko \
                 -v $(pwd)/e2e-test/results:/results \
-                -e "AZURE_STORAGE_KEY=$(AZURE_STORAGE_KEY)" \
                 -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
                 -e "NODE_URL=statiko.local:2265" \
                 -e "NGINX_URL=statiko.local" \
