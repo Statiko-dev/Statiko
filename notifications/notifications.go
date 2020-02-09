@@ -22,7 +22,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/statiko/appconfig"
 )
 
 var notifier notificationSender

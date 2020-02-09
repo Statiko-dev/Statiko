@@ -30,8 +30,8 @@ var _ = func() error {
 	func() {
 		b := packr.New("Default app", "default-app")
 		b.SetResolver("robots.txt", packr.Pointer{ForwardBox: gk, ForwardPath: "e68b88ce9f1dd84161c1d45829b78d2a"})
-		b.SetResolver("smplatform-welcome.html", packr.Pointer{ForwardBox: gk, ForwardPath: "04fc811302f28a1d7a4b0b2d66f5250e"})
-		b.SetResolver("smplatform.js", packr.Pointer{ForwardBox: gk, ForwardPath: "c1d072db577fc9a43d51ad5ddfada400"})
+		b.SetResolver("statiko-welcome.html", packr.Pointer{ForwardBox: gk, ForwardPath: "04fc811302f28a1d7a4b0b2d66f5250e"})
+		b.SetResolver("statiko.js", packr.Pointer{ForwardBox: gk, ForwardPath: "c1d072db577fc9a43d51ad5ddfada400"})
 	}()
 
 	func() {

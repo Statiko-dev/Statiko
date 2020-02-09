@@ -27,9 +27,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
-	"github.com/ItalyPaleAle/smplatform/state"
-	"github.com/ItalyPaleAle/smplatform/utils"
+	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/ItalyPaleAle/statiko/state"
+	"github.com/ItalyPaleAle/statiko/utils"
 
 	"github.com/gobuffalo/packr/v2"
 )

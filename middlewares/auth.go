@@ -27,8 +27,8 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
-	"github.com/ItalyPaleAle/smplatform/utils"
+	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/ItalyPaleAle/statiko/utils"
 )
 
 // Cache for the token RSA keys

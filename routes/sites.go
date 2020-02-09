@@ -23,8 +23,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/smplatform/state"
-	"github.com/ItalyPaleAle/smplatform/sync"
+	"github.com/ItalyPaleAle/statiko/state"
+	"github.com/ItalyPaleAle/statiko/sync"
 )
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site

@@ -25,8 +25,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
-	"github.com/ItalyPaleAle/smplatform/utils"
+	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/ItalyPaleAle/statiko/utils"
 )
 
 // Manager is the state manager class

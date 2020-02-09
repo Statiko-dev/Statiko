@@ -5,4 +5,4 @@
 // and any other packr generated files.
 package webserver
 
-import _ "github.com/ItalyPaleAle/smplatform/packrd"
+import _ "github.com/ItalyPaleAle/statiko/packrd"

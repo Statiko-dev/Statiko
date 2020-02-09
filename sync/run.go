@@ -19,9 +19,9 @@ package sync
 import (
 	"time"
 
-	"github.com/ItalyPaleAle/smplatform/appmanager"
-	"github.com/ItalyPaleAle/smplatform/state"
-	"github.com/ItalyPaleAle/smplatform/webserver"
+	"github.com/ItalyPaleAle/statiko/appmanager"
+	"github.com/ItalyPaleAle/statiko/state"
+	"github.com/ItalyPaleAle/statiko/webserver"
 )
 
 // Semaphore that allows only one operation at time

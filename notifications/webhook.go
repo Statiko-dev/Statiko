@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
+	"github.com/ItalyPaleAle/statiko/appconfig"
 )
 
 // NotificationWebhook is the class that sends notifications to a webhook
@@ -54,7 +54,7 @@ func (n *NotificationWebhook) Init() error {
 // SendNotification method
 func (n *NotificationWebhook) SendNotification(message string) error {
 	// Add the node name at the beginning of the message
-	message = fmt.Sprintf("[smplatform] (%s) %s", appconfig.Config.GetString("nodeName"), message)
+	message = fmt.Sprintf("[statiko] (%s) %s", appconfig.Config.GetString("nodeName"), message)
 
 	// Request body is a JSON message in the format: `{value1: string}`
 	payload := struct {

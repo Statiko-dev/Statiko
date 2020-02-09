@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/renameio"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
-	"github.com/ItalyPaleAle/smplatform/utils"
+	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/ItalyPaleAle/statiko/utils"
 )
 
 type stateStoreFile struct {

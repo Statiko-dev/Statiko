@@ -39,13 +39,13 @@ state:
   file:
     # File containing the state persistently stored on disk
     # Can also be passed with environmental variable STATE_FILE_PATH
-    path: "/etc/smplatform/state.json"
+    path: "/etc/statiko/state.json"
 
   # Configuration for when "store" is "etcd"
   etcd:
-    # Prefix for keys used by smplatform in etcd
+    # Prefix for keys used by statiko in etcd
     # Can also be passed with environmental variable STATE_ETCD_KEY_PREFIX
-    keyPrefix: "smplatform"
+    keyPrefix: "/statiko"
     # Timeout in ms
     # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
     timeout: 15000
@@ -116,19 +116,19 @@ azure:
 # TLS
 tls:
   # Diffie-Hellman parameters used by all TLS-enabled sites
-  dhparams: "/etc/smplatform/dhparams.pem"
+  dhparams: "/etc/statiko/dhparams.pem"
   node:
     # Using TLS is strongly recommended
     enabled: yes
-    certificate: "/etc/smplatform/node-public.crt"
-    key: "/etc/smplatform/node-private.key"
+    certificate: "/etc/statiko/node-public.crt"
+    key: "/etc/statiko/node-private.key"
 
 # Node name (optional; will default to the hostname)
 # Can also be passed with environmental variable NODE_NAME
 nodeName: ""
 
 # Name for the manifest file inside app bundles
-manifestFile: "_smplatform.yaml"
+manifestFile: "_statiko.yaml"
 
 # Set to true to require all deployed apps to be cryptographically signed
 disallowUnsignedApps: false

@@ -39,11 +39,11 @@ import (
 	"github.com/google/renameio"
 	"gopkg.in/yaml.v2"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
-	"github.com/ItalyPaleAle/smplatform/azurekeyvault"
-	"github.com/ItalyPaleAle/smplatform/certificates"
-	"github.com/ItalyPaleAle/smplatform/state"
-	"github.com/ItalyPaleAle/smplatform/utils"
+	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/ItalyPaleAle/statiko/azurekeyvault"
+	"github.com/ItalyPaleAle/statiko/certificates"
+	"github.com/ItalyPaleAle/statiko/state"
+	"github.com/ItalyPaleAle/statiko/utils"
 )
 
 // Manager contains helper functions to manage apps and sites

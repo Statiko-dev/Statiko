@@ -29,7 +29,7 @@ import (
 )
 
 // SelfSignedCertificateIssuer is the organization that issues self-signed certificates
-const SelfSignedCertificateIssuer = "smplatform self-signed"
+const SelfSignedCertificateIssuer = "statiko self-signed"
 
 // GenerateCertificate generates a new self-signed TLS certificate (with a RSA 4096-bit key) and returns the private key and public certificate encoded as PEM
 // The first domain is the primary one, used as value for the "Common Name" value too

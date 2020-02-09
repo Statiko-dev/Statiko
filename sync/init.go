@@ -20,7 +20,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/ItalyPaleAle/smplatform/state"
+	"github.com/ItalyPaleAle/statiko/state"
 )
 
 // Package-wide properties

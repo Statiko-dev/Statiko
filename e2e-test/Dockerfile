@@ -1,7 +1,7 @@
 ###
 ### First stage: test image
 ###
-FROM italypaleale/smplatform:latest AS testimage
+FROM italypaleale/statiko:latest AS testimage
 
 # Install Node.js which is necessary for running tests
 # Source: https://raw.githubusercontent.com/nodejs/docker-node/master/12/alpine3.11/Dockerfile
@@ -95,8 +95,8 @@ RUN sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisord.conf \
     && sed -i 's/\/dev\/fd\/2/\/results\/stderr/' /etc/supervisord.conf
 
 # When the container starts, start supervisord, then run tests
-ENV MOCHA_FILE=/results/smplatform.xml
-CMD rm -f /etc/smplatform/state.json \
+ENV MOCHA_FILE=/results/statiko.xml
+CMD rm -f /etc/statiko/state.json \
     && supervisord -c /etc/supervisord.conf \
     && sleep 8 \
     && supervisorctl status \
@@ -110,6 +110,6 @@ CMD rm -f /etc/smplatform/state.json \
 FROM testimage 
 
 # Copy the binary with the coverage test, then change the command in the supervisord.conf
-RUN mv bin/smplatform_linux_amd64.test /usr/local/bin/smplatform.test \
-    && chmod +x /usr/local/bin/smplatform.test \
-    && sed -i 's/\/usr\/local\/bin\/smplatform/\/usr\/local\/bin\/smplatform.test -test.run "^TestRunMain$" -test.coverprofile=\/results\/coverage.out/' /etc/supervisord.conf 
+RUN mv bin/statiko_linux_amd64.test /usr/local/bin/statiko.test \
+    && chmod +x /usr/local/bin/statiko.test \
+    && sed -i 's/\/usr\/local\/bin\/statiko/\/usr\/local\/bin\/statiko.test -test.run "^TestRunMain$" -test.coverprofile=\/results\/coverage.out/' /etc/supervisord.conf 

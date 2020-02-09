@@ -1,12 +1,12 @@
 version: "3.4"
 
 services:
-  smplatform:
-    image: italypaleale/smplatform:latest
+  statiko:
+    image: italypaleale/statiko:latest
     restart: always
-    container_name: smplatform
+    container_name: statiko
     volumes:
-      - /platform/etc:/etc/smplatform
+      - /platform/etc:/etc/statiko
       - /platform/data:/data
     ports:
       - "80:80"

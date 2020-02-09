@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/ItalyPaleAle/smplatform/buildinfo"
+	"github.com/ItalyPaleAle/statiko/buildinfo"
 )
 
 type appConfig struct {
@@ -62,8 +62,8 @@ func (c *appConfig) Load() error {
 		viper.AddConfigPath(configFilePath)
 	}
 
-	// Look in /etc/smplatform
-	viper.AddConfigPath("/etc/smplatform/")
+	// Look in /etc/statiko
+	viper.AddConfigPath("/etc/statiko/")
 
 	// In development, add also the current working directory
 	if ENV != "production" {

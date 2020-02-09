@@ -22,11 +22,12 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"reflect"
-	"github.com/ItalyPaleAle/smplatform/appconfig"
-	"github.com/ItalyPaleAle/smplatform/state"
-	"github.com/ItalyPaleAle/smplatform/utils"
 	"sort"
 	"time"
+
+	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/ItalyPaleAle/statiko/state"
+	"github.com/ItalyPaleAle/statiko/utils"
 )
 
 var (

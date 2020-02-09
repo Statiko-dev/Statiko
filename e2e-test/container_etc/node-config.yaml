@@ -14,10 +14,11 @@ auth:
     enabled: yes
     # Tenant ID of the application used to authenticate users
     # Can also be passed with environmental variable AUTH_AZUREAD_TENANT_ID
-    tenantId: "de366b7a-4861-4e17-b67b-8e3cdd4f2408"    
+    tenantId: "1ea3c9a2-b58b-48c7-b5ce-ca311c3c1196"    
     # Client ID of the application used to authenticate users
     # Can also be passed with environmental variable AUTH_AZUREAD_CLIENT_ID
-    clientId: "797c905d-b49a-4ddf-9425-80e39b3c0a19"
+    # DEV NOTE: in development, we're using the same app for both Azure AD authentication and as an Azure Service Principal. Not recommended in production, however
+    clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
 
 # Encryption key for secrets. Must be a base64-encoded (standard encoding) key of 128-bit (16 byte).
 # Generate it with a command like `openssl rand 16 | base64`
@@ -39,13 +40,13 @@ state:
   file:
     # File containing the state persistently stored on disk
     # Can also be passed with environmental variable STATE_FILE_PATH
-    path: "/etc/smplatform/state.json"
+    path: "/etc/statiko/state.json"
 
   # Configuration for when "store" is "etcd"
   etcd:
-    # Prefix for keys used by smplatform in etcd
+    # Prefix for keys used by statiko in etcd
     # Can also be passed with environmental variable STATE_ETCD_KEY_PREFIX
-    keyPrefix: "smplatform"
+    keyPrefix: "/statiko"
     # Timeout in ms
     # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
     timeout: 15000
@@ -81,9 +82,9 @@ azure:
   # Service Principal details
   sp:
     # Can also be passed with environmental variable AZURE_TENANT_ID
-    tenantId: "de366b7a-4861-4e17-b67b-8e3cdd4f2408"
+    tenantId: "1ea3c9a2-b58b-48c7-b5ce-ca311c3c1196"
     # Can also be passed with environmental variable AZURE_CLIENT_ID
-    clientId: "797c905d-b49a-4ddf-9425-80e39b3c0a19"
+    clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
     # Can also be passed with environmental variable AZURE_CLIENT_SECRET
     clientSecret: ""
 
@@ -91,7 +92,7 @@ azure:
   storage:
     # Storage account name
     # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
-    account: "smplatformcistorage"
+    account: "statikocistorage"
     # Container name
     # Can also be passed with environmental variable AZURE_STORAGE_APPS_CONTAINER
     appsContainer: "apps"
@@ -100,7 +101,7 @@ azure:
   keyVault:
     # Name of the Key Vault
     # Can also be passed with environmental variable AZURE_KEYVAULT_NAME
-    name: "smplatform-ci-akv"
+    name: "statiko-ci-akv"
 
     # Code signing key
     codesignKey:
@@ -115,19 +116,19 @@ azure:
 # TLS
 tls:
   # Diffie-Hellman parameters used by all TLS-enabled sites
-  dhparams: "/etc/smplatform/dhparams.pem"
+  dhparams: "/etc/statiko/dhparams.pem"
   node:
     # Using TLS is strongly recommended
     enabled: yes
-    certificate: "/etc/smplatform/node-public.crt"
-    key: "/etc/smplatform/node-private.key"
+    certificate: "/etc/statiko/node-public.crt"
+    key: "/etc/statiko/node-private.key"
 
 # Node name (optional; will default to the hostname)
 # Can also be passed with environmental variable NODE_NAME
 nodeName: "e2e-test"
 
 # Name for the manifest file inside app bundles
-manifestFile: "_smplatform.yaml"
+manifestFile: "_statiko.yaml"
 
 # Set to true to require all deployed apps to be cryptographically signed
 disallowUnsignedApps: false

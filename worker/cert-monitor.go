@@ -26,11 +26,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/ItalyPaleAle/smplatform/appconfig"
-	"github.com/ItalyPaleAle/smplatform/certificates"
-	"github.com/ItalyPaleAle/smplatform/notifications"
-	"github.com/ItalyPaleAle/smplatform/sync"
-	"github.com/ItalyPaleAle/smplatform/utils"
+	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/ItalyPaleAle/statiko/certificates"
+	"github.com/ItalyPaleAle/statiko/notifications"
+	"github.com/ItalyPaleAle/statiko/sync"
+	"github.com/ItalyPaleAle/statiko/utils"
 )
 
 // Logger for this file

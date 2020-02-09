@@ -43,7 +43,7 @@ const nodeRequest = request('https://' + nodeUrl)
 const nginxRequest = request('https://' + nginxUrl)
 
 // Load node's config
-const nodeConfig = yaml.safeLoad(fs.readFileSync('/etc/smplatform/node-config.yaml'))
+const nodeConfig = yaml.safeLoad(fs.readFileSync('/etc/statiko/node-config.yaml'))
 
 // Checks the /status page
 async function checkStatus(sites) {
@@ -259,7 +259,7 @@ async function checkNginxSite(site, appDeployed) {
                 }
 
                 // If the key is the manifest file, expect a 404
-                if (key == '_smplatform.yaml') {
+                if (key == '_statiko.yaml') {
                     const p = nginxRequest
                         .get('/' + key)
                         .set('Host', site.domain)
@@ -464,11 +464,11 @@ const tests = {
     checkConfigDirectory: () => {
         return async function() {
             // Check if directory exists
-            assert(await utils.folderExists('/etc/smplatform'))
+            assert(await utils.folderExists('/etc/statiko'))
 
             // Check for config file if storing on file
             if ((process.env.STATE_STORE && process.env.STATE_STORE == 'file') || (nodeConfig && nodeConfig.state && nodeConfig.state.store == 'file')) {
-                assert(await utils.fileExists('/etc/smplatform/state.json'))
+                assert(await utils.fileExists('/etc/statiko/state.json'))
             }
         }
     },
@@ -497,7 +497,7 @@ const tests = {
                 .expect(404) // This should fail with a 404
                 .expect('Content-Type', 'text/html') // Should return the default app
                 .then((response) => {
-                    assert(/<title>Welcome to SMPlatform<\/title>/.test(response.text))
+                    assert(/<title>Welcome to Statiko<\/title>/.test(response.text))
                 })
         }
     },

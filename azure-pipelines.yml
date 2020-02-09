@@ -12,16 +12,16 @@ variables:
 
   # Container registry service connection established during pipeline creation
   dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
-  imageRepository: 'italypaleale/smplatform'
+  imageRepository: 'italypaleale/statiko'
   containerRegistry: 'hub.docker.com'
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile'
   dockerTag: '$(Build.BuildNumber)'
   testDockerfilePath: '$(Build.SourcesDirectory)/e2e-test/Dockerfile'
-  testImageRepository: 'smplatform-test'
+  testImageRepository: 'statiko-test'
 
 stages:
   - stage: build
-    displayName: Build SMPlatform artifacts
+    displayName: Build Statiko artifacts
     jobs:
       - job: build
         displayName: Build artifacts for Linux (amd64, arm64, armhf)
@@ -50,8 +50,8 @@ stages:
               GOARCH=amd64 \
               GO111MODULE=on \
                 go build \
-                  -ldflags "-X github.com/ItalyPaleAle/smplatform/buildinfo.ENV=production -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
-                  -o bin/smplatform_linux_amd64
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
+                  -o bin/statiko_linux_amd64
             displayName: "Build amd64"
           # Build amd64 with coverage
           - bash: |
@@ -67,11 +67,11 @@ stages:
               GOARCH=amd64 \
               GO111MODULE=on \
                 go test \
-                  -coverpkg=smplatform/... \
+                  -coverpkg=statiko/... \
                   -c \
                   -tags e2etests \
-                  -ldflags "-X github.com/ItalyPaleAle/smplatform/buildinfo.ENV=production -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
-                  -o bin/smplatform_linux_amd64.test
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
+                  -o bin/statiko_linux_amd64.test
             displayName: "Build amd64 with coverage"
           # Build arm64
           # Only run on master
@@ -86,8 +86,8 @@ stages:
               GOOS=linux \
               GOARCH=arm64 \
                 go build \
-                  -ldflags "-X github.com/ItalyPaleAle/smplatform/buildinfo.ENV=production -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
-                  -o bin/smplatform_linux_arm64
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
+                  -o bin/statiko_linux_arm64
             displayName: "Build arm64"
             condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
           # Build armhf
@@ -104,8 +104,8 @@ stages:
               GOARCH=arm \
               GOARM=7 \
                 go build \
-                  -ldflags "-X github.com/ItalyPaleAle/smplatform/buildinfo.ENV=production -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/smplatform/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/smplatform/buildinfo.CommitHash=$COMMIT_HASH" \
-                  -o bin/smplatform_linux_armhf
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
+                  -o bin/statiko_linux_armhf
             displayName: "Build armhf"
             condition: "and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))"
           # Copy binaries to the artifacts staging directory
@@ -172,13 +172,13 @@ stages:
               set -e
               docker run \
                 --rm \
-                -v $(pwd)/e2e-test/container_etc:/etc/smplatform \
+                -v $(pwd)/e2e-test/container_etc:/etc/statiko \
                 -v $(pwd)/e2e-test/results:/results \
                 -e "AZURE_STORAGE_KEY=$(AZURE_STORAGE_KEY)" \
                 -e "AZURE_CLIENT_SECRET=$(AZURE_CLIENT_SECRET)" \
-                -e "NODE_URL=smplatform.local:2265" \
-                -e "NGINX_URL=smplatform.local" \
-                --add-host "smplatform.local:127.0.0.1" \
+                -e "NODE_URL=statiko.local:2265" \
+                -e "NGINX_URL=statiko.local" \
+                --add-host "statiko.local:127.0.0.1" \
                 $(testImageRepository)
             displayName:  Run end-to-end tests
           # Print logs

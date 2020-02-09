@@ -5,7 +5,7 @@ FROM alpine:3.10
 # Software versions
 ENV NGINX_VERSION=1.16.1 NGINX_PKG_RELEASE=1
 
-# Configuration for the smplatform app
+# Configuration for the statiko app
 ARG ARCH=amd64
 ENV ARCH=$ARCH GO_ENV=production PORT=2265
 
@@ -52,15 +52,15 @@ RUN set -x \
     && ln -sf /dev/stderr /var/log/nginx/error.log \
     # Folder required by supervisor to store its logs
     && mkdir /var/log/supervisor/ \
-    # Create folders for smplatform
-    && mkdir -p /etc/smplatform /data
+    # Create folders for statiko
+    && mkdir -p /etc/statiko /data
 
 # Supervisord configuration
 COPY container/supervisord.conf /etc/supervisord.conf
 
 # Copy app
-COPY bin/smplatform_linux_${ARCH} /usr/local/bin/smplatform
-RUN chmod +x /usr/local/bin/smplatform
+COPY bin/statiko_linux_${ARCH} /usr/local/bin/statiko
+RUN chmod +x /usr/local/bin/statiko
 
 # Expose ports
 EXPOSE 80 443 2265
