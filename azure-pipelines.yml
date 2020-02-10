@@ -14,7 +14,7 @@ variables:
   GOPATH: '/home/vsts/go'
 
   # Container registry service connection established during pipeline creation
-  dockerRegistryServiceConnection: 'a041da97-3f29-4781-a417-751b98eb7903'
+  dockerRegistryServiceConnection: 'a1191c24-1129-4d6f-8c0a-52a95cd72f24'
   imageRepository: 'italypaleale/statiko'
   containerRegistry: 'hub.docker.com'
   dockerfilePath: '$(Build.SourcesDirectory)/container/Dockerfile'
