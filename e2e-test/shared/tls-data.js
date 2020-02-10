@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 'use strict'
 
 module.exports = {
-    site1: '72cd150c5f394bd190749cdb22d0f731',
-    site2: '5b66a6296e894c2fa6a28af196d10bf6',
-    site3: '8b164f4577244c4aa8eb54a31b45c70c'
+    site1: '7f9f2c93860e4c54bc4eea5bb5973ad6',
+    site2: 'b7fe4ddc51ef4097aa764cf56ec37c62',
+    site3: 'dcdc4a65bbc34da981d4949f300e8076'
 }

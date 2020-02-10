@@ -24,7 +24,7 @@ const sitesData = {
         domain: 'site1.local',
         tlsCertificate: 'site1',
         tlsCertificateSelfSigned: false,
-        tlsCertificateVersion: '72cd150c5f394bd190749cdb22d0f731',
+        tlsCertificateVersion: '7f9f2c93860e4c54bc4eea5bb5973ad6',
         aliases: [
             'site1-alias.local',
             'mysite.local'
@@ -81,7 +81,7 @@ sitesData.site1patch2 = {
 }
 sitesData.site1patch3 = {
     tlsCertificate: 'site3',
-    tlsCertificateVersion: '8b164f4577244c4aa8eb54a31b45c70c'
+    tlsCertificateVersion: 'dcdc4a65bbc34da981d4949f300e8076'
 }
 
 module.exports = sitesData

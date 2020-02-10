@@ -497,7 +497,7 @@ const tests = {
                 .expect(404) // This should fail with a 404
                 .expect('Content-Type', 'text/html') // Should return the default app
                 .then((response) => {
-                    assert(/<title>Welcome to Statiko<\/title>/.test(response.text))
+                    assert(/<title>Statiko node is running<\/title>/.test(response.text))
                 })
         }
     },
