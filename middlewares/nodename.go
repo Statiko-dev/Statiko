@@ -22,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// NodeName middleware that adds the "X-SMP-Node" header containing the node name
+// NodeName middleware that adds the "X-STK-Node" header containing the node name
 func NodeName() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		hostname := appconfig.Config.GetString("nodeName")
@@ -30,6 +30,6 @@ func NodeName() gin.HandlerFunc {
 			return
 		}
 
-		c.Header("X-SMP-Node", hostname)
+		c.Header("X-STK-Node", hostname)
 	}
 }
