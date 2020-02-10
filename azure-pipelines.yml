@@ -234,6 +234,7 @@ stages:
               containerRegistry: $(dockerRegistryServiceConnection)
               tags: |
                 latest
+                $(Build.BuildNumber)
           # Post-build cleanup
           # Necessary only for self-hosted pipelines
           #- bash: |
