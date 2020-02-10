@@ -159,6 +159,7 @@ stages:
               containerRegistry: $(dockerRegistryServiceConnection)
               tags: |
                 latest
+                $(Build.BuildNumber)
           # Build Docker test images
           - bash: |
               set -e
