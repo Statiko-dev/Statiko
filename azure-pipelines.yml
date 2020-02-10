@@ -39,13 +39,20 @@ stages:
               echo '##vso[task.prependpath]$(GOBIN)'
               echo '##vso[task.prependpath]$(GOROOT)/bin'
             displayName: "Set up go environment"
-          # Build amd64
+          # Define build info
           - bash: |
               set -e
 
               BUILD_ID=$(Build.BuildNumber)
               BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
               COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
+              echo "##vso[task.setvariable variable=BUILD_ID]$BUILD_ID"
+              echo "##vso[task.setvariable variable=BUILD_TIME]$BUILD_TIME"
+              echo "##vso[task.setvariable variable=COMMIT_HASH]$COMMIT_HASH"
+            displayName: "Define build info"
+          # Build amd64
+          - bash: |
+              set -e
 
               # Disable CGO so the binary can run on Alpine
               CGO_ENABLED=0 \
@@ -59,10 +66,6 @@ stages:
           # Build amd64 with coverage
           - bash: |
               set -e
-
-              BUILD_ID=$(Build.BuildNumber)
-              BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
-              COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               # Disable CGO so the binary can run on Alpine
               CGO_ENABLED=0 \
@@ -81,10 +84,6 @@ stages:
           - bash: |
               set -e
 
-              BUILD_ID=$(Build.BuildNumber)
-              BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
-              COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
-
               GO111MODULE=on \
               GOOS=linux \
               GOARCH=arm64 \
@@ -97,10 +96,6 @@ stages:
           # Only run on master
           - bash: |
               set -e
-
-              BUILD_ID=$(Build.BuildNumber)
-              BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
-              COMMIT_HASH=$(git log --pretty=format:'%h' -n 1)
 
               GO111MODULE=on \
               GOOS=linux \
