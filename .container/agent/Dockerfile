@@ -1,5 +1,5 @@
 ARG ARCH
-FROM yobasystems/alpine-nginx:stable-${ARCH}}
+FROM yobasystems/alpine-nginx:stable-${ARCH}
 
 # Configuration for the statiko app
 ENV GO_ENV=production PORT=2265
