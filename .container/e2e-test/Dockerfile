@@ -5,7 +5,7 @@ FROM italypaleale/statiko:latest AS testimage
 
 # Install Node.js which is necessary for running tests
 # Source: https://raw.githubusercontent.com/nodejs/docker-node/master/12/alpine3.11/Dockerfile
-ENV NODE_VERSION 12.15.0
+ENV NODE_VERSION 12.16.0
 RUN addgroup -g 1000 node \
     && adduser -u 1000 -G node -s /bin/sh -D node \
     && apk add --no-cache \
@@ -16,7 +16,7 @@ RUN addgroup -g 1000 node \
       && case "${alpineArch##*-}" in \
         x86_64) \
           ARCH='x64' \
-          CHECKSUM="6906577d7b15cc940f47fc88436ac45f73e5abecd15f09d8f2a9ea337fc2fe5e" \
+          CHECKSUM="c7c38c170c38a491ecffbd5324415818f88abc2a6a79076493c1028a19bf64df" \
           ;; \
         *) ;; \
       esac \
