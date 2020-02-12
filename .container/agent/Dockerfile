@@ -1,4 +1,5 @@
 ARG ARCH=amd64
+ARG BINARY_FILE=.bin/statiko_linux_amd64
 FROM yobasystems/alpine-nginx:stable-${ARCH}
 
 # Configuration for the statiko app
@@ -20,7 +21,7 @@ RUN set -x \
 COPY .container/agent/supervisord.conf /etc/supervisord.conf
 
 # Copy app
-COPY .bin/statiko_linux_${ARCH} /usr/local/bin/statiko
+COPY $BINARY_FILE /usr/local/bin/statiko
 RUN chmod +x /usr/local/bin/statiko
 
 # Expose ports

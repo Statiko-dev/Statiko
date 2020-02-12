@@ -59,6 +59,7 @@ steps:
             GOARCH=amd64 \
             GO111MODULE=on \
               go build \
+                -v \
                 -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
                 -o .bin/statiko_linux_amd64
             
@@ -68,12 +69,14 @@ steps:
             GOARCH=amd64 \
             GO111MODULE=on \
               go test \
+                -v \
                 -coverpkg=github.com/ItalyPaleAle/statiko/... \
                 -c \
                 -tags e2etests \
                 -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
                 -o .bin/statiko_linux_amd64.test
             '
+      ls -al .bin
     displayName: "Build statiko"
   # Build Docker image
   - task: Docker@2
@@ -84,7 +87,7 @@ steps:
       repository: $(imageRepository)
       dockerfile: $(dockerfilePath)
       containerRegistry: $(dockerRegistryServiceConnection)
-      arguments: --build-arg ARCH=amd64
+      arguments: --build-arg ARCH=amd64 --build-arg BINARY_FILE=.bin/statiko_linux_amd64
       tags: |
         latest
         ci-$(Build.BuildNumber)
