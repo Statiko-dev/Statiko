@@ -44,6 +44,7 @@ steps:
   # Build statiko
   - bash: |
       set -e
+      mkdir -p .bin
 
       # Build using Docker
       docker run \

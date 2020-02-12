@@ -1,4 +1,4 @@
-ARG ARCH
+ARG ARCH=amd64
 FROM yobasystems/alpine-nginx:stable-${ARCH}
 
 # Configuration for the statiko app
