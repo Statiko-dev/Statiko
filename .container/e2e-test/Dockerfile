@@ -5,7 +5,7 @@ FROM italypaleale/statiko:latest AS testimage
 
 # Install Node.js which is necessary for running tests
 # Source: https://raw.githubusercontent.com/nodejs/docker-node/master/12/alpine3.11/Dockerfile
-ENV NODE_VERSION 12.14.1
+ENV NODE_VERSION 12.15.0
 RUN addgroup -g 1000 node \
     && adduser -u 1000 -G node -s /bin/sh -D node \
     && apk add --no-cache \
@@ -110,6 +110,6 @@ CMD rm -f /etc/statiko/state.json \
 FROM testimage 
 
 # Copy the binary with the coverage test, then change the command in the supervisord.conf
-RUN mv bin/statiko_linux_amd64.test /usr/local/bin/statiko.test \
+RUN mv .bin/statiko_linux_amd64.test /usr/local/bin/statiko.test \
     && chmod +x /usr/local/bin/statiko.test \
     && sed -i 's/\/usr\/local\/bin\/statiko/\/usr\/local\/bin\/statiko.test -test.run "^TestRunMain$" -test.coverprofile=\/results\/coverage.out/' /etc/supervisord.conf 
