@@ -101,7 +101,7 @@ steps:
   # Build Docker test images
   - bash: |
       set -e
-      mkdir .e2e-test/.bin
+      mkdir -p .e2e-test/.bin
       cp .bin/*.test .e2e-test/.bin
       # To stop at the test image (without coverage), add "--target testimage"
       docker build \
