@@ -8,8 +8,8 @@ COPY $QEMU_FILE /usr/bin/
 
 # Install dependencies and create folders
 RUN set -x \
-    # Add supervisor
-    && apk add --no-cache supervisor \
+    # Add runtime dependencies
+    && apk add --no-cache supervisor ca-certificates openssl \
     # Forward nginx's request and error logs to docker log collector
     && ln -sf /dev/stdout /var/log/nginx/access.log \
     && ln -sf /dev/stderr /var/log/nginx/error.log \
