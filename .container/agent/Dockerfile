@@ -1,9 +1,10 @@
 ARG ARCH=amd64
 ARG BINARY_FILE=.bin/statiko_linux_amd64
+ARG QEMU_FILE=qemu-x86_64-static
 FROM yobasystems/alpine-nginx:stable-${ARCH}
 
-# Configuration for the statiko app
-ENV GO_ENV=production PORT=2265
+# Add qemu
+COPY $QEMU_FILE /usr/bin/
 
 # Install dependencies and create folders
 RUN set -x \
@@ -20,9 +21,13 @@ RUN set -x \
 # Supervisord configuration
 COPY .container/agent/supervisord.conf /etc/supervisord.conf
 
-# Copy app
+# Copy app, then remove qemu
 COPY $BINARY_FILE /usr/local/bin/statiko
-RUN chmod +x /usr/local/bin/statiko
+RUN chmod +x /usr/local/bin/statiko \
+    && rm -rf /usr/bin/${QEMU_FILE}
+
+# Configuration for the statiko app
+ENV GO_ENV=production PORT=2265
 
 # Expose ports
 EXPOSE 80 443 2265

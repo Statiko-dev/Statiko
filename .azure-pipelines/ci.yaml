@@ -16,6 +16,7 @@ variables:
   builderImage: 'golang:$(goVersion)-alpine'
 
   # Docker images
+  qemuVersion: 'v4.2.0-4'
   dockerRegistryServiceConnection: 'a1191c24-1129-4d6f-8c0a-52a95cd72f24'
   imageRepository: 'italypaleale/statiko'
   dockerfilePath: '$(Build.SourcesDirectory)/.container/agent/Dockerfile'
@@ -60,7 +61,7 @@ steps:
             GO111MODULE=on \
               go build \
                 -v \
-                -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
+                -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$(BUILD_ID) -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$(BUILD_TIME) -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$(COMMIT_HASH)" \
                 -o .bin/statiko_linux_amd64
             
             # Build with coverage enabled
@@ -73,11 +74,17 @@ steps:
                 -coverpkg=github.com/ItalyPaleAle/statiko/... \
                 -c \
                 -tags e2etests \
-                -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$BUILD_ID -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$BUILD_TIME -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$COMMIT_HASH" \
+                -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=$(BUILD_ID) -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=$(BUILD_TIME) -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=$(COMMIT_HASH)" \
                 -o .bin/statiko_linux_amd64.test
             '
       ls -al .bin
     displayName: "Build statiko"
+  # Fetch qemu
+  - bash: |
+      set -x
+      QEMU_ARCH=x86_64
+      curl -sL -o qemu-${QEMU_ARCH}-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/$(qemuVersion)/qemu-${QEMU_ARCH}-static.tar.gz && tar zx -f qemu-${QEMU_ARCH}-static.tar.gz
+    displayName: "Fetch qemu"
   # Build Docker image
   - task: Docker@2
     displayName: Build Docker image

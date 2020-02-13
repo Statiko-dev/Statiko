@@ -1,0 +1,243 @@
+# This pipeline runs the release task every time a new tag is pushed that starts with v*
+# It creates a release on GitHub
+# It then builds binanries for all architectures (amd64, armhf, arm64) and adds them to the release
+# Lastly, it builds Docker images for all architectures and publishes them on Docker Hub
+
+# Required secrets:
+# - DOCKER_PASSWORD password for Docker Hub
+
+name: Release Statiko
+
+on:
+  push:
+    tags:
+      # Push to tags matching v*
+      - 'v*'
+
+env:
+  GO_VERSION: 1.13
+  BUILDER_IMAGE: 'golang:${{env.GO_VERSION}}-alpine'
+  DOCKER_USERNAME: 'italypaleale'
+  DOCKER_REPO: '${{env.DOCKER_USERNAME}}/statiko'
+  QEMU_VERSION: 'v4.2.0-4'
+  
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-18.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v2
+    
+    # Login to Docker Hub
+    - uses: azure/docker-login@v1
+      with:
+        username: ${{env.DOCKER_USERNAME}}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    # Build for all platforms
+    - name: Set variables
+      run: |
+        # Trim the first 10 characters, which are "refs/tags/"
+        BUILD_ID="${GITHUB_REF:10}"
+        # Just like BUILD_ID, but without the "v" at the beginning
+        BUILD_VERSION="${GITHUB_REF:11}"
+        BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+        COMMIT_HASH=$(echo $GITHUB_SHA | head -c 7)
+        echo ::set-env name=BUILD_ID::$BUILD_ID
+        echo ::set-env name=BUILD_VERSION::$BUILD_VERSION
+        echo ::set-env name=BUILD_TIME::$BUILD_TIME
+        echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
+
+    - name: Build Statiko for all archs
+      run: |
+        mkdir -p .bin
+
+        # Build using Docker
+        docker run \
+          --rm \
+          -v "$PWD":/usr/src/myapp \
+          -w /usr/src/myapp \
+          ${{env.BUILDER_IMAGE}} \
+            sh -c '
+              echo "Fetching modules"
+              GO111MODULE=on \
+                go get
+
+              echo -e "\n###\nBuilding amd64\n"
+              # Disable CGO so the binary is fully static
+              CGO_ENABLED=0 \
+              GOOS=linux \
+              GOARCH=amd64 \
+              GO111MODULE=on \
+                go build \
+                  -v \
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash={${env.COMMIT_HASH}}" \
+                  -o .bin/statiko_linux_amd64
+              
+              echo -e "\n###\nBuilding arm64\n"
+              CGO_ENABLED=0 \
+              GOOS=linux \
+              GOARCH=arm64 \
+              GO111MODULE=on \
+                go build \
+                  -v \
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash={${env.COMMIT_HASH}}" \
+                  -o .bin/statiko_linux_arm64
+              
+              echo -e "\n###\nBuilding armhf\n"
+              CGO_ENABLED=0 \
+              GOOS=linux \
+              GOARCH=arm \
+              GOARM=7 \
+              GO111MODULE=on \
+                go build \
+                  -v \
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash={${env.COMMIT_HASH}}" \
+                  -o .bin/statiko_linux_armhf
+              '
+        echo -e "\n###\nCompilation done\n"
+        ls -al .bin
+    
+    # Build Docker images
+    - name: Build Docker image amd64
+      run: |
+        QEMU_ARCH=x86_64
+        ARCH=amd64
+        BINARY_FILE=.bin/statiko_linux_amd64
+        TAG_ALIAS=x86_64
+
+        # Fetch qemu
+        curl -sL -o qemu-${QEMU_ARCH}-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/${{env.QEMU_VERSION}}/qemu-${QEMU_ARCH}-static.tar.gz && tar zx -f qemu-${QEMU_ARCH}-static.tar.gz
+
+        # Build Docker image
+        docker build \
+          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${ARCH} \
+          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${TAG_ALIAS} \
+          --build-arg ARCH=${ARCH} \
+          --build-arg BINARY_FILE=${BINARY_FILE} \
+          --build-arg QEMU_FILE=qemu-${QEMU_ARCH}-static \
+          .container/agent/Dockerfile
+
+    - name: Build Docker image arm64v8
+      run: |
+        QEMU_ARCH=aarch64
+        ARCH=arm64v8
+        BINARY_FILE=.bin/statiko_linux_arm64
+        TAG_ALIAS=aarch64
+
+        # Fetch qemu
+        curl -sL -o qemu-${QEMU_ARCH}-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/${{env.QEMU_VERSION}}/qemu-${QEMU_ARCH}-static.tar.gz && tar zx -f qemu-${QEMU_ARCH}-static.tar.gz
+
+        # Build Docker image
+        docker build \
+          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${ARCH} \
+          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${TAG_ALIAS} \
+          --build-arg ARCH=${ARCH} \
+          --build-arg BINARY_FILE=${BINARY_FILE} \
+          --build-arg QEMU_FILE=qemu-${QEMU_ARCH}-static \
+          .container/agent/Dockerfile
+
+    - name: Build Docker image arm32v7
+      run: |
+        QEMU_ARCH=arm
+        ARCH=arm32v7
+        BINARY_FILE=.bin/statiko_linux_armhf
+        TAG_ALIAS=armhf
+
+        # Fetch qemu
+        curl -sL -o qemu-${QEMU_ARCH}-static.tar.gz https://github.com/multiarch/qemu-user-static/releases/download/${{env.QEMU_VERSION}}/qemu-${QEMU_ARCH}-static.tar.gz && tar zx -f qemu-${QEMU_ARCH}-static.tar.gz
+
+        # Build Docker image
+        docker build \
+          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${ARCH} \
+          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${TAG_ALIAS} \
+          --build-arg ARCH=${ARCH} \
+          --build-arg BINARY_FILE=${BINARY_FILE} \
+          --build-arg QEMU_FILE=qemu-${QEMU_ARCH}-static \
+          .container/agent/Dockerfile
+
+    - name: Push Docker images
+      run: |
+        # Push all images and tags
+        TAGS=(amd64 x86_64 arm64v8 aarch64 arm32v7 armhf)
+        for t in ${TAGS[@]}; do
+          docker push ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${t}
+        done
+
+    - name: Create and push Docker multi-arch manifest
+      run: |
+        docker manifest create --amend \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}} \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-amd64 \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-arm64v8 \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-arm32v7
+        
+        docker manifest annotate \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}} \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-amd64 \
+          --os linux --arch amd64
+        
+        docker manifest annotate \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}} \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-arm64v8 \
+          --os linux --arch arm64
+        
+        docker manifest annotate \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}} \
+          ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-arm32v7 \
+          --os linux --arch arm --variant v7
+        
+        docker manifest push ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}
+
+    # Publish artifacts
+    - name: Publish binaries as artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: bin
+        path: .bin
+    
+    # Create release and upload assets
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
+        prerelease: false
+
+    - name: Upload release asset amd64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .bin/statiko_linux_amd64
+        asset_name: statiko_linux_amd64
+        asset_content_type: application/octet-stream
+
+    - name: Upload release asset arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .bin/statiko_linux_arm64
+        asset_name: statiko_linux_arm64
+        asset_content_type: application/octet-stream
+
+    - name: Upload release asset armhf
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .bin/statiko_linux_armhf
+        asset_name: statiko_linux_armhf
+        asset_content_type: application/octet-stream
+
