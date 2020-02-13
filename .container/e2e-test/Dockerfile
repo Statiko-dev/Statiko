@@ -20,12 +20,8 @@ RUN addgroup -g 1000 node \
   && rm -f "node-v$NODE_VERSION-linux-x64-musl.tar.xz"
 
 # Add the CA
-# Because of a bug (?), we need to uninstall openssl and ca-certificates (and git and curl who depend on them) and re-instal them
-# For some reasons, otehrwise the binary c_rehash isn't present
 COPY misc/ca.crt /usr/local/share/ca-certificates/italypaleale-ci.crt
-RUN apk del openssl ca-certificates curl libcurl git \
-  && apk add --no-cache openssl ca-certificates curl \
-  && update-ca-certificates
+RUN update-ca-certificates
 ENV NODE_EXTRA_CA_CERTS /usr/local/share/ca-certificates/italypaleale-ci.crt
 
 # Set workdir

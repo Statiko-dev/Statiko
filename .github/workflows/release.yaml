@@ -116,7 +116,7 @@ jobs:
         docker build \
           -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${ARCH} \
           -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${TAG_ALIAS} \
-          --build-arg ARCH=${ARCH} \
+          --build-arg target=${ARCH} \
           --build-arg BINARY_FILE=${BINARY_FILE} \
           --build-arg QEMU_FILE=qemu-${QEMU_ARCH}-static \
           .container/agent/Dockerfile
@@ -135,7 +135,7 @@ jobs:
         docker build \
           -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${ARCH} \
           -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${TAG_ALIAS} \
-          --build-arg ARCH=${ARCH} \
+          --build-arg target=${ARCH} \
           --build-arg BINARY_FILE=${BINARY_FILE} \
           --build-arg QEMU_FILE=qemu-${QEMU_ARCH}-static \
           .container/agent/Dockerfile
@@ -154,7 +154,7 @@ jobs:
         docker build \
           -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${ARCH} \
           -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}}-${TAG_ALIAS} \
-          --build-arg ARCH=${ARCH} \
+          --build-arg target=${ARCH} \
           --build-arg BINARY_FILE=${BINARY_FILE} \
           --build-arg QEMU_FILE=qemu-${QEMU_ARCH}-static \
           .container/agent/Dockerfile

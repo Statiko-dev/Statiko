@@ -1,7 +1,7 @@
-ARG ARCH=amd64
+ARG target=amd64
 ARG BINARY_FILE=.bin/statiko_linux_amd64
 ARG QEMU_FILE=qemu-x86_64-static
-FROM yobasystems/alpine-nginx:stable-${ARCH}
+FROM yobasystems/alpine-nginx:stable-${target}
 
 # Add qemu
 COPY $QEMU_FILE /usr/bin/

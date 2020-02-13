@@ -94,7 +94,7 @@ steps:
       repository: $(imageRepository)
       dockerfile: $(dockerfilePath)
       containerRegistry: $(dockerRegistryServiceConnection)
-      arguments: --build-arg ARCH=amd64 --build-arg BINARY_FILE=.bin/statiko_linux_amd64
+      arguments: --build-arg target=amd64 --build-arg BINARY_FILE=.bin/statiko_linux_amd64
       tags: |
         latest
         ci-$(Build.BuildNumber)
@@ -125,9 +125,9 @@ steps:
   # Print logs
   - bash: |
       echo -e "### Test stdout ###\n"
-      cat .e2e-test/results/stdout
+      cat .e2e-test/results/stdout || echo "File does not exist"
       echo -e "\n\n### Test stderr ###\n"
-      cat .e2e-test/results/stderr
+      cat .e2e-test/results/stderr || echo "File does not exist"
     # This step always runs, even if the tests failed
     condition: succeededOrFailed()
     displayName: Print logs
