@@ -47,7 +47,7 @@ describe('Health check', function() {
             console.warn('WARN: version is empty - are we in a dev environment?')
         }
         else {
-            assert(/(v[0-9\.]+)) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\))/.test(response.body.version))
+            assert(/(v[0-9\.]+) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z?\))/.test(response.body.version), 'Invalid value for version: ' + response.body.version)
         }
         assert(response.body.hostname)
         assert(response.body.azureAD)
@@ -73,7 +73,7 @@ describe('Health check', function() {
             console.warn('WARN: version is empty - are we in a dev environment?')
         }
         else {
-            assert(/(v[0-9\.]+)) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\))/.test(response.body.version))
+            assert(/(v[0-9\.]+) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z?\))/.test(response.body.version), 'Invalid value for version: ' + response.body.version)
         }
         assert(response.body.hostname)
         assert(response.body.azureAD)
