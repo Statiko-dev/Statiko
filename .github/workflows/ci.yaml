@@ -140,6 +140,24 @@ jobs:
         cat .e2e-test/results/stdout || echo "File does not exist"
         echo -e "\n\n### Test stderr ###\n"
         cat .e2e-test/results/stderr || echo "File does not exist"
+    - name: Convert coverage report
+      run: |
+        docker run \
+          --rm \
+          -v "$PWD":/usr/src/myapp \
+          -w /usr/src/myapp \
+          golang:1.13 \
+            sh -c '
+              echo -e "###\nFetching utilities\n"
+              go get github.com/axw/gocov/gocov
+              go get github.com/axw/gocov/...
+              go get github.com/matm/gocov-html
+              go get github.com/AlekSi/gocov-xml
+
+              echo -e "###\nConverting coverage reports\n"
+              gocov convert .e2e-test/results/coverage.out | gocov-xml > .e2e-test/results/coverage.xml
+              gocov convert .e2e-test/results/coverage.out | gocov-html > .e2e-test/results/coverage.html
+              '
     - name: Publish results and coverage
       # This step always runs, even if the tests failed
       if: always()
