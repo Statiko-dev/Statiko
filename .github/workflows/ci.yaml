@@ -104,7 +104,7 @@ jobs:
       run: |
         # Using docker buildx
         docker buildx build \
-          -t ${{env.DOCKER_REPO}}:latest \
+          --tag ${{env.DOCKER_REPO}}:latest \
           --load \
           -f .container/agent/Dockerfile \
           .
@@ -115,7 +115,7 @@ jobs:
         cp .bin/*.test .e2e-test/.bin
         # Using docker buildx
         docker buildx build \
-          -t statiko-test \
+          --tag statiko-test \
           --load \
           -f .container/e2e-test/Dockerfile \
           .e2e-test
