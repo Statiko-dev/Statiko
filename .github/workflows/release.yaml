@@ -43,10 +43,10 @@ jobs:
     
     # Login to Docker Hub
     - name: Login to Docker Hub
-      uses: azure/docker-login@v1
-      with:
-        username: ${{env.DOCKER_USERNAME}}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
     
     # Build for all platforms
     - name: Set variables
