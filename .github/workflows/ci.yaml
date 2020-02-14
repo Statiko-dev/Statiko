@@ -1,0 +1,150 @@
+# This pipeline runs the Continuous Integration tasks
+# Builds statiko for amd64 only, creates the Docker container and the test container, and runs the unit tests
+
+# Required secrets:
+# - DOCKER_PASSWORD password for Docker Hub
+# - AZURE_CLIENT_SECRET secret for the Azure Service principal
+
+name: Build Statiko
+
+on:
+  - push
+
+env:
+  GO_VERSION: 1.13
+  BUILDER_IMAGE: 'golang:${{env.GO_VERSION}}-alpine'
+  DOCKER_USERNAME: 'italypaleale'
+  DOCKER_REPO: '${{env.DOCKER_USERNAME}}/statiko'
+  
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-18.04
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v2
+    
+    # Setup Docker buildx
+    - name: Set up Docker buildx
+      id: buildx
+      uses: crazy-max/ghaction-docker-buildx@v1
+      with:
+        version: latest
+
+    - name: Available platforms
+      run: echo ${{ steps.buildx.outputs.platforms }}
+    
+    # Login to Docker Hub
+    - name: Login to Docker Hub
+      uses: azure/docker-login@v1
+      with:
+        username: ${{env.DOCKER_USERNAME}}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    # Build Statiko
+    - name: Define build info
+      run: |
+        # Trim the first 10 characters, which are "refs/tags/"
+        BUILD_ID="${GITHUB_REF:10}"
+        BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+        COMMIT_HASH=$(echo $GITHUB_SHA | head -c 7)
+        TAG="ci-$(date -u +'%Y%m%d%H%M%S')"
+        echo ::set-env name=BUILD_ID::$BUILD_ID
+        echo ::set-env name=BUILD_TIME::$BUILD_TIME
+        echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
+        echo ::set-env name=TAG::$TAG
+
+    - name: Build Statiko
+      run: |
+        mkdir -p .bin
+
+        # Build using Docker
+        docker run \
+          --rm \
+          -v "$PWD":/usr/src/myapp \
+          -w /usr/src/myapp \
+          ${{env.BUILDER_IMAGE}} \
+            sh -c '
+              echo -e "###\nFetching modules\n"
+              GO111MODULE=on \
+                go get
+
+              echo -e "\n###\nBuilding amd64\n"
+              # Disable CGO so the binary is fully static
+              CGO_ENABLED=0 \
+              GOOS=linux \
+              GOARCH=amd64 \
+              GO111MODULE=on \
+                go build \
+                  -v \
+                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
+                  -o .bin/statiko_linux_amd64
+              
+              echo -e "\n###\nBuilding amd64 test binary\n"
+              # Disable CGO so the binary is fully static
+              CGO_ENABLED=0 \
+              GOOS=linux \
+              GOARCH=amd64 \
+              GO111MODULE=on \
+                go test \
+                -v \
+                -coverpkg=github.com/ItalyPaleAle/statiko/... \
+                -c \
+                -tags e2etests \
+                -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
+                -o .bin/statiko_linux_amd64.test
+              '
+        echo -e "\n###\nCompilation done\n"
+        ls -al .bin
+    
+    # Build Docker images
+    - name: Build Docker image
+      run: |
+        # Using docker buildx
+        docker buildx build \
+          -t ${{env.DOCKER_REPO}}:latest \
+          --load \
+          -f .container/agent/Dockerfile \
+          .
+        docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:${{env.TAG}}
+    - name: Build Docker test image
+      run: |
+        mkdir -p .e2e-test/.bin
+        cp .bin/*.test .e2e-test/.bin
+        # Using docker buildx
+        docker buildx build \
+          -t statiko-test \
+          --load \
+          -f .container/e2e-test/Dockerfile \
+          .e2e-test
+    
+    # Run tests
+    - name: Run end-to-end tests
+      run: |
+        docker run \
+          --rm \
+          -v "$PWD"/.e2e-test/container_etc:/etc/statiko \
+          -v "$PWD"/.e2e-test/results:/results \
+          -e "AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" \
+          -e "NODE_URL=statiko.local:2265" \
+          -e "NGINX_URL=statiko.local" \
+          --add-host "statiko.local:127.0.0.1" \
+          statiko-test
+    - name: Print logs
+      # This step always runs, even if the tests failed
+      if: always()
+      run: |
+        echo -e "### Test stdout ###\n"
+        cat .e2e-test/results/stdout || echo "File does not exist"
+        echo -e "\n\n### Test stderr ###\n"
+        cat .e2e-test/results/stderr || echo "File does not exist"
+
+    # Publish artifacts
+    - name: Publish binaries as artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: bin
+        path: .bin
+

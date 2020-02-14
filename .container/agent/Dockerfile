@@ -1,10 +1,5 @@
-ARG target=amd64
-ARG BINARY_FILE=.bin/statiko_linux_amd64
-ARG QEMU_FILE=qemu-x86_64-static
-FROM yobasystems/alpine-nginx:stable-${target}
-
-# Add qemu
-COPY $QEMU_FILE /usr/bin/
+FROM yobasystems/alpine-nginx:stable
+ARG TARGETARCH
 
 # Install dependencies and create folders
 RUN set -x \
@@ -16,15 +11,16 @@ RUN set -x \
     # Folder required by supervisor to store its logs
     && mkdir /var/log/supervisor/ \
     # Create folders for statiko
-    && mkdir -p /etc/statiko /data
+    && mkdir -p /etc/statiko /data \
+    # Remove the "daemon" directive from nginx's configuration
+    && sed -i 's/^daemon off\;//' /etc/nginx/nginx.conf
 
 # Supervisord configuration
 COPY .container/agent/supervisord.conf /etc/supervisord.conf
 
-# Copy app, then remove qemu
-COPY $BINARY_FILE /usr/local/bin/statiko
-RUN chmod +x /usr/local/bin/statiko \
-    && rm -rf /usr/bin/${QEMU_FILE}
+# Copy app
+COPY .bin/statiko_linux_${TARGETARCH} /usr/local/bin/statiko
+RUN chmod +x /usr/local/bin/statiko
 
 # Configuration for the statiko app
 ENV GO_ENV=production PORT=2265
