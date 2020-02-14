@@ -12,9 +12,9 @@ on:
 
 env:
   GO_VERSION: 1.13
-  BUILDER_IMAGE: 'golang:${{env.GO_VERSION}}-alpine'
+  BUILDER_IMAGE: 'golang:1.13-alpine'
   DOCKER_USERNAME: 'italypaleale'
-  DOCKER_REPO: '${{env.DOCKER_USERNAME}}/statiko'
+  DOCKER_REPO: 'italypaleale/statiko'
   
 jobs:
 
