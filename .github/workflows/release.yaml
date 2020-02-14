@@ -37,9 +37,6 @@ jobs:
       uses: crazy-max/ghaction-docker-buildx@v1
       with:
         version: latest
-
-    - name: Available platforms
-      run: echo ${{ steps.buildx.outputs.platforms }}
     
     # Login to Docker Hub
     - name: Login to Docker Hub

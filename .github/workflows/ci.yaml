@@ -142,6 +142,13 @@ jobs:
         cat .e2e-test/results/stdout || echo "File does not exist"
         echo -e "\n\n### Test stderr ###\n"
         cat .e2e-test/results/stderr || echo "File does not exist"
+    - name: Publish results and coverage
+      # This step always runs, even if the tests failed
+      if: always()
+      uses: actions/upload-artifact@v1
+      with:
+        name: tests
+        path: .e2e-test/results
 
     # Publish artifacts
     - name: Publish binaries as artifacts
@@ -150,3 +157,7 @@ jobs:
         name: bin
         path: .bin
 
+    # Publish Docker image
+    - name: Publish Docker CI image
+      run: |
+        docker push ${{env.DOCKER_REPO}}:${{env.TAG}}

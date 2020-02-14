@@ -6,16 +6,18 @@
   "private": true,
   "scripts": {
     "test": "npx mocha suite/*.test.js",
-    "test-ci": "npx mocha --reporter mocha-junit-reporter --reporter-options suite/*.test.js"
+    "test-ci-junit": "npx mocha --reporter mocha-junit-reporter suite/*.test.js",
+    "test-ci": "npx mocha --reporter mochawesome --reporter-options reportDir=results/mocha suite/*.test.js"
   },
   "author": "Alessandro Segala (@ItalyPaleAle)",
   "license": "GPL-3.0-only",
   "dependencies": {
     "js-yaml": "^3.13.1",
-    "mocha": "^7.0.0",
+    "mocha": "^7.0.1",
+    "mochawesome": "^4.1.0",
     "mocha-junit-reporter": "^1.23.3",
     "supertest": "^4.0.2",
-    "validator": "^12.1.0"
+    "validator": "^12.2.0"
   },
   "devDependencies": {
     "eslint": "^6.8.0"
