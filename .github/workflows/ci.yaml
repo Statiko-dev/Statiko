@@ -45,8 +45,7 @@ jobs:
     # Build Statiko
     - name: Define build info
       run: |
-        # Trim the first 10 characters, which are "refs/tags/"
-        BUILD_ID="${GITHUB_REF:10}"
+        BUILD_ID="canary"
         BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
         COMMIT_HASH=$(echo $GITHUB_SHA | head -c 7)
         TAG="ci-$(date -u +'%Y%m%d%H%M%S')"
