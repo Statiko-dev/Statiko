@@ -1,5 +1,25 @@
 FROM yobasystems/alpine-nginx:stable
+
+# Build args
+# TARGETARCH is set automatically when using BuildKit
 ARG TARGETARCH
+ARG BUILD_ID
+ARG BUILD_TIME
+ARG COMMIT_HASH
+
+# Labels
+LABEL maintainer="Alessandro Segala <italypaleale@gmail.com>" \
+    build=$BUILD_ID \
+    org.opencontainers.image.title="statiko" \
+    org.opencontainers.image.description="Statiko is a platform for hosting, serving and managing static websites in production" \
+    org.opencontainers.image.authors="Alessandro Segala <italypaleale@gmail.com>" \
+    org.opencontainers.image.vendor="@ItalyPaleAle" \
+    org.opencontainers.image.version=$BUILD_ID \
+    org.opencontainers.image.url="https://hub.docker.com/r/italypaleale/statiko/" \
+    org.opencontainers.image.source="https://github.com/ItalyPaleAle/Statiko" \
+    org.opencontainers.image.revision=$COMMIT_HASH \
+    org.opencontainers.image.created=$BUILD_TIME \
+    org.opencontainers.image.licenses="AGPL-3.0"
 
 # Install dependencies and create folders
 RUN set -x \

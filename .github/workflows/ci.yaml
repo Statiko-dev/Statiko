@@ -99,6 +99,9 @@ jobs:
         docker build \
           --tag statiko-test \
           --build-arg TARGETARCH=amd64 \
+          --build-arg BUILD_ID=${{env.BUILD_ID}} \
+          --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
+          --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
           -f .container/e2e-test/Dockerfile \
           .e2e-test
     # Run tests
