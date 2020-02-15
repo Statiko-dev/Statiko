@@ -5,7 +5,7 @@
 # - DOCKER_PASSWORD password for Docker Hub
 # - AZURE_CLIENT_SECRET secret for the Azure Service principal
 
-name: Build Statiko
+name: Continuous Integration
 
 on:
   pull_request:
@@ -20,8 +20,8 @@ env:
   
 jobs:
 
-  build:
-    name: Build
+  ci:
+    name: Continuous Integration
     runs-on: ubuntu-18.04
     steps:
 

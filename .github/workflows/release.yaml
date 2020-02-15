@@ -6,7 +6,7 @@
 # Required secrets:
 # - DOCKER_PASSWORD password for Docker Hub
 
-name: Release Statiko
+name: Create release Statiko
 
 on:
   push:
@@ -21,8 +21,8 @@ env:
   
 jobs:
 
-  build:
-    name: Build
+  release:
+    name: Release
     runs-on: ubuntu-18.04
     steps:
 
@@ -178,7 +178,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: .bin/statiko_linux_armh32v7
+        asset_path: .bin/statiko_linux_arm32v7
         asset_name: statiko_linux_arm32v7
         asset_content_type: application/octet-stream
 
