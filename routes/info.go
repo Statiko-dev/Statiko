@@ -19,6 +19,7 @@ package routes
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 
 	"github.com/gin-gonic/gin"
 
@@ -63,11 +64,14 @@ func InfoHandler(c *gin.Context) {
 		}
 	}
 
+	// Version string
+	version := fmt.Sprintf("%s (%s; %s) %s", buildinfo.BuildID, buildinfo.CommitHash, buildinfo.BuildTime, runtime.Version())
+
 	// Response
 	info := infoResponse{
 		AuthMethods: authMethods,
 		AzureAD:     azureADInfo,
-		Version:     buildinfo.BuildID + " (" + buildinfo.CommitHash + "; " + buildinfo.BuildTime + ")",
+		Version:     version,
 		Hostname:    appconfig.Config.GetString("nodeName"),
 	}
 
