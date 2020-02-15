@@ -28,13 +28,6 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
     
-    # Setup Docker buildx
-    # https://github.com/crazy-max/ghaction-docker-buildx
-    - name: Set up Docker buildx
-      uses: crazy-max/ghaction-docker-buildx@v1
-      with:
-        version: latest
-    
     # Build Statiko
     - name: Define build info
       run: |
@@ -93,27 +86,21 @@ jobs:
     # Build Docker images
     - name: Build Docker image
       run: |
-        docker buildx build \
-          --platform linux/amd64 \
+        # Use the "latest" tag here
+        docker build \
           --tag "${{env.DOCKER_REPO}}:latest" \
-          --load \
+          --build-arg TARGETARCH=amd64 \
           -f .container/agent/Dockerfile \
           .
-
-        docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:${{env.TAG}}
-        docker image ls
     - name: Build Docker test image
       run: |
         mkdir -p .e2e-test/.bin
         cp .bin/*.test .e2e-test/.bin
-        # Using docker buildx
-        docker buildx build \
-          --platform linux/amd64 \
+        docker build \
           --tag statiko-test \
-          --load \
+          --build-arg TARGETARCH=amd64 \
           -f .container/e2e-test/Dockerfile \
           .e2e-test
-        docker image ls
     # Run tests
     - name: Run end-to-end tests
       run: |
@@ -177,4 +164,10 @@ jobs:
     # Publish Docker image
     - name: Publish Docker CI image
       run: |
+        # Add the tags before publishing, as we won't be publishing "latest"
+        docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:${{env.TAG}}
+        docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:canary
+
+        # Publish the images
         docker push ${{env.DOCKER_REPO}}:${{env.TAG}}
+        docker push ${{env.DOCKER_REPO}}:canary

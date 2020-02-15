@@ -106,15 +106,6 @@ jobs:
               '
         echo -e "\n###\nCompilation done\n"
         ls -al .bin
-    
-    # Build Docker images
-    - name: Build and push Docker multi-arch image
-      run: |
-        docker buildx build \
-          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}} \
-          --push \
-          -f .container/agent/Dockerfile \
-          .
 
     # Publish artifacts
     - name: Publish binaries as artifacts
@@ -123,6 +114,32 @@ jobs:
         name: bin
         path: .bin
     
+    # Build Docker images
+    - name: Build and push Docker multi-arch image
+      run: |
+        # Create symbolic links
+        ( \
+          cd .bin && \
+          ln -s statiko_linux_arm64v8 statiko_linux_arm64 && \
+          ln -s statiko_linux_arm32v7 statiko_linux_arm \
+        )
+        ls -al .bin
+
+        # Build and push Docker multi-arch image
+        docker buildx build \
+          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}} \
+          --push \
+          --platform linux/amd64,linux/arm64,linux/arm \
+          -f .container/agent/Dockerfile \
+          .
+        # Repeat to add the "latest" tag (images are cached so they're not re-built)
+        docker buildx build \
+          -t ${{env.DOCKER_REPO}}:latest \
+          --push \
+          --platform linux/amd64,linux/arm64,linux/arm \
+          -f .container/agent/Dockerfile \
+          .
+
     # Create release and upload assets
     - name: Create release
       id: create_release
