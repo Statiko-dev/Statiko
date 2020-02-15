@@ -16,7 +16,7 @@ on:
 env:
   BUILDER_IMAGE: 'golang:1.13-alpine'
   DOCKER_USERNAME: 'italypaleale'
-  DOCKER_REPO: 'italypaleale/statiko'
+  DOCKER_REPO: 'docker.io/italypaleale/statiko'
   
 jobs:
 
@@ -34,13 +34,6 @@ jobs:
       uses: crazy-max/ghaction-docker-buildx@v1
       with:
         version: latest
-
-    # Login to Docker Hub
-    - name: Login to Docker Hub
-      env:
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      run: |
-        echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
     
     # Build Statiko
     - name: Define build info
@@ -108,6 +101,7 @@ jobs:
           .
 
         docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:${{env.TAG}}
+        docker image ls
     - name: Build Docker test image
       run: |
         mkdir -p .e2e-test/.bin
@@ -119,7 +113,7 @@ jobs:
           --load \
           -f .container/e2e-test/Dockerfile \
           .e2e-test
-    
+        docker image ls
     # Run tests
     - name: Run end-to-end tests
       run: |
@@ -140,6 +134,24 @@ jobs:
         cat .e2e-test/results/stdout || echo "File does not exist"
         echo -e "\n\n### Test stderr ###\n"
         cat .e2e-test/results/stderr || echo "File does not exist"
+    - name: Convert coverage report
+      run: |
+        docker run \
+          --rm \
+          -v "$PWD":/usr/src/myapp \
+          -w /usr/src/myapp \
+          golang:1.13 \
+            sh -c '
+              echo -e "###\nFetching utilities\n"
+              go get github.com/axw/gocov/gocov
+              go get github.com/axw/gocov/...
+              go get github.com/matm/gocov-html
+              go get github.com/AlekSi/gocov-xml
+
+              echo -e "###\nConverting coverage reports\n"
+              gocov convert .e2e-test/results/coverage.out | gocov-xml > .e2e-test/results/coverage.xml
+              gocov convert .e2e-test/results/coverage.out | gocov-html > .e2e-test/results/coverage.html
+              '
     - name: Publish results and coverage
       # This step always runs, even if the tests failed
       if: always()
@@ -154,6 +166,13 @@ jobs:
       with:
         name: bin
         path: .bin
+
+    # Login to Docker Hub
+    - name: Login to Docker Hub
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
 
     # Publish Docker image
     - name: Publish Docker CI image
