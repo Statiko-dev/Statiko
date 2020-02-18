@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/ItalyPaleAle/statiko/appmanager"
+	"github.com/ItalyPaleAle/statiko/notifications"
 	"github.com/ItalyPaleAle/statiko/state"
 	"github.com/ItalyPaleAle/statiko/webserver"
 )
@@ -41,6 +42,7 @@ func QueueRun() {
 		syncError = runner()
 		if syncError != nil {
 			logger.Println("[syncState] Error returned by async run", syncError)
+			sendErrorNotification("Unrecoverable error running state synchronization: " + syncError.Error())
 		}
 		<-semaphore
 	}()
@@ -52,6 +54,9 @@ func Run() error {
 	semaphore <- 1
 	syncError = runner()
 	<-semaphore
+	if syncError != nil {
+		sendErrorNotification("Unrecoverable error running state synchronization: " + syncError.Error())
+	}
 	return syncError
 }
 
@@ -98,6 +103,13 @@ func runner() error {
 	}
 	restartRequired = restartRequired || res
 
+	// Check if any site has an error
+	for _, s := range sites {
+		if s.Error != nil {
+			sendErrorNotification("Site " + s.Domain + " has an error: " + s.Error.Error())
+		}
+	}
+
 	// If we've updated anything that requires restarting nginx, do it
 	if restartRequired {
 		if err := webserver.Instance.RestartServer(); err != nil {
@@ -110,4 +122,10 @@ func runner() error {
 	}
 
 	return nil
+}
+
+// Send a notification to admins if there's an error
+func sendErrorNotification(message string) {
+	// Launch asynchronously and do not wait for completion
+	go notifications.SendNotification(message)
 }

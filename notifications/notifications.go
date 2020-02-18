@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package notifications
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -64,7 +63,6 @@ func SendNotification(message string) {
 	}
 
 	if err := notifier.SendNotification(message); err != nil {
-		fmt.Println(err)
 		logger.Println("[Error] SendNotification returned an error:", err)
 	}
 }

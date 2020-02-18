@@ -50,7 +50,7 @@ func SyncCertificates(sites []state.SiteState) (updated bool, err error) {
 		u, err := processSite(&s)
 		if err != nil {
 			logger.Println("[Error] Error while processing certificates for site", s.Domain, err)
-			continue
+			return false, err
 		}
 
 		updated = updated || u
