@@ -103,8 +103,6 @@ func StatusHandler(c *gin.Context) {
 		res.Health = healthCache
 
 		if hasError {
-			statusCode = http.StatusServiceUnavailable
-
 			// If there's an error, make the test happen again right away
 			healthCache = nil
 		}
@@ -120,7 +118,7 @@ func StatusHandler(c *gin.Context) {
 			// Main domain for the site
 			domain = siteObj.Domain
 
-			// Check if we have the health ofbject for this site, and if it has any deployment error
+			// Check if we have the health object for this site, and if it has any deployment error
 			var domainHealth *utils.SiteHealth
 			appError := false
 			for _, el := range res.Health {
@@ -148,6 +146,19 @@ func StatusHandler(c *gin.Context) {
 			// Site not found, so return a 404
 			statusCode = http.StatusNotFound
 			res.Health = nil
+		}
+	} else {
+		// We've requested all sites; return an error status code if they're all failing
+		errorCount := 0
+		for _, el := range res.Health {
+			// Count sites that have no app towards errors to ignore them
+			if el.Error != nil || el.App == nil {
+				errorCount++
+			}
+		}
+		if errorCount == len(res.Health) {
+			// All are failing, return a 503 status
+			statusCode = http.StatusServiceUnavailable
 		}
 	}
 
