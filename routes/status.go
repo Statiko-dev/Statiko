@@ -150,13 +150,16 @@ func StatusHandler(c *gin.Context) {
 	} else {
 		// We've requested all sites; return an error status code if they're all failing
 		errorCount := 0
+		total := len(res.Health)
 		for _, el := range res.Health {
-			// Count sites that have no app towards errors to ignore them
-			if el.Error != nil || el.App == nil {
+			if el.Error != nil {
 				errorCount++
+			} else if el.App == nil {
+				// Ignore sites that have no apps and no errors in the counts
+				total--
 			}
 		}
-		if errorCount == len(res.Health) {
+		if total > 0 && errorCount == total {
 			// All are failing, return a 503 status
 			statusCode = http.StatusServiceUnavailable
 		}
