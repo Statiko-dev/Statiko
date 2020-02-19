@@ -17,12 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/ItalyPaleAle/statiko/notifications"
 	"github.com/ItalyPaleAle/statiko/state"
 	"github.com/ItalyPaleAle/statiko/sync"
 	"github.com/ItalyPaleAle/statiko/utils"
@@ -37,6 +39,14 @@ var stateUpdatedTime *time.Time
 
 // Cached health data
 var healthCache []utils.SiteHealth
+
+// List sites we sent a notification for, to avoid spamming admins
+var notificationsSent map[string]string
+
+// Initialize variables for this file
+func init() {
+	notificationsSent = make(map[string]string)
+}
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
 func StatusHandler(c *gin.Context) {
@@ -240,7 +250,17 @@ func updateHealthCache() (hasError bool) {
 			hasError = true
 			health.ErrorStr = new(string)
 			*health.ErrorStr = health.Error.Error()
-			logger.Printf("Error in domain %v: %v\n", health.Domain, health.Error)
+			errStr := fmt.Sprintf("Status check failed for domain %v: %v", health.Domain, health.Error)
+			logger.Println(errStr)
+
+			// If we are here, the app did not have an error before (sites with deployment errors were not in the list of sites whose health we check)
+			// So, let's notify the admin
+			if notificationsSent[health.Domain] != errStr {
+				notificationsSent[health.Domain] = errStr
+				go notifications.SendNotification(errStr)
+			}
+		} else {
+			notificationsSent[health.Domain] = ""
 		}
 		healthCache = append(healthCache, health)
 	}

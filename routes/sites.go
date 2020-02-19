@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ItalyPaleAle/statiko/azurekeyvault"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/ItalyPaleAle/statiko/state"
@@ -58,6 +60,19 @@ func CreateSiteHandler(c *gin.Context) {
 		site.TLSCertificateVersion = nil
 	} else {
 		site.TLSCertificateSelfSigned = false
+
+		// Check if the certificate exists
+		exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLSCertificate)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+				"error": "TLS certificate does not exist in the key vault",
+			})
+			return
+		}
 	}
 
 	// Add the website to the store
@@ -178,6 +193,19 @@ func PatchSiteHandler(c *gin.Context) {
 				} else {
 					site.TLSCertificate = &str
 					site.TLSCertificateSelfSigned = false
+
+					// Check if the certificate exists
+					exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLSCertificate)
+					if err != nil {
+						c.AbortWithError(http.StatusInternalServerError, err)
+						return
+					}
+					if !exists {
+						c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+							"error": "TLS certificate does not exist in the key vault",
+						})
+						return
+					}
 				}
 				updatedTLS = true
 				updated = true

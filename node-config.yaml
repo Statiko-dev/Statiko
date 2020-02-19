@@ -141,6 +141,10 @@ notifications:
   # Configuration for when method is "webhook"
   webhook:
     # URL to invoke
-    # Message is a POST request containing payload `{"value1": "message"}`
+    # Message is a POST request containing payload `{"<payloadKey>": "message"}`, where `<payloadKey>` is defined below
     # Can also be passed with environmental variable NOTIFICATIONS_WEBHOOK_URL
     url: "https://maker.ifttt.com/trigger/<event>/with/key/<key>"
+    # Key for the message in the JSON object
+    # If you're using IFTTT for the webhook, set this to `value1`; other webhook services might support different values or custom ones
+    # Can also be passed with environmental variable NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY
+    payloadKey: "value1"

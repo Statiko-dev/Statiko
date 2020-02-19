@@ -111,6 +111,7 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("nodeName", "NODE_NAME")
 	viper.BindEnv("notifications.method", "NOTIFICATIONS_METHOD")
 	viper.BindEnv("notifications.webhook.url", "NOTIFICATIONS_WEBHOOK_URL")
+	viper.BindEnv("notifications.webhook.payloadKey", "NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY")
 
 	// Load config file
 	err := viper.ReadInConfig()

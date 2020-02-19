@@ -42,7 +42,7 @@ describe('Health check', function() {
         assert.deepEqual(response.body.authMethods.sort(), ['azureAD', 'psk'])
         assert(response.body.version)
         // If we're in a dev environment, version might be empty (" (; )")
-        if (response.body.version == ' (; )') {
+        if (response.body.version.substr(0, 5) == ' (; )') {
             // eslint-disable-next-line no-console
             console.warn('WARN: version is empty - are we in a dev environment?')
         }
@@ -68,7 +68,7 @@ describe('Health check', function() {
         assert.deepEqual(response.body.authMethods.sort(), ['azureAD', 'psk'])
         assert(response.body.version)
         // If we're in a dev environment, version might be empty (" (; )")
-        if (response.body.version == ' (; )') {
+        if (response.body.version.substr(0, 5) == ' (; )') {
             // eslint-disable-next-line no-console
             console.warn('WARN: version is empty - are we in a dev environment?')
         }

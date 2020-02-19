@@ -309,3 +309,13 @@ func (akv *Client) GetCertificate(certificateName string, certificateVersion str
 
 	return certificateVersion, certPEM.Bytes(), keyPEM.Bytes(), pfxCert, nil
 }
+
+// CertificateExists returns true whether if the certificate exists on the Key Vault
+func (akv *Client) CertificateExists(certificateName string) (exists bool, err error) {
+	// Get the last version of the certificate to test if it exists
+	version, err := akv.getCertificateLastVersion(certificateName)
+	if version != "" {
+		exists = true
+	}
+	return
+}

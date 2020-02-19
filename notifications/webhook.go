@@ -56,10 +56,10 @@ func (n *NotificationWebhook) SendNotification(message string) error {
 	// Add the node name at the beginning of the message
 	message = fmt.Sprintf("[statiko] (%s) %s", appconfig.Config.GetString("nodeName"), message)
 
-	// Request body is a JSON message in the format: `{value1: string}`
-	payload := struct {
-		Value1 string `json:"value1"`
-	}{Value1: message}
+	// Request body is a JSON message in the format: `{<key>: string}`
+	key := appconfig.Config.GetString("notifications.webhook.payloadKey")
+	payload := make(map[string]string, 1)
+	payload[key] = message
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
 		return err
