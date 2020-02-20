@@ -103,7 +103,7 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 	}
 	m.setUpdated()
 
-	// Write the file to disk
+	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (m *Manager) AddSite(site *SiteState) error {
 	state.Sites = append(state.Sites, *site)
 	m.setUpdated()
 
-	// Write the file to disk
+	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 		m.setUpdated()
 	}
 
-	// Write the file to disk
+	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
 		return err
 	}
@@ -263,7 +263,7 @@ func (m *Manager) DeleteSite(domain string) error {
 
 	m.setUpdated()
 
-	// Write the file to disk
+	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
 		return err
 	}
@@ -342,7 +342,7 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 
 	m.setUpdated()
 
-	// Write the file to disk
+	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
 		return err
 	}

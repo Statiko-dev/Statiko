@@ -46,7 +46,7 @@ var certMonitorChecks []int
 func startCertMonitorWorker() {
 	// Set variables
 	certMonitorInterval := time.Duration(24 * time.Hour) // Run every 24 hours
-	certMonitorLogger = log.New(os.Stdout, "worker/cert-monitor: ", log.Flags())
+	certMonitorLogger = log.New(os.Stdout, "worker/cert-monitor: ", log.Ldate|log.Ltime|log.LUTC)
 	certMonitorNotifications = make(map[string]int)
 
 	// Notification days

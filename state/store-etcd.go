@@ -36,7 +36,6 @@ const etcdLockDuration = 20
 type stateStoreEtcd struct {
 	state           *NodeState
 	client          *clientv3.Client
-	ctx             context.Context
 	stateKey        string
 	lockKey         string
 	lastRevisionPut int64
@@ -45,7 +44,6 @@ type stateStoreEtcd struct {
 
 // Init initializes the object
 func (s *stateStoreEtcd) Init() (err error) {
-	s.ctx = context.Background()
 	s.lastRevisionPut = 0
 	s.stateKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/state"
 	s.lockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/lock"
@@ -53,11 +51,13 @@ func (s *stateStoreEtcd) Init() (err error) {
 	// Connect to the etcd cluster
 	addr := strings.Split(appconfig.Config.GetString("state.etcd.address"), ",")
 	s.client, err = clientv3.New(clientv3.Config{
-		Endpoints:   addr,
-		DialTimeout: 5 * time.Second,
+		Endpoints:            addr,
+		DialTimeout:          2 * time.Second, //5 * time.Second,
+		DialKeepAliveTime:    5 * time.Second, //30 * time.Second,
+		DialKeepAliveTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		return
+		return fmt.Errorf("error while connecting to etcd cluster: %v", err)
 	}
 
 	// Watch for changes
@@ -65,6 +65,9 @@ func (s *stateStoreEtcd) Init() (err error) {
 
 	// Load the current state
 	err = s.ReadState()
+	if err != nil {
+		return fmt.Errorf("error while requesting state from etcd cluster: %v", err)
+	}
 
 	return
 }
@@ -72,13 +75,16 @@ func (s *stateStoreEtcd) Init() (err error) {
 // Returns a context that times out
 func (s *stateStoreEtcd) getContext() (context.Context, context.CancelFunc) {
 	timeout := time.Duration(appconfig.Config.GetInt("state.etcd.timeout")) * time.Millisecond
-	return context.WithTimeout(s.ctx, timeout)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
+	// Require a leader
+	return clientv3.WithRequireLeader(ctx), cancelFunc
 }
 
 // Starts the watcher for changes in etcd
 func (s *stateStoreEtcd) watch() {
 	// Start watching for changes in the key
-	ctx, cancel := context.WithCancel(s.ctx)
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = clientv3.WithRequireLeader(ctx)
 	rch := s.client.Watch(ctx, s.stateKey)
 
 	for resp := range rch {
