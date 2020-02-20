@@ -77,6 +77,15 @@ func SyncError() error {
 
 // Function actually executing the sync
 func runner() error {
+	// Acquire a sync lock to ensure that only one node in the cluster can be running a sync at the same time
+	// This is to solve various issues, including nodes each generating self-signed TLS certs, and to ensure that not all nodes are requesting the same resources from upstream
+	// This does limit the scalability of the platform as it essentially makes every node doing sync sequentially, so we might revisit this choice in the future
+	lock, err := state.Instance.AcquireSyncLock()
+	if err != nil {
+		logger.Println("[syncState] Error while acquiring sync lock", err)
+		return err
+	}
+
 	// Set the time
 	now := time.Now()
 	lastSync = &now
@@ -91,6 +100,13 @@ func runner() error {
 	res, err := appmanager.Instance.SyncState(sites)
 	if err != nil {
 		logger.Println("[syncState] Unrecoverable error while syncing apps:", err)
+
+		// Release the sync lock
+		syncErr := state.Instance.ReleaseSyncLock(lock)
+		if syncErr != nil {
+			logger.Println("[syncState] Error while releasing sync lock", syncErr)
+		}
+
 		return err
 	}
 	restartRequired = restartRequired || res
@@ -99,9 +115,23 @@ func runner() error {
 	res, err = webserver.Instance.SyncConfiguration(sites)
 	if err != nil {
 		logger.Println("[syncState] Error while syncing Nginx configuration:", err)
+
+		// Release the sync lock
+		syncErr := state.Instance.ReleaseSyncLock(lock)
+		if syncErr != nil {
+			logger.Println("[syncState] Error while releasing sync lock", syncErr)
+		}
+
 		return err
 	}
 	restartRequired = restartRequired || res
+
+	// Release the sync lock
+	err = state.Instance.ReleaseSyncLock(lock)
+	if err != nil {
+		logger.Println("[syncState] Error while releasing sync lock", err)
+		return err
+	}
 
 	// Check if any site has an error
 	for _, s := range sites {

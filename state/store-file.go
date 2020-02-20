@@ -37,14 +37,26 @@ func (s *stateStoreFile) Init() (err error) {
 	return
 }
 
-// AcquireLock acquires a lock on the state before making changes, across all nodes in the cluster
-func (s *stateStoreFile) AcquireLock() (interface{}, error) {
+// AcquireStateLock acquires a lock on the state before making changes, across all nodes in the cluster
+func (s *stateStoreFile) AcquireStateLock() (interface{}, error) {
 	// When storing state in a file, we're operating in single-node mode
 	return nil, nil
 }
 
-// ReleaseLock releases the lock on the state
-func (s *stateStoreFile) ReleaseLock(leaseID interface{}) error {
+// ReleaseStateLock releases the lock on the state
+func (s *stateStoreFile) ReleaseStateLock(leaseID interface{}) error {
+	// When storing state in a file, we're operating in single-node mode
+	return nil
+}
+
+// AcquireSyncLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
+func (s *stateStoreFile) AcquireSyncLock() (interface{}, error) {
+	// When storing state in a file, we're operating in single-node mode
+	return nil, nil
+}
+
+// ReleaseSyncLock releases the lock on the sync semaphore
+func (s *stateStoreFile) ReleaseSyncLock(leaseID interface{}) error {
 	// When storing state in a file, we're operating in single-node mode
 	return nil
 }

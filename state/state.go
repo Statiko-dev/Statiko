@@ -52,14 +52,14 @@ func (m *Manager) Init() (err error) {
 	return
 }
 
-// AcquireLock acquires a lock on the state before making changes, across all nodes in the cluster
-func (m *Manager) AcquireLock() (interface{}, error) {
-	return m.store.AcquireLock()
+// AcquireSyncLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
+func (m *Manager) AcquireSyncLock() (interface{}, error) {
+	return m.store.AcquireSyncLock()
 }
 
-// ReleaseLock releases the lock on the state
-func (m *Manager) ReleaseLock(leaseID interface{}) error {
-	return m.store.ReleaseLock(leaseID)
+// ReleaseSyncLock releases the lock on the sync semaphore
+func (m *Manager) ReleaseSyncLock(leaseID interface{}) error {
+	return m.store.ReleaseSyncLock(leaseID)
 }
 
 // DumpState exports the entire state
@@ -91,11 +91,11 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 	}
 
 	// Lock
-	leaseID, err := m.AcquireLock()
+	leaseID, err := m.store.AcquireStateLock()
 	if err != nil {
 		return err
 	}
-	defer m.ReleaseLock(leaseID)
+	defer m.store.ReleaseStateLock(leaseID)
 
 	// Replace the state
 	if err := m.store.SetState(state); err != nil {
@@ -154,11 +154,11 @@ func (m *Manager) AddSite(site *SiteState) error {
 	site.ErrorStr = nil
 
 	// Lock
-	leaseID, err := m.AcquireLock()
+	leaseID, err := m.store.AcquireStateLock()
 	if err != nil {
 		return err
 	}
-	defer m.ReleaseLock(leaseID)
+	defer m.store.ReleaseStateLock(leaseID)
 
 	// Add the site
 	state := m.store.GetState()
@@ -191,11 +191,11 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 	}
 
 	// Lock
-	leaseID, err := m.AcquireLock()
+	leaseID, err := m.store.AcquireStateLock()
 	if err != nil {
 		return err
 	}
-	defer m.ReleaseLock(leaseID)
+	defer m.store.ReleaseStateLock(leaseID)
 
 	// Replace in the memory state
 	found := false
@@ -237,11 +237,11 @@ func (m *Manager) DeleteSite(domain string) error {
 	}
 
 	// Lock
-	leaseID, err := m.AcquireLock()
+	leaseID, err := m.store.AcquireStateLock()
 	if err != nil {
 		return err
 	}
-	defer m.ReleaseLock(leaseID)
+	defer m.store.ReleaseStateLock(leaseID)
 
 	// Update the state
 	found := false
@@ -327,11 +327,11 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	encValue := aesgcm.Seal(nil, nonce, value, nil)
 
 	// Lock
-	leaseID, err := m.AcquireLock()
+	leaseID, err := m.store.AcquireStateLock()
 	if err != nil {
 		return err
 	}
-	defer m.ReleaseLock(leaseID)
+	defer m.store.ReleaseStateLock(leaseID)
 
 	// Store the value
 	state := m.store.GetState()

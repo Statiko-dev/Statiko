@@ -35,6 +35,6 @@ func init() {
 
 	// Set callback so if the state is updated because of external events, a sync is triggered
 	state.Instance.OnStateUpdate(func() {
-		QueueRun()
+		go QueueRun()
 	})
 }
