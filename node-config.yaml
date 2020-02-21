@@ -52,6 +52,22 @@ state:
     # List of etcd node addresses to connect to, comma-separated
     # Can also be passed with environmental variable STATE_ETCD_ADDRESS
     address: "http://localhost:2379,http://etcd:2379"
+    # TLS certificate configuration connecting for etcd
+    tlsConfiguration:
+      # Certificate Authority that signed the certificate
+      # This is used for both the server certificate and the client certificate is specified
+      # Can also be passed with environmental variable STATE_ETCD_TLS_CA
+      ca: ""
+      # Public client certificate for the client
+      # This is used for client authentication if desired
+      # Can also be passed with environmental variable STATE_ETCD_TLS_CLIENT_CERTIFICATE
+      clientCertificate: ""
+      # Private key file for the client
+      # This is used for client authentication if desired
+      # Can also be passed with environmental variable STATE_ETCD_TLS_CLIENT_KEY
+      clientKey: ""
+    # Skip verifying TLS certificates presented by etcd nodes
+    tlsSkipVerify: false
 
 # Configuration for the nginx webserver
 nginx:

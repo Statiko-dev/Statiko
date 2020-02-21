@@ -18,6 +18,7 @@ package state
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"time"
 
 	"github.com/etcd-io/etcd/clientv3"
+	"github.com/etcd-io/etcd/pkg/transport"
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/ItalyPaleAle/statiko/appconfig"
@@ -50,6 +52,34 @@ func (s *stateStoreEtcd) Init() (err error) {
 	s.stateLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/state"
 	s.syncLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/sync"
 
+	// TLS configuration
+	var tlsConf *tls.Config
+	tlsConfCA := appconfig.Config.GetString("state.etcd.tlsConfiguration.ca")
+	tlsConfClientCertificate := appconfig.Config.GetString("state.etcd.tlsConfiguration.clientCertificate")
+	tlsConfClientKey := appconfig.Config.GetString("state.etcd.tlsConfiguration.clientKey")
+	tlsSkipVerify := appconfig.Config.GetBool("state.etcd.tlsConfiguration.tlsSkipVerify")
+	if tlsSkipVerify || tlsConfCA != "" {
+		tlsInfo := transport.TLSInfo{
+			InsecureSkipVerify: tlsSkipVerify,
+		}
+		// Check if we have a CA certificate
+		if tlsConfCA != "" {
+			tlsInfo.TrustedCAFile = tlsConfCA
+
+			// Check if we have a client certificate (and key) too
+			if tlsConfClientCertificate != "" && tlsConfClientKey != "" {
+				tlsInfo.CertFile = tlsConfClientCertificate
+				tlsInfo.KeyFile = tlsConfClientKey
+			}
+		}
+
+		var err error
+		tlsConf, err = tlsInfo.ClientConfig()
+		if err != nil {
+			return err
+		}
+	}
+
 	// Connect to the etcd cluster
 	addr := strings.Split(appconfig.Config.GetString("state.etcd.address"), ",")
 	s.client, err = clientv3.New(clientv3.Config{
@@ -57,6 +87,7 @@ func (s *stateStoreEtcd) Init() (err error) {
 		DialTimeout:          2 * time.Second, //5 * time.Second,
 		DialKeepAliveTime:    5 * time.Second, //30 * time.Second,
 		DialKeepAliveTimeout: 5 * time.Second,
+		TLS:                  tlsConf,
 	})
 	if err != nil {
 		return fmt.Errorf("error while connecting to etcd cluster: %v", err)
