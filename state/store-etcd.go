@@ -57,7 +57,7 @@ func (s *stateStoreEtcd) Init() (err error) {
 	tlsConfCA := appconfig.Config.GetString("state.etcd.tlsConfiguration.ca")
 	tlsConfClientCertificate := appconfig.Config.GetString("state.etcd.tlsConfiguration.clientCertificate")
 	tlsConfClientKey := appconfig.Config.GetString("state.etcd.tlsConfiguration.clientKey")
-	tlsSkipVerify := appconfig.Config.GetBool("state.etcd.tlsConfiguration.tlsSkipVerify")
+	tlsSkipVerify := appconfig.Config.GetBool("state.etcd.tlsSkipVerify")
 	if tlsSkipVerify || tlsConfCA != "" {
 		tlsInfo := transport.TLSInfo{
 			InsecureSkipVerify: tlsSkipVerify,
