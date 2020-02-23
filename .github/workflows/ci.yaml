@@ -16,7 +16,7 @@ on:
 env:
   BUILDER_IMAGE: 'golang:1.13-alpine'
   DOCKER_USERNAME: 'italypaleale'
-  DOCKER_REPO: 'docker.io/italypaleale/statiko'
+  DOCKER_REPO: 'docker.io/statiko/statiko'
   
 jobs:
 

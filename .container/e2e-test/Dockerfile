@@ -1,7 +1,7 @@
 ###
 ### First stage: test image
 ###
-FROM italypaleale/statiko:latest AS testimage
+FROM statiko/statiko:latest AS testimage
 
 # Install Node.js which is necessary for running tests
 # Source: https://raw.githubusercontent.com/nodejs/docker-node/master/12/alpine3.11/Dockerfile

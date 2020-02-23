@@ -370,7 +370,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 
 			// Do not fetch this app if it's already being fetched
 			if _, ok := fetchAppsList[folderName]; ok {
-				m.log.Print("App", folderName, "is already being fetched")
+				m.log.Println("App", folderName, "is already being fetched")
 			} else {
 				// We need to deploy the app
 				// Use the worker pool to handle concurrency
