@@ -49,7 +49,7 @@ state:
     keyPrefix: "/statiko"
     # Timeout in ms
     # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
-    timeout: 15000
+    timeout: 10000
     # List of etcd node addresses to connect to, comma-separated
     # Can also be passed with environmental variable STATE_ETCD_ADDRESS
     address: "http://localhost:2379,http://etcd:2379"
@@ -69,29 +69,6 @@ state:
       clientKey: ""
     # Skip verifying TLS certificates presented by etcd nodes
     tlsSkipVerify: true
-
-# Configuration for the nginx webserver
-nginx:
-  # Path where the nginx config is stored
-  configPath: "/etc/nginx/"
-  # User running nginx
-  # Can also be passed with environmental variable NGINX_USER
-  user: "www-data"
-  # Shell commands to start/stop/restart(reload) nginx
-  commands:
-    # Can also be passed with environmental variable NGINX_START
-    start: "service nginx start"
-    # Can also be passed with environmental variable NGINX_STOP
-    stop: "service nginx stop"
-    # Can also be passed with environmental variable NGINX_RESTART
-    restart: "service nginx status > /dev/null && service nginx reload || service nginx restart"
-    # Can also be passed with environmental variable NGINX_STATUS
-    status: "service nginx status > /dev/null && echo 1 || echo 0"
-
-# Path
-# Use a folder inside /mnt (e.g. /mnt/data/) for Azure VMs to leverage the locally-attached SSD
-# Can also be passed with environmental variable APP_ROOT
-appRoot: "/data/"
 
 # Azure configuration
 azure:
@@ -129,38 +106,6 @@ azure:
       # Can also be passed with environmental variable CODESIGN_KEY_VERSION
       version: null
 
-# TLS
-tls:
-  # Diffie-Hellman parameters used by all TLS-enabled sites
-  dhparams: "/etc/statiko/dhparams.pem"
-  node:
-    # Using TLS is strongly recommended
-    enabled: yes
-    certificate: "/etc/statiko/node-public.crt"
-    key: "/etc/statiko/node-private.key"
-
 # Node name (optional; will default to the hostname)
 # Can also be passed with environmental variable NODE_NAME
 nodeName: "e2e-test"
-
-# Name for the manifest file inside app bundles
-manifestFile: "_statiko.yaml"
-
-# Set to true to require all deployed apps to be cryptographically signed
-disallowUnsignedApps: false
-
-# Notifications to admin
-notifications:
-  # Notification method; "webhook" is the only supported value for now
-  # Can also be passed with environmental variable NOTIFICATIONS_METHOD
-  method: "off"
-  # Configuration for when method is "webhook"
-  webhook:
-    # URL to invoke
-    # Message is a POST request containing payload `{"<payloadKey>": "message"}`, where `<payloadKey>` is defined below
-    # Can also be passed with environmental variable NOTIFICATIONS_WEBHOOK_URL
-    url: ""
-    # Key for the message in the JSON object
-    # If you're using IFTTT for the webhook, set this to `value1`; other webhook services might support different values or custom ones
-    # Can also be passed with environmental variable NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY
-    payloadKey: "value1"

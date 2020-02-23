@@ -11,7 +11,7 @@ auth:
   # Authorize with an OAuth 2.0 access token issued by Azure AD
   azureAD:
     # Enabled
-    enabled: yes
+    enabled: no
     # Tenant ID of the application used to authenticate users
     # Can also be passed with environmental variable AUTH_AZUREAD_TENANT_ID
     tenantId: ""
@@ -48,7 +48,7 @@ state:
     keyPrefix: "/statiko"
     # Timeout in ms
     # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
-    timeout: 15000
+    timeout: 10000
     # List of etcd node addresses to connect to, comma-separated
     # Can also be passed with environmental variable STATE_ETCD_ADDRESS
     address: "http://localhost:2379,http://etcd:2379"
@@ -87,10 +87,9 @@ nginx:
     # Can also be passed with environmental variable NGINX_STATUS
     status: "service nginx status > /dev/null && echo 1 || echo 0"
 
-# Path
-# Use a folder inside /mnt (e.g. /mnt/data/) for Azure VMs to leverage the locally-attached SSD
+# Statiko data folder
 # Can also be passed with environmental variable APP_ROOT
-appRoot: "/data/"
+appRoot: "/statiko/data/"
 
 # Azure configuration
 azure:

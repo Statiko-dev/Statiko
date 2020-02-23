@@ -80,7 +80,18 @@ func (c *appConfig) Load() error {
 	viper.SetDefault("nodeName", hostname)
 
 	// Other default values
+	viper.SetDefault("state.file.path", "/etc/statiko/state.json")
+	viper.SetDefault("state.etcd.keyPrefix", "/statiko")
+	viper.SetDefault("state.etcd.timeout", 10000)
+	viper.SetDefault("nginx.configPath", "/etc/nginx/")
+	viper.SetDefault("nginx.user", "www-data")
+	viper.SetDefault("azure.keyVault.codesignKey.name", "codesign")
 	viper.SetDefault("azure.keyVault.codesignKey.version", "latest")
+	viper.SetDefault("tls.dhparams", "/etc/statiko/dhparams.pem")
+	viper.SetDefault("tls.node.enabled", true)
+	viper.SetDefault("tls.node.certificate", "/etc/statiko/node-public.crt")
+	viper.SetDefault("tls.node.key", "/etc/statiko/node-private.key")
+	viper.SetDefault("manifestFile", "_statiko.yaml")
 
 	// Some settings can be set as env vars too
 	viper.BindEnv("auth.psk.key", "AUTH_KEY")
