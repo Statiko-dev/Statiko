@@ -32,21 +32,25 @@ port: "2265"
 # State storage configuration
 state:
   # Where to store state - can be "file" or "etcd"
+  # Defaults to "file" if not set
   # Can also be passed with environmental variable STATE_STORE
   store: "file"
 
   # Configuration for when "store" is "file"
   file:
     # File containing the state persistently stored on disk
+    # Defaults to "/etc/statiko/state.json" if not set
     # Can also be passed with environmental variable STATE_FILE_PATH
     path: "/etc/statiko/state.json"
 
   # Configuration for when "store" is "etcd"
   etcd:
     # Prefix for keys used by statiko in etcd
+    # Defaults to "/statiko" if not set
     # Can also be passed with environmental variable STATE_ETCD_KEY_PREFIX
     keyPrefix: "/statiko"
     # Timeout in ms
+    # Defaults to 10000 if not set
     # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
     timeout: 10000
     # List of etcd node addresses to connect to, comma-separated
@@ -72,8 +76,10 @@ state:
 # Configuration for the nginx webserver
 nginx:
   # Path where the nginx config is stored
+  # Defaults to "/etc/nginx/" if not set
   configPath: "/etc/nginx/"
   # User running nginx
+  # Defaults to "www-data" if not set
   # Can also be passed with environmental variable NGINX_USER
   user: "www-data"
   # Shell commands to start/stop/restart(reload) nginx
@@ -109,8 +115,9 @@ azure:
     # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
     account: ""
     # Container name
+    # Defaults to "apps" if not set
     # Can also be passed with environmental variable AZURE_STORAGE_APPS_CONTAINER
-    appsContainer: ""
+    appsContainer: "apps"
 
   # Azure Key Vault
   keyVault:
@@ -121,36 +128,48 @@ azure:
     # Code signing key
     codesignKey:
       # Name of the code signing key inside the Key Vault
+      # Defaults to "codesign" if not set
       # Can also be passed with environmental variable CODESIGN_KEY_NAME
       name: "codesign"
       # Version of the code signing key inside the Key Vault
-      # Defaults to the latest one if null
+      # Defaults to the latest one if not set
       # Can also be passed with environmental variable CODESIGN_KEY_VERSION
       version: null
 
 # TLS
 tls:
   # Diffie-Hellman parameters used by all TLS-enabled sites
+  # Defaults to "/etc/statiko/dhparams.pem" if not set
   dhparams: "/etc/statiko/dhparams.pem"
   node:
+    # Enable TLS for connections with the node's management APIs
     # Using TLS is strongly recommended
+    # Defaults to true if not set
     enabled: yes
+    # Path to the TLS certificate for the node's management APIs
+    # Defaults to "/etc/statiko/node-public.crt" if not set
     certificate: "/etc/statiko/node-public.crt"
+    # Path to the TLS key for the node's management APIs
+    # Defaults to "/etc/statiko/node-private.key" if not set
     key: "/etc/statiko/node-private.key"
 
-# Node name (optional; will default to the hostname)
+# Node name
+# Defaults to the hostname if not set
 # Can also be passed with environmental variable NODE_NAME
 nodeName: ""
 
 # Name for the manifest file inside app bundles
+# Defaults to "_statiko.yaml" if not set
 manifestFile: "_statiko.yaml"
 
 # Set to true to require all deployed apps to be cryptographically signed
+# Defaults to false if not set (allow unsigned apps)
 disallowUnsignedApps: false
 
 # Notifications to admin
 notifications:
   # Notification method: "webhook" or "off"
+  # Defaults to "off" if not set
   # Can also be passed with environmental variable NOTIFICATIONS_METHOD
   method: "webhook"
   # Configuration for when method is "webhook"
@@ -161,5 +180,6 @@ notifications:
     url: "https://maker.ifttt.com/trigger/<event>/with/key/<key>"
     # Key for the message in the JSON object
     # If you're using IFTTT for the webhook, set this to `value1`; other webhook services might support different values or custom ones
+    # Defaults to "value1" if not set
     # Can also be passed with environmental variable NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY
     payloadKey: "value1"

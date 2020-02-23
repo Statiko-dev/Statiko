@@ -34,8 +34,9 @@ func InitNotifications() error {
 
 	// Init the notifier object
 	method := notificationsMethod()
-	if method == "" {
-		logger.Println("No notification method set")
+	method = strings.ToLower(method)
+	if method == "" || method == "off" {
+		logger.Println("Notifications are off")
 		return nil
 	}
 

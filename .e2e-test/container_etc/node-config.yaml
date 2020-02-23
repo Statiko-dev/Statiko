@@ -25,51 +25,6 @@ auth:
 # Can also be passed with environmental variable SECRETS_ENCRYPTION_KEY
 secretsEncryptionKey: "aQZg30UrCUgu0TfdNvIeLg=="
 
-# Port the server is listening on (must be a string)
-# Defaults to 2265 if not set
-# Can also be passed with environmental variable PORT
-port: "2265"
-
-# State storage configuration
-state:
-  # Where to store state - can be "file" or "etcd"
-  # Can also be passed with environmental variable STATE_STORE
-  store: "file"
-
-  # Configuration for when "store" is "file"
-  file:
-    # File containing the state persistently stored on disk
-    # Can also be passed with environmental variable STATE_FILE_PATH
-    path: "/etc/statiko/state.json"
-
-  # Configuration for when "store" is "etcd"
-  etcd:
-    # Prefix for keys used by statiko in etcd
-    # Can also be passed with environmental variable STATE_ETCD_KEY_PREFIX
-    keyPrefix: "/statiko"
-    # Timeout in ms
-    # Can also be passed with environmental variable STATE_ETCD_TIMEOUT
-    timeout: 10000
-    # List of etcd node addresses to connect to, comma-separated
-    # Can also be passed with environmental variable STATE_ETCD_ADDRESS
-    address: "http://localhost:2379,http://etcd:2379"
-    # TLS certificate configuration connecting for etcd
-    tlsConfiguration:
-      # Certificate Authority that signed the certificate
-      # This is used for both the server certificate and the client certificate is specified
-      # Can also be passed with environmental variable STATE_ETCD_TLS_CA
-      ca: ""
-      # Public client certificate for the client
-      # This is used for client authentication if desired
-      # Can also be passed with environmental variable STATE_ETCD_TLS_CLIENT_CERTIFICATE
-      clientCertificate: ""
-      # Private key file for the client
-      # This is used for client authentication if desired
-      # Can also be passed with environmental variable STATE_ETCD_TLS_CLIENT_KEY
-      clientKey: ""
-    # Skip verifying TLS certificates presented by etcd nodes
-    tlsSkipVerify: true
-
 # Azure configuration
 azure:
   # Service Principal details
@@ -86,9 +41,6 @@ azure:
     # Storage account name
     # Can also be passed with environmental variable AZURE_STORAGE_ACCOUNT
     account: "statikocistorage"
-    # Container name
-    # Can also be passed with environmental variable AZURE_STORAGE_APPS_CONTAINER
-    appsContainer: "apps"
 
   # Azure Key Vault
   keyVault:
@@ -101,10 +53,6 @@ azure:
       # Name of the code signing key inside the Key Vault
       # Can also be passed with environmental variable CODESIGN_KEY_NAME
       name: "codesign"
-      # Version of the code signing key inside the Key Vault
-      # Defaults to the latest one if null
-      # Can also be passed with environmental variable CODESIGN_KEY_VERSION
-      version: null
 
 # Node name (optional; will default to the hostname)
 # Can also be passed with environmental variable NODE_NAME

@@ -70,6 +70,25 @@ func (c *appConfig) Load() error {
 		viper.AddConfigPath(".")
 	}
 
+	// Set defaults
+	c.setDefaults()
+
+	// Some settings can be set as env vars too
+	c.bindEnvVars()
+
+	// Load config file
+	err := viper.ReadInConfig()
+	if err != nil {
+		c.logger.Fatalf("Error reading config file: %s \n", err)
+		return err
+	}
+	c.logger.Printf("Config file used: %s\n", viper.ConfigFileUsed())
+
+	return nil
+}
+
+// Set default options
+func (c *appConfig) setDefaults() {
 	// Default values
 	// Default port is 2265
 	viper.SetDefault("port", "2265")
@@ -80,11 +99,13 @@ func (c *appConfig) Load() error {
 	viper.SetDefault("nodeName", hostname)
 
 	// Other default values
+	viper.SetDefault("state.store", "file")
 	viper.SetDefault("state.file.path", "/etc/statiko/state.json")
 	viper.SetDefault("state.etcd.keyPrefix", "/statiko")
 	viper.SetDefault("state.etcd.timeout", 10000)
 	viper.SetDefault("nginx.configPath", "/etc/nginx/")
 	viper.SetDefault("nginx.user", "www-data")
+	viper.SetDefault("azure.storage.appsContainer", "apps")
 	viper.SetDefault("azure.keyVault.codesignKey.name", "codesign")
 	viper.SetDefault("azure.keyVault.codesignKey.version", "latest")
 	viper.SetDefault("tls.dhparams", "/etc/statiko/dhparams.pem")
@@ -92,8 +113,11 @@ func (c *appConfig) Load() error {
 	viper.SetDefault("tls.node.certificate", "/etc/statiko/node-public.crt")
 	viper.SetDefault("tls.node.key", "/etc/statiko/node-private.key")
 	viper.SetDefault("manifestFile", "_statiko.yaml")
+	viper.SetDefault("notifications.webhook.payloadKey", "value1")
+}
 
-	// Some settings can be set as env vars too
+// Bind environmental variables to config options
+func (c *appConfig) bindEnvVars() {
 	viper.BindEnv("auth.psk.key", "AUTH_KEY")
 	viper.BindEnv("auth.azureAD.tenantId", "AUTH_AZUREAD_TENANT_ID")
 	viper.BindEnv("auth.azureAD.clientId", "AUTH_AZUREAD_CLIENT_ID")
@@ -126,16 +150,6 @@ func (c *appConfig) Load() error {
 	viper.BindEnv("notifications.method", "NOTIFICATIONS_METHOD")
 	viper.BindEnv("notifications.webhook.url", "NOTIFICATIONS_WEBHOOK_URL")
 	viper.BindEnv("notifications.webhook.payloadKey", "NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY")
-
-	// Load config file
-	err := viper.ReadInConfig()
-	if err != nil {
-		c.logger.Fatalf("Error reading config file: %s \n", err)
-		return err
-	}
-	c.logger.Printf("Config file used: %s\n", viper.ConfigFileUsed())
-
-	return nil
 }
 
 // Get returns the value as interface{}
