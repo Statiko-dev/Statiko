@@ -51,11 +51,11 @@ jobs:
           -w /usr/src/myapp \
           ${{env.BUILDER_IMAGE}} \
             sh -c '
-              echo -e "###\nFetching modules\n"
+              echo "###\nFetching modules\n"
               GO111MODULE=on \
                 go get
 
-              echo -e "\n###\nBuilding amd64\n"
+              echo "\n###\nBuilding amd64\n"
               # Disable CGO so the binary is fully static
               CGO_ENABLED=0 \
               GOOS=linux \
@@ -66,7 +66,7 @@ jobs:
                   -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_amd64
               
-              echo -e "\n###\nBuilding amd64 test binary\n"
+              echo "\n###\nBuilding amd64 test binary\n"
               # Disable CGO so the binary is fully static
               CGO_ENABLED=0 \
               GOOS=linux \
@@ -80,7 +80,7 @@ jobs:
                 -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                 -o .bin/statiko_linux_amd64.test
               '
-        echo -e "\n###\nCompilation done\n"
+        echo "\n###\nCompilation done\n"
         ls -al .bin
     
     # Build Docker images
@@ -120,9 +120,9 @@ jobs:
       # This step always runs, even if the tests failed
       if: always()
       run: |
-        echo -e "### Test stdout ###\n"
+        echo "### Test stdout ###\n"
         cat .e2e-test/results/stdout || echo "File does not exist"
-        echo -e "\n\n### Test stderr ###\n"
+        echo "\n\n### Test stderr ###\n"
         cat .e2e-test/results/stderr || echo "File does not exist"
     - name: Convert coverage report
       run: |
@@ -132,13 +132,13 @@ jobs:
           -w /usr/src/myapp \
           golang:1.13 \
             sh -c '
-              echo -e "###\nFetching utilities\n"
+              echo "###\nFetching utilities\n"
               go get github.com/axw/gocov/gocov
               go get github.com/axw/gocov/...
               go get github.com/matm/gocov-html
               go get github.com/AlekSi/gocov-xml
 
-              echo -e "###\nConverting coverage reports\n"
+              echo "###\nConverting coverage reports\n"
               gocov convert .e2e-test/results/coverage.out | gocov-xml > .e2e-test/results/coverage.xml
               gocov convert .e2e-test/results/coverage.out | gocov-html > .e2e-test/results/coverage.html
               '
