@@ -156,7 +156,7 @@ tls:
 # Node name
 # Defaults to the hostname if not set
 # Can also be passed with environmental variable NODE_NAME
-nodeName: ""
+nodeName: nil
 
 # Name for the manifest file inside app bundles
 # Defaults to "_statiko.yaml" if not set
