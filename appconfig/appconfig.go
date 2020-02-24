@@ -103,6 +103,7 @@ func (c *appConfig) setDefaults() {
 	viper.SetDefault("state.file.path", "/etc/statiko/state.json")
 	viper.SetDefault("state.etcd.keyPrefix", "/statiko")
 	viper.SetDefault("state.etcd.timeout", 10000)
+	viper.SetDefault("appRoot", "/var/statiko")
 	viper.SetDefault("nginx.configPath", "/etc/nginx/")
 	viper.SetDefault("nginx.user", "www-data")
 	viper.SetDefault("azure.storage.appsContainer", "apps")

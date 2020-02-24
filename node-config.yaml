@@ -95,7 +95,7 @@ nginx:
 
 # Statiko data folder
 # Can also be passed with environmental variable APP_ROOT
-appRoot: "/statiko/data/"
+appRoot: "/var/statiko"
 
 # Azure configuration
 azure:
