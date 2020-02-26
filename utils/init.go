@@ -43,6 +43,6 @@ func init() {
 	}
 	httpClient = &http.Client{
 		Transport: tr,
-		Timeout:   1 * time.Second,
+		Timeout:   1500 * time.Millisecond,
 	}
 }
