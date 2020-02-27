@@ -422,6 +422,14 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 				itemData.App.Manifest.Locations[k] = v
 			}
 		}
+
+		// Ensure that Page404 and Page403 don't start with a /
+		if len(itemData.App.Manifest.Page404) > 1 && itemData.App.Manifest.Page404[0] == '/' {
+			itemData.App.Manifest.Page404 = itemData.App.Manifest.Page404[1:]
+		}
+		if len(itemData.App.Manifest.Page403) > 1 && itemData.App.Manifest.Page403[0] == '/' {
+			itemData.App.Manifest.Page403 = itemData.App.Manifest.Page403[1:]
+		}
 	}
 
 	// Get parameters
