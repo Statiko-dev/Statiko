@@ -130,7 +130,7 @@ jobs:
           --rm \
           -v "$PWD":/usr/src/myapp \
           -w /usr/src/myapp \
-          golang:1.13 \
+          golang:1.13-alpine \
             sh -c '
               echo "###\nFetching utilities\n"
               go get github.com/axw/gocov/gocov
