@@ -47,10 +47,17 @@ type NginxStatus struct {
 	Running bool `json:"running"`
 }
 
+// NodeStore contains information on the status of the store
+// Particularly useful if using etcd as store
+type NodeStore struct {
+	Healthy bool `json:"healthy"`
+}
+
 // NodeStatus contains the current status of the node
 type NodeStatus struct {
 	Nginx  NginxStatus  `json:"nginx"`
 	Sync   NodeSync     `json:"sync"`
+	Store  NodeStore    `json:"store"`
 	Health []SiteHealth `json:"health"`
 }
 

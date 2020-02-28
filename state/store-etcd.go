@@ -18,7 +18,10 @@ package state
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,6 +44,7 @@ type stateStoreEtcd struct {
 	stateKey        string
 	stateLockKey    string
 	syncLockKey     string
+	secretKeyPrefix string
 	lastRevisionPut int64
 	updateCallback  func()
 }
@@ -51,6 +55,7 @@ func (s *stateStoreEtcd) Init() (err error) {
 	s.stateKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/state"
 	s.stateLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/state"
 	s.syncLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/sync"
+	s.secretKeyPrefix = appconfig.Config.GetString("state.etcd.keyPrefix") + "/secrets/"
 
 	// TLS configuration
 	var tlsConf *tls.Config
@@ -133,8 +138,7 @@ func (s *stateStoreEtcd) watch() {
 			if event.Kv.ModRevision > s.lastRevisionPut {
 				logger.Println("Received new state from etcd: version", event.Kv.ModRevision)
 				oldState := s.state
-				s.state = &NodeState{}
-				err := json.Unmarshal(event.Kv.Value, s.state)
+				err := s.unserializeState(event.Kv.Value)
 				if err != nil {
 					logger.Println("Error while parsing state", err)
 					s.state = oldState
@@ -302,7 +306,7 @@ func (s *stateStoreEtcd) WriteState() (err error) {
 
 	// Convert to JSON
 	var data []byte
-	data, err = json.Marshal(s.state)
+	data, err = s.serializeState()
 	if err != nil {
 		return
 	}
@@ -336,11 +340,10 @@ func (s *stateStoreEtcd) ReadState() (err error) {
 		return
 	}
 
-	// Check if the file exists
-	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+	// Check if the value exists
+	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 && resp.Kvs[0].Value != nil && len(resp.Kvs[0].Value) > 0 {
 		// Parse the JSON from the state
-		s.state = &NodeState{}
-		err = json.Unmarshal(resp.Kvs[0].Value, s.state)
+		err = s.unserializeState(resp.Kvs[0].Value)
 	} else {
 		logger.Println("Will create new state")
 
@@ -377,4 +380,129 @@ func (s *stateStoreEtcd) Healthy() (healthy bool, err error) {
 // OnStateUpdate stores the callback that is invoked when there's a new state from etcd
 func (s *stateStoreEtcd) OnStateUpdate(callback func()) {
 	s.updateCallback = callback
+}
+
+// Serialize the state to JSON
+// Additionally, store all secrets longer than 64 bytes in a separate etcd key
+func (s *stateStoreEtcd) serializeState() ([]byte, error) {
+	// Create a copy of the state
+	serialize := NodeState{
+		Sites: s.state.Sites,
+	}
+
+	// Check if we have any secret
+	if s.state.Secrets != nil && len(s.state.Secrets) > 0 {
+		serialize.Secrets = make(map[string][]byte, len(s.state.Secrets))
+
+		for k, v := range s.state.Secrets {
+			// If the secret is up to 64 bytes, add it as is
+			if len(v) <= 64 {
+				serialize.Secrets[k] = v
+				continue
+			}
+
+			// Value is longer than 64 bytes, so store it as a separate key
+			// First, calculate its hash
+			h := sha256.New()
+			if _, err := h.Write(v); err != nil {
+				return nil, err
+			}
+			hash := h.Sum(nil)
+
+			// Convert to hex for the key name
+			secretKey := s.secretKeyPrefix + hex.EncodeToString(hash)
+
+			// Encode the value to b64
+			secretData := base64.StdEncoding.EncodeToString(v)
+
+			// If the secret doesn't exist, store it
+			// Use a transaction that stores the value only if it doesn't exist already
+			// Since the key of the secret is its hash, if the key already exists, then we have the same secret
+			ctx, cancel := s.getContext()
+			txn := s.client.Txn(ctx)
+			res, err := txn.If(
+				clientv3.Compare(clientv3.Version(secretKey), "=", 0),
+			).Then(
+				clientv3.OpPut(secretKey, secretData),
+			).Commit()
+			cancel()
+
+			if err != nil {
+				return nil, err
+			}
+
+			if res.Succeeded {
+				logger.Println("Stored secret:", secretKey)
+			}
+
+			// Set the value of the secret to the hash, with the "etcd:" prefix
+			serialize.Secrets[k] = append([]byte("etcd:"), hash...)
+		}
+	}
+
+	// Convert to JSON
+	var data []byte
+	data, err := json.Marshal(serialize)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+// Unserialize the state from JSON
+// Additionally, retrieve all secrets that were stored separately in etcd
+func (s *stateStoreEtcd) unserializeState(data []byte) error {
+	// First, unserialize the JSON data
+	unserialized := &NodeState{}
+	if err := json.Unmarshal(data, unserialized); err != nil {
+		return err
+	}
+
+	// Iterate through the secrets, if any
+	if unserialized.Secrets != nil && len(unserialized.Secrets) > 0 {
+		for k, v := range unserialized.Secrets {
+			// If the value isn't 37-byte and starting with "etcd:", it's definitely not a hash
+			if len(v) != 37 || string(v[0:5]) != "etcd:" {
+				continue
+			}
+
+			// Check if the secret is already in the current version of the state
+			// Since secrets are referenced by its hash, they're immutable
+			if s.state != nil && s.state.Secrets != nil {
+				if _, ok := s.state.Secrets[k]; ok {
+					unserialized.Secrets[k] = s.state.Secrets[k]
+					continue
+				}
+			}
+
+			// Need to retrieve the secret from etcd
+			hash := v[5:]
+			secretKey := s.secretKeyPrefix + hex.EncodeToString(hash)
+			ctx, cancel := s.getContext()
+			resp, err := s.client.Get(ctx, secretKey)
+			cancel()
+			if err != nil {
+				return err
+			}
+
+			// Check if the secret exists
+			if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+				// Decode the value from base64
+				secret, err := base64.StdEncoding.DecodeString(string(resp.Kvs[0].Value))
+				if err != nil {
+					return err
+				}
+				unserialized.Secrets[k] = secret
+			} else {
+				// Doesn't exist, so print a warning and leave the secret empty
+				logger.Println("[Warn] Secret not found:", secretKey)
+			}
+		}
+	}
+
+	// Set the state
+	s.state = unserialized
+
+	return nil
 }

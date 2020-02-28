@@ -82,6 +82,12 @@ func StatusHandler(c *gin.Context) {
 		SyncError: syncErrorStr,
 	}
 
+	// Store status
+	storeHealth, _ := state.Instance.StoreHealth()
+	res.Store = utils.NodeStore{
+		Healthy: storeHealth,
+	}
+
 	// Check if we need to force a refresh
 	forceQs := c.Query("force")
 	if forceQs == "1" || forceQs == "true" || forceQs == "t" || forceQs == "y" || forceQs == "yes" {

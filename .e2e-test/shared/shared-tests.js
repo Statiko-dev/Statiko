@@ -52,7 +52,7 @@ async function checkStatus(sites) {
         .get('/status')
         .expect('Content-Type', /json/)
         .expect(200)
-    assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'nginx', 'sync'])
+    assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'nginx', 'store', 'sync'])
 
     // Check the sync object
     assert(Object.keys(response.body.sync).length == 2)
@@ -65,6 +65,9 @@ async function checkStatus(sites) {
 
     // Check the nginx object
     assert.deepStrictEqual(response.body.nginx, {running: true})
+
+    // Check the store object
+    assert.deepStrictEqual(response.body.store, {healthy: true})
 
     // Function that returns the object for a given site
     const findSite = (domain) => {
