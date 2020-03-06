@@ -1,5 +1,5 @@
 /*
-Copyright © 2019 Alessandro Segala (@ItalyPaleAle)
+Copyright © 2020 Alessandro Segala (@ItalyPaleAle)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -73,8 +73,7 @@ func main() {
 	router.Use(middlewares.NodeName())
 
 	// Add routes
-	router.GET("/status", routes.StatusHandler)
-	router.GET("/status/:domain", routes.StatusHandler)
+	router.GET("/status/*domain", routes.StatusHandler)
 	router.GET("/info", routes.InfoHandler)
 
 	// Routes that require authorization

@@ -1,5 +1,5 @@
 /*
-Copyright © 2019 Alessandro Segala (@ItalyPaleAle)
+Copyright © 2020 Alessandro Segala (@ItalyPaleAle)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
