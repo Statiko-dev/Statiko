@@ -18,6 +18,7 @@ env:
   BUILDER_IMAGE: 'golang:1.13-alpine'
   DOCKER_USERNAME: 'italypaleale'
   DOCKER_REPO: 'statiko/statiko'
+  PACKR_VERSION: 2.7.1
   
 jobs:
 
@@ -68,11 +69,19 @@ jobs:
           -w /usr/src/myapp \
           ${{env.BUILDER_IMAGE}} \
             sh -c '
-              echo "###\nFetching modules\n"
+              echo -e "###\nFetching packr2\n"
+              mkdir -p .packr
+              wget -O - https://github.com/gobuffalo/packr/releases/download/v${{env.PACKR_VERSION}}/packr_${{env.PACKR_VERSION}}_linux_amd64.tar.gz | tar xvz -C .packr
+              chmod +x .packr/packr2
+
+              echo -e "\n###\nRunning packr2\n"
+              .packr/packr2
+
+              echo -e "\n###\nFetching modules\n"
               GO111MODULE=on \
                 go get
 
-              echo "\n###\nBuilding amd64\n"
+              echo -e "\n###\nBuilding amd64\n"
               # Disable CGO so the binary is fully static
               CGO_ENABLED=0 \
               GOOS=linux \
@@ -83,7 +92,7 @@ jobs:
                   -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_amd64
               
-              echo "\n###\nBuilding arm64v8\n"
+              echo -e "\n###\nBuilding arm64v8\n"
               CGO_ENABLED=0 \
               GOOS=linux \
               GOARCH=arm64 \
@@ -93,7 +102,7 @@ jobs:
                   -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_arm64v8
               
-              echo "\n###\nBuilding arm32v7\n"
+              echo -e "\n###\nBuilding arm32v7\n"
               CGO_ENABLED=0 \
               GOOS=linux \
               GOARCH=arm \
@@ -104,7 +113,7 @@ jobs:
                   -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_arm32v7
               '
-        echo "\n###\nCompilation done\n"
+        echo -e "\n###\nCompilation done\n"
         ls -al .bin
 
     # Publish artifacts
@@ -151,7 +160,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        release_name: ${{ github.ref }}
         draft: true
         prerelease: false
 

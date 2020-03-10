@@ -17,6 +17,7 @@ env:
   BUILDER_IMAGE: 'golang:1.13-alpine'
   DOCKER_USERNAME: 'italypaleale'
   DOCKER_REPO: 'docker.io/statiko/statiko'
+  PACKR_VERSION: 2.7.1
   
 jobs:
 
@@ -51,36 +52,42 @@ jobs:
           -w /usr/src/myapp \
           ${{env.BUILDER_IMAGE}} \
             sh -c '
-              echo "###\nFetching modules\n"
+              echo -e "###\nFetching packr2\n"
+              mkdir -p .packr
+              wget -O - https://github.com/gobuffalo/packr/releases/download/v${{env.PACKR_VERSION}}/packr_${{env.PACKR_VERSION}}_linux_amd64.tar.gz | tar xvz -C .packr
+              chmod +x .packr/packr2
+
+              echo -e "\n###\nRunning packr2\n"
+              .packr/packr2
+
+              echo -e "\n###\nFetching modules\n"
               GO111MODULE=on \
                 go get
 
-              echo "\n###\nBuilding amd64\n"
+              echo -e "\n###\nBuilding amd64\n"
               # Disable CGO so the binary is fully static
               CGO_ENABLED=0 \
               GOOS=linux \
               GOARCH=amd64 \
               GO111MODULE=on \
                 go build \
-                  -v \
                   -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_amd64
               
-              echo "\n###\nBuilding amd64 test binary\n"
+              echo -e "\n###\nBuilding amd64 test binary\n"
               # Disable CGO so the binary is fully static
               CGO_ENABLED=0 \
               GOOS=linux \
               GOARCH=amd64 \
               GO111MODULE=on \
                 go test \
-                -v \
                 -coverpkg=github.com/ItalyPaleAle/statiko/... \
                 -c \
                 -tags e2etests \
                 -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                 -o .bin/statiko_linux_amd64.test
               '
-        echo "\n###\nCompilation done\n"
+        echo -e "\n###\nCompilation done\n"
         ls -al .bin
     
     # Build Docker images
@@ -132,13 +139,13 @@ jobs:
           -w /usr/src/myapp \
           golang:1.13-alpine \
             sh -c '
-              echo "###\nFetching utilities\n"
+              echo -e "###\nFetching utilities\n"
               go get github.com/axw/gocov/gocov
               go get github.com/axw/gocov/...
               go get github.com/matm/gocov-html
               go get github.com/AlekSi/gocov-xml
 
-              echo "###\nConverting coverage reports\n"
+              echo -e "###\nConverting coverage reports\n"
               gocov convert .e2e-test/results/coverage.out | gocov-xml > .e2e-test/results/coverage.xml
               gocov convert .e2e-test/results/coverage.out | gocov-html > .e2e-test/results/coverage.html
               '

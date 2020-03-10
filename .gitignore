@@ -9,6 +9,9 @@ e2e-test/bin/
 e2e-test/.bin/
 .e2e-test/bin/
 .e2e-test/.bin/
+.packr/
+packrd/
+*-packr.go
 
 # Test results
 e2e-test/results/
