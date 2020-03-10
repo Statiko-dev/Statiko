@@ -432,6 +432,12 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 		}
 	}
 
+	// App root
+	appRoot := appconfig.Config.GetString("appRoot")
+	if !strings.HasSuffix(appRoot, "/") {
+		appRoot += "/"
+	}
+
 	// Get parameters
 	tplData := struct {
 		Item         *state.SiteState
@@ -450,7 +456,7 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 		}
 	}{
 		Item:         itemData,
-		AppRoot:      appconfig.Config.GetString("appRoot"),
+		AppRoot:      appRoot,
 		Port:         appconfig.Config.GetString("port"),
 		Protocol:     protocol,
 		ManifestFile: appconfig.Config.GetString("manifestFile"),

@@ -30,6 +30,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
@@ -68,6 +69,9 @@ func (m *Manager) Init() error {
 
 	// Init properties from env vars
 	m.appRoot = appconfig.Config.GetString("appRoot")
+	if !strings.HasSuffix(m.appRoot, "/") {
+		m.appRoot += "/"
+	}
 
 	// Azure Storage authorization
 	credential, err := utils.GetAzureStorageCredentials()

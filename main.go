@@ -73,7 +73,8 @@ func main() {
 	router.Use(middlewares.NodeName())
 
 	// Add routes
-	router.GET("/status/*domain", routes.StatusHandler)
+	router.GET("/status", routes.StatusHandler)
+	router.GET("/status/:domain", routes.StatusHandler)
 	router.GET("/info", routes.InfoHandler)
 
 	// Routes that require authorization

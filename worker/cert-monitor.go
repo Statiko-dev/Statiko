@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ItalyPaleAle/statiko/appconfig"
@@ -79,6 +80,9 @@ func certMonitorWorker() error {
 
 	// Scan all sites on disk
 	appRoot := appconfig.Config.GetString("appRoot")
+	if !strings.HasSuffix(appRoot, "/") {
+		appRoot += "/"
+	}
 	sites, err := ioutil.ReadDir(appRoot + "sites/")
 	if err != nil {
 		return err

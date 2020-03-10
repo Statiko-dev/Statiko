@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/ItalyPaleAle/statiko/appconfig"
@@ -39,6 +40,9 @@ func SyncCertificates(sites []state.SiteState) (updated bool, err error) {
 	updated = false
 
 	appRoot = appconfig.Config.GetString("appRoot")
+	if !strings.HasSuffix(appRoot, "/") {
+		appRoot += "/"
+	}
 
 	// Iterate through all sites and look for those requiring a self-signed certificate
 	for _, s := range sites {
