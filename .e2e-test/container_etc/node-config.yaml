@@ -1,39 +1,3 @@
-# State storage configuration
-state:
-  # Store state in etcd
-  store: "etcd"
-
-  # Configuration for connecting to etcd
-  etcd:
-    # Prefix for keys used by Statiko in etcd
-    # Defaults to "/statiko" if not set
-    keyPrefix: "/statiko"
-    # Timeout in ms
-    # Defaults to 10000 if not set
-    timeout: 10000
-    # List of etcd node addresses to connect to, comma-separated
-    # For example: "http://host01:2379,http://host02:2379"
-    # Note that your Statiko nodes must be able to connect to all those nodes, so configure your firewall rules accordingly
-    # If you want to use TLS, change the protocol to "https", for example:
-    # "https://host01:2379,https://host02:2379"
-    address: "http://localhost:2379,http://etcd:2379"
-    # TLS certificate configuration connecting for etcd
-    # This might be necessary if you're using TLS
-    tlsConfiguration:
-      # Certificate Authority that signed the certificate
-      # This is used for both the server certificate and the client certificate (if configured)
-      ca: ""
-      # Public client certificate for the client
-      # This is used for client authentication if desired
-      clientCertificate: ""
-      # Private key file for the client
-      # This is used for client authentication if desired
-      clientKey: ""
-    # Skip verifying TLS certificates presented by etcd nodes
-    # Defaults to "false" if not set
-    tlsSkipVerify: false
-
-
 # Authorization for managing the node
 auth:
   # Authorize with a pre-shared key
