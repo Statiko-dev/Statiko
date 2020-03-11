@@ -101,7 +101,7 @@ func (m *Manager) Init() error {
 	}
 
 	// Packr
-	m.box = packr.New("Default app", "default-app")
+	m.box = packr.New("Default app", "../default-app/dist")
 
 	return nil
 }
@@ -495,6 +495,15 @@ func (m *Manager) WriteDefaultApp() error {
 	// Write the default website
 	err := m.box.Walk(func(path string, file packd.File) error {
 		defer file.Close()
+		// Ensure the folder exists
+		pos := strings.LastIndex(path, "/")
+		if pos > 0 {
+			if err := utils.EnsureFolder(m.appRoot + "apps/_default/" + path[:pos]); err != nil {
+				return err
+			}
+		}
+
+		// Write the file
 		f, err := os.Create(m.appRoot + "apps/_default/" + path)
 		defer f.Close()
 		if err != nil {

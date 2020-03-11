@@ -174,7 +174,7 @@ async function checkDataDirectory(sites) {
 
     for (let i = 0; i < expectApps.length; i++) {
         if (expectApps[i] == '_default') {
-            assert.equal((await fsReaddir('/data/apps/_default')).length, 3, 'Default app folder contains a wrong number of files')
+            assert(await utils.fileExists('/data/apps/_default/statiko-welcome.html'), 'File statiko-welcome.html not found in default app')
         }
         else {
             // Check all files and their md5 hash
