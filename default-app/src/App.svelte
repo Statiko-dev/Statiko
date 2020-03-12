@@ -1,15 +1,15 @@
-{#await p}
-    <Loading />
-{:then r}
-    <Navbar />
-    <div class="container w-full lg:w-3/5 px-2 pt-8 lg:pt-16 mt-16">
+<Navbar />
+<div class="container w-full lg:w-3/5 px-2 pt-10 lg:pt-10 mt-10">
+    {#await p}
+        <Loading message="Connecting to node…" />
+    {:then r}
         <StatusView />
-        <Footer />
-    </div>
-{:catch err}
-    <p>Could not load node info.</p>
-    <pre>{err}</pre>
-{/await}
+    {:catch err}
+        <p>Could not load node info.</p>
+        <pre>{err}</pre>
+    {/await}
+    <Footer />
+</div>
 
 <script>
 // Components
@@ -22,5 +22,10 @@ import StatusView from './components/StatusView.svelte'
 import {nodeInfo} from './stores'
 const p = fetch(env.BASE_URL + '/info')
     .then((response) => response.json())
-    .then((info) => nodeInfo.set(info))
+    .then((info) => {
+        nodeInfo.set(info)
+        document.title = info.hostname ?
+            info.hostname + ' | Statiko node' :
+            'Statiko node'
+    })
 </script>

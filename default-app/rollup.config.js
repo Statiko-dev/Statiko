@@ -22,7 +22,7 @@ export default {
         // Replace
         replace({
             'env.APP_VERSION': JSON.stringify(process.env.APP_VERSION || 'canary'),
-            'env.BASE_URL': JSON.stringify('http://localhost')
+            'env.BASE_URL': JSON.stringify(process.env.BASE_URL || '')
         }),
 
         // Svelte

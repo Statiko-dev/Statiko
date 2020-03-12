@@ -146,8 +146,8 @@ async function checkDataDirectory(sites) {
         assert(await utils.fileExists('/data/sites/' + expectSites[i] + '/nginx-error.log'))
         assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/www'))
         if (expectSites[i] == '_default') {
-            assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'www'])
-            assert.equal((await fsReaddir('/data/sites/' + expectSites[i] + '/www')).length, 3, 'Default app folder contains a wrong number of files')
+            assert.deepStrictEqual((await fsReaddir('/data/sites/_default')).sort(), ['nginx-error.log', 'www'])
+            assert(await utils.fileExists('/data/sites/_default/statiko-welcome.html'), 'File statiko-welcome.html not found in default app')
         }
         else {
             assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])

@@ -5,7 +5,7 @@
   "scripts": {
     "build": "npx rollup -c",
     "autobuild": "npx rollup -c -w",
-    "dev": "npx run-p start:dev autobuild",
+    "dev": "BASE_URL=http://localhost npx run-p start:dev autobuild",
     "start": "npx sirv dist",
     "start:dev": "npx sirv dist --dev",
     "eslint": "npx eslint -c .eslintrc.js --ext .js,.svelte,.html .",
