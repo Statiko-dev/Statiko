@@ -6,7 +6,7 @@
 # Required secrets:
 # - DOCKER_PASSWORD password for Docker Hub
 
-name: Create release Statiko
+name: Release Statiko
 
 on:
   push:
@@ -15,7 +15,8 @@ on:
       - 'v*'
 
 env:
-  BUILDER_IMAGE: 'golang:1.13-alpine'
+  GO_BUILDER_IMAGE: 'golang:1.14-alpine'
+  NODE_BUILDER_IMAGE: 'node:12-alpine'
   DOCKER_USERNAME: 'italypaleale'
   DOCKER_REPO: 'statiko/statiko'
   PACKR_VERSION: 2.7.1
@@ -44,7 +45,7 @@ jobs:
       run: |
         echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
     
-    # Build for all platforms
+    # Set variables
     - name: Set variables
       run: |
         # Trim the first 10 characters, which are "refs/tags/"
@@ -58,6 +59,28 @@ jobs:
         echo ::set-env name=BUILD_TIME::$BUILD_TIME
         echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
 
+    # Build default web app
+    - name: Build default web app
+      run: |
+        # Build using Docker
+        docker run \
+          --rm \
+          -v "$PWD"/default-app:/usr/src/myapp \
+          -w /usr/src/myapp \
+          ${{env.NODE_BUILDER_IMAGE}} \
+            sh -c '
+              set -e
+
+              echo -e "###\nInstalling npm dependencies\n"
+              npm ci
+
+              echo -e "\n###\nBuilding default web app\n"
+              APP_VERSION="${{env.BUILD_VERSION}}" npm run build
+              '
+        echo -e "\n###\nCompilation done\n"
+        ls -al default-app/dist
+
+    # Build for all platforms
     - name: Build Statiko for all archs
       run: |
         mkdir -p .bin
@@ -67,7 +90,7 @@ jobs:
           --rm \
           -v "$PWD":/usr/src/myapp \
           -w /usr/src/myapp \
-          ${{env.BUILDER_IMAGE}} \
+          ${{env.GO_BUILDER_IMAGE}} \
             sh -c '
               echo -e "###\nFetching packr2\n"
               mkdir -p .packr

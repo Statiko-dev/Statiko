@@ -14,7 +14,8 @@ on:
     branches: [master]
 
 env:
-  BUILDER_IMAGE: 'golang:1.13-alpine'
+  GO_BUILDER_IMAGE: 'golang:1.14-alpine'
+  NODE_BUILDER_IMAGE: 'node:12-alpine'
   DOCKER_USERNAME: 'italypaleale'
   DOCKER_REPO: 'docker.io/statiko/statiko'
   PACKR_VERSION: 2.7.1
@@ -28,9 +29,9 @@ jobs:
 
     - name: Check out code
       uses: actions/checkout@v2
-    
-    # Build Statiko
-    - name: Define build info
+
+    # Set variables
+    - name: Set variables
       run: |
         BUILD_ID="canary"
         BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
@@ -41,6 +42,28 @@ jobs:
         echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
         echo ::set-env name=TAG::$TAG
 
+    # Build default web app
+    - name: Build default web app
+      run: |
+        # Build using Docker
+        docker run \
+          --rm \
+          -v "$PWD"/default-app:/usr/src/myapp \
+          -w /usr/src/myapp \
+          ${{env.NODE_BUILDER_IMAGE}} \
+            sh -c '
+              set -e
+
+              echo -e "###\nInstalling npm dependencies\n"
+              npm ci
+
+              echo -e "\n###\nBuilding default web app\n"
+              npm run build
+              '
+        echo -e "\n###\nCompilation done\n"
+        ls -al default-app/dist
+
+    # Build Statiko
     - name: Build Statiko
       run: |
         mkdir -p .bin
@@ -50,7 +73,7 @@ jobs:
           --rm \
           -v "$PWD":/usr/src/myapp \
           -w /usr/src/myapp \
-          ${{env.BUILDER_IMAGE}} \
+          ${{env.GO_BUILDER_IMAGE}} \
             sh -c '
               echo -e "###\nFetching packr2\n"
               mkdir -p .packr
