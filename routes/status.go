@@ -17,36 +17,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package routes
 
 import (
-	"fmt"
 	"net/http"
-	"sort"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/notifications"
 	"github.com/ItalyPaleAle/statiko/state"
+	"github.com/ItalyPaleAle/statiko/statuscheck"
 	"github.com/ItalyPaleAle/statiko/sync"
-	"github.com/ItalyPaleAle/statiko/utils"
 	"github.com/ItalyPaleAle/statiko/webserver"
 )
-
-// Last time the health checks were run
-var appTestedTime = time.Time{}
-
-// Last time the state was updated
-var stateUpdatedTime *time.Time
-
-// Cached health data
-var healthCache []utils.SiteHealth
-
-// List sites we sent a notification for, to avoid spamming admins
-var notificationsSent map[string]string
-
-// Initialize variables for this file
-func init() {
-	notificationsSent = make(map[string]string)
-}
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
 func StatusHandler(c *gin.Context) {
@@ -61,12 +40,12 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	// Response object
-	res := &utils.NodeStatus{}
+	res := &statuscheck.NodeStatus{}
 
 	// Nginx server status
 	// Ignore errors in this command
 	nginxStatus, _ := webserver.Instance.Status()
-	res.Nginx = utils.NginxStatus{
+	res.Nginx = statuscheck.NginxStatus{
 		Running: nginxStatus,
 	}
 
@@ -76,7 +55,7 @@ func StatusHandler(c *gin.Context) {
 	if syncError != nil {
 		syncErrorStr = syncError.Error()
 	}
-	res.Sync = utils.NodeSync{
+	res.Sync = statuscheck.NodeSync{
 		Running:   sync.IsRunning(),
 		LastSync:  sync.LastSync(),
 		SyncError: syncErrorStr,
@@ -84,47 +63,21 @@ func StatusHandler(c *gin.Context) {
 
 	// Store status
 	storeHealth, _ := state.Instance.StoreHealth()
-	res.Store = utils.NodeStore{
+	res.Store = statuscheck.NodeStore{
 		Healthy: storeHealth,
 	}
 
 	// Check if we need to force a refresh
 	forceQs := c.Query("force")
 	if forceQs == "1" || forceQs == "true" || forceQs == "t" || forceQs == "y" || forceQs == "yes" {
-		healthCache = nil
+		statuscheck.ResetHealthCache()
 	}
 
 	// Response status code
 	statusCode := http.StatusOK
 
-	// If the state has changed, we need to invalidate the healthCache
-	u := state.Instance.LastUpdated()
-	if u != stateUpdatedTime {
-		healthCache = nil
-		stateUpdatedTime = u
-	}
-
 	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
-	diff := time.Since(appTestedTime).Seconds()
-	if healthCache == nil || diff > 299 {
-		// If there's a deployment, reset this, as apps aren't tested
-		if sync.IsRunning() {
-			appTestedTime = time.Time{}
-		} else {
-			// Otherwise, mark as tested
-			appTestedTime = time.Now()
-		}
-
-		hasError := updateHealthCache()
-		res.Health = healthCache
-
-		if hasError {
-			// If there's an error, make the test happen again right away
-			healthCache = nil
-		}
-	} else {
-		res.Health = healthCache
-	}
+	res.Health = statuscheck.GetHealthCache()
 
 	// If we're requesting a domain only, filter the results
 	if domain := c.Param("domain"); len(domain) > 0 {
@@ -135,7 +88,7 @@ func StatusHandler(c *gin.Context) {
 			domain = siteObj.Domain
 
 			// Check if we have the health object for this site, and if it has any deployment error
-			var domainHealth *utils.SiteHealth
+			var domainHealth *statuscheck.SiteHealth
 			appError := false
 			for _, el := range res.Health {
 				if el.Domain == domain {
@@ -148,7 +101,7 @@ func StatusHandler(c *gin.Context) {
 			}
 
 			if domainHealth != nil {
-				res.Health = make([]utils.SiteHealth, 1)
+				res.Health = make([]statuscheck.SiteHealth, 1)
 				res.Health[0] = *domainHealth
 			} else {
 				res.Health = nil
@@ -187,104 +140,4 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	c.JSON(statusCode, res)
-}
-
-type healthcheckJob struct {
-	domain string
-	bundle string
-}
-
-func updateHealthCache() (hasError bool) {
-	hasError = false
-
-	// Get list of sites
-	sites := state.Instance.GetSites()
-
-	// Use a worker pool to limit concurrency to 3
-	jobs := make(chan healthcheckJob, 4)
-	res := make(chan utils.SiteHealth, len(sites))
-
-	// Spin up 3 backround workers
-	for w := 1; w <= 3; w++ {
-		go updateHealthCacheWorker(w, jobs, res)
-	}
-
-	// Update the cached data
-	requested := 0
-	healthCache = make([]utils.SiteHealth, 0)
-	for _, s := range sites {
-		// Skip sites that have deployment errors
-		if s.Error != nil {
-			healthCache = append(healthCache, utils.SiteHealth{
-				Domain:   s.Domain,
-				App:      nil,
-				Error:    s.Error,
-				ErrorStr: s.ErrorStr,
-			})
-			continue
-		}
-
-		// Request health only if there's an app deployed
-		// Also, skip this if there's a deployment running
-		if s.App != nil && !sync.IsRunning() {
-			// Check if the jobs channel is full
-			for len(jobs) == cap(jobs) {
-				// Pause this until the channel is not at capacity anymore
-				time.Sleep(time.Millisecond * 5)
-			}
-
-			// Start the request in parallel
-			jobs <- healthcheckJob{
-				domain: s.Domain,
-				bundle: s.App.Name + "-" + s.App.Version,
-			}
-			requested++
-		} else {
-			// No app deployed, so show the site only
-			healthCache = append(healthCache, utils.SiteHealth{
-				Domain: s.Domain,
-				App:    nil,
-			})
-		}
-	}
-	close(jobs)
-
-	// Read responses
-	for i := 0; i < requested; i++ {
-		health := <-res
-		if health.Error != nil {
-			hasError = true
-			health.ErrorStr = new(string)
-			*health.ErrorStr = health.Error.Error()
-			errStr := fmt.Sprintf("Status check failed for domain %v: %v", health.Domain, health.Error)
-			logger.Println(errStr)
-
-			// If we are here, the app did not have an error before (sites with deployment errors were not in the list of sites whose health we check)
-			// So, let's notify the admin
-			if notificationsSent[health.Domain] != errStr {
-				notificationsSent[health.Domain] = errStr
-				go notifications.SendNotification(errStr)
-			}
-		} else {
-			notificationsSent[health.Domain] = ""
-		}
-		healthCache = append(healthCache, health)
-	}
-	close(res)
-
-	// Sort the result
-	sort.Slice(healthCache, func(i, j int) bool {
-		return healthCache[i].Domain < healthCache[j].Domain
-	})
-
-	return
-}
-
-// Background worker for the updateHealthCache function
-func updateHealthCacheWorker(id int, jobs <-chan healthcheckJob, res chan<- utils.SiteHealth) {
-	for j := range jobs {
-		//logger.Println("Worker", id, "started requesting health for", j.domain)
-		utils.RequestHealth(j.domain, j.bundle, res)
-		//logger.Println("Worker", id, "finished requesting health for", j.domain)
-	}
 }
