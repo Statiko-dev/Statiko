@@ -382,44 +382,12 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 		// Validate the app's manifest, skipping invalid values
 		if itemData.App.Manifest.Files != nil && len(itemData.App.Manifest.Files) > 0 {
 			for k, v := range itemData.App.Manifest.Files {
-				// If there's a ClientCaching value, ensure it's valid
-				if v.ClientCaching != "" {
-					if !n.clientCachingRegexp.MatchString(v.ClientCaching) {
-						n.logger.Println("Ignoring invalid value for clientCaching:", v.ClientCaching)
-						v.ClientCaching = ""
-					}
-				}
-
-				// Escape values in headers
-				if v.Headers != nil && len(v.Headers) > 0 {
-					v.CleanHeaders = make(map[string]string, len(v.Headers))
-					for hk, hv := range v.Headers {
-						v.CleanHeaders[escapeConfigString(hk)] = escapeConfigString(hv)
-					}
-				}
-
-				itemData.App.Manifest.Files[k] = v
+				itemData.App.Manifest.Files[k] = n.sanitizeAppOptions(v)
 			}
 		}
 		if itemData.App.Manifest.Locations != nil && len(itemData.App.Manifest.Locations) > 0 {
 			for k, v := range itemData.App.Manifest.Locations {
-				// If there's a ClientCaching value, ensure it's valid
-				if v.ClientCaching != "" {
-					if !n.clientCachingRegexp.MatchString(v.ClientCaching) {
-						n.logger.Println("Ignoring invalid value for clientCaching:", v.ClientCaching)
-						v.ClientCaching = ""
-					}
-				}
-
-				// Escape values in headers
-				if v.Headers != nil && len(v.Headers) > 0 {
-					v.CleanHeaders = make(map[string]string, len(v.Headers))
-					for hk, hv := range v.Headers {
-						v.CleanHeaders[escapeConfigString(hk)] = escapeConfigString(hv)
-					}
-				}
-
-				itemData.App.Manifest.Locations[k] = v
+				itemData.App.Manifest.Locations[k] = n.sanitizeAppOptions(v)
 			}
 		}
 
@@ -492,6 +460,33 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 	}
 
 	return buf.Bytes(), nil
+}
+
+// Validates and sanitizes an AppOptions object in the manifest
+func (n *NginxConfig) sanitizeAppOptions(v state.AppOptions) state.AppOptions {
+	// If there's a ClientCaching value, ensure it's valid
+	if v.ClientCaching != "" {
+		if !n.clientCachingRegexp.MatchString(v.ClientCaching) {
+			n.logger.Println("Ignoring invalid value for clientCaching:", v.ClientCaching)
+			v.ClientCaching = ""
+		}
+	}
+
+	// Escape values in headers
+	if v.Headers != nil && len(v.Headers) > 0 {
+		v.CleanHeaders = make(map[string]string, 0)
+		for hk, hv := range v.Headers {
+			// Filter out disallowed headers
+			if !utils.HeaderIsAllowed(hk) {
+				n.logger.Println("Ignoring invalid header:", hk)
+				continue
+			}
+			// Escape the header
+			v.CleanHeaders[escapeConfigString(hk)] = escapeConfigString(hv)
+		}
+	}
+
+	return v
 }
 
 // Writes data to a configuration file
