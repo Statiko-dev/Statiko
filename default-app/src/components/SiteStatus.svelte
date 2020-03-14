@@ -24,7 +24,7 @@
                 <li class="text-red-600"><strong>Error: </strong> {site.error}</li>
             {/if}
             <li><strong>App:</strong> {site.app || 'No app deployed'}</li>
-            {#if site.app}
+            {#if site.status && site.time}
                 <li><strong>Status code:</strong> {site.status}</li>
                 <li><strong>Response size:</strong> {site.size}</li>
                 <li><strong>Last check:</strong> {FormatDate(site.time)}</li>

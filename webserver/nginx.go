@@ -244,6 +244,7 @@ func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 	// Iterate through the desired state looking for missing keys and different files
 	// We're guaranteed that the existing state does not contain any extraenous file already
 	for key, val := range desired {
+		written := false
 		// Check if the file exists already
 		existingVal, ok := existing[key]
 		if ok && existingVal != nil {
@@ -251,6 +252,7 @@ func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 			if bytes.Compare(val, existingVal) != 0 {
 				// Files are different
 				updated = true
+				written = true
 				n.logger.Println("Replacing configuration file", nginxConfPath+key)
 				if err := writeConfigFile(nginxConfPath+key, val); err != nil {
 					return false, err
@@ -259,9 +261,36 @@ func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 		} else {
 			// File is missing
 			updated = true
+			written = true
 			n.logger.Println("Creating configuration file", nginxConfPath+key)
 			if err := writeConfigFile(nginxConfPath+key, val); err != nil {
 				return false, err
+			}
+		}
+
+		// If we wrote a config file for a site, test the nginx configuration to see if there's any error
+		if written && strings.HasPrefix(key, "conf.d/") && key != "conf.d/_default.conf" {
+			configOk, err := n.ConfigTest()
+			if err != nil {
+				return false, err
+			}
+			if !configOk {
+				n.logger.Println("Error in configuration file", nginxConfPath+key, " - removing it")
+				site := key[7:(len(key) - 5)]
+
+				// Add an error to the site's object
+				for _, v := range sites {
+					if v.Domain == site {
+						v.Error = errors.New("invalid nginx configuration - check manifest")
+						state.Instance.UpdateSite(&v, true)
+						break
+					}
+				}
+
+				// Remove this site
+				if err := os.Remove(nginxConfPath + key); err != nil {
+					return false, err
+				}
 			}
 		}
 	}
@@ -284,6 +313,25 @@ func (n *NginxConfig) Status() (bool, error) {
 	}
 
 	return running, nil
+}
+
+// ConfigTest runs the Nginx's config test command and returns whether the configuration is valid
+func (n *NginxConfig) ConfigTest() (bool, error) {
+	result, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.test")).Output()
+	// Ignore the error "exit status 1", which means the configuration test failed
+	if err != nil && err.Error() != "exit status 1" {
+		n.logger.Printf("Error while testing Nginx server configuration: %s\n", err)
+		return false, err
+	}
+
+	ok := false
+	resultStr := strings.TrimSpace(string(result))
+	if resultStr == "" && err == nil {
+		// Even if there was nothing printed out, the exit status can't be 1
+		ok = true
+	}
+
+	return ok, nil
 }
 
 // EnsureServerRunning starts the Nginx server if it's not running already
