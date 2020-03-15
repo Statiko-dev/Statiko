@@ -435,7 +435,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 				if !ok {
 					return errors.New("Cannot find index for app " + name)
 				}
-				manifest := &state.AppManifest{}
+				manifest := &utils.AppManifest{}
 				err = yaml.Unmarshal(readBytes, manifest)
 				sites[i].App.Manifest = manifest
 				if err != nil {

@@ -424,18 +424,61 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 			itemData.App = &state.SiteApp{}
 		}
 		if itemData.App.Manifest == nil {
-			itemData.App.Manifest = &state.AppManifest{}
+			itemData.App.Manifest = &utils.AppManifest{}
 		}
 
-		// Validate the app's manifest, skipping invalid values
-		if itemData.App.Manifest.Files != nil && len(itemData.App.Manifest.Files) > 0 {
-			for k, v := range itemData.App.Manifest.Files {
-				itemData.App.Manifest.Files[k] = n.sanitizeAppOptions(v)
-			}
-		}
-		if itemData.App.Manifest.Locations != nil && len(itemData.App.Manifest.Locations) > 0 {
-			for k, v := range itemData.App.Manifest.Locations {
-				itemData.App.Manifest.Locations[k] = n.sanitizeAppOptions(v)
+		// Parse and validate the app's manifest
+		itemData.App.Manifest.Locations = make(map[string]utils.ManifestRuleOptions)
+		if itemData.App.Manifest.Rules != nil && len(itemData.App.Manifest.Rules) > 0 {
+			for _, v := range itemData.App.Manifest.Rules {
+				// Ensure that only one of the various match types (exact, prefix, match, file) is set
+				if (v.Match != "" && (v.Exact != "" || v.File != "" || v.Prefix != "")) ||
+					(v.Exact != "" && (v.Match != "" || v.File != "" || v.Prefix != "")) ||
+					(v.File != "" && (v.Match != "" || v.Exact != "" || v.Prefix != "")) ||
+					(v.Prefix != "" && (v.Match != "" || v.Exact != "" || v.File != "")) {
+					n.logger.Println("Ignoring rule that has more than one match type")
+					continue
+				}
+
+				// Get the location rule block
+				location := ""
+				if v.Exact != "" {
+					location = "= " + v.Exact
+				} else if v.Prefix != "" {
+					location = v.Prefix
+				} else if v.Match != "" {
+					if v.CaseSensitive {
+						location = "~ " + v.Match
+					} else {
+						location = "~* " + v.Match
+					}
+				} else if v.File != "" {
+					switch v.File {
+					// Aliases
+					case "_images":
+						location = " ~* \\.(jpg|jpeg|png|gif|ico|svg|svgz|webp|tif|tiff|dng|psd|heif|bmp)$"
+					case "_videos":
+						location = "~* \\.(mp4|m4v|mkv|webm|avi|mpg|mpeg|ogg|wmv|flv|mov)$"
+					case "_audios":
+						location = "~* \\.(mp3|mp4|aac|m4a|flac|wav|ogg|wma)$"
+					case "_fonts":
+						location = "~* \\.(woff|woff2|eot|otf|ttf)$"
+					default:
+						// Replace all commas with |
+						v.File = strings.ReplaceAll(v.File, ",", "|")
+						// TODO: validate this with a regular expression
+						location = "~* \\.(" + v.File + ")$"
+					}
+				} else {
+					n.logger.Println("Ignoring rule that has no match type")
+					continue
+				}
+
+				// Sanitize rule options
+				options := n.sanitizeManifestRuleOptions(v.Options)
+
+				// Add the element
+				itemData.App.Manifest.Locations[location] = options
 			}
 		}
 
@@ -510,8 +553,8 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 	return buf.Bytes(), nil
 }
 
-// Validates and sanitizes an AppOptions object in the manifest
-func (n *NginxConfig) sanitizeAppOptions(v state.AppOptions) state.AppOptions {
+// Validates and sanitizes an ManifestRuleOptions object in the manifest
+func (n *NginxConfig) sanitizeManifestRuleOptions(v utils.ManifestRuleOptions) utils.ManifestRuleOptions {
 	// If there's a ClientCaching value, ensure it's valid
 	if v.ClientCaching != "" {
 		if !n.clientCachingRegexp.MatchString(v.ClientCaching) {
