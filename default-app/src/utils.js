@@ -10,6 +10,6 @@ export function FormatDate(date) {
         date = new Date(date)
     }
 
-    return date.getFullYear() + '-' + ZeroPad(date.getMonth() + 1) + '-' + ZeroPad(date.getDay()) +
+    return date.getFullYear() + '-' + ZeroPad(date.getMonth() + 1) + '-' + ZeroPad(date.getDate()) +
         ' ' + ZeroPad(date.getHours()) + ':' + ZeroPad(date.getMinutes()) + ':' + ZeroPad(date.getSeconds())
 }
