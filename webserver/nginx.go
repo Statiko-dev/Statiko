@@ -528,7 +528,7 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 				Key         string
 			}
 		}{
-			Dhparams: appconfig.Config.GetString("tls.dhparams"),
+			Dhparams: appRoot + "misc/dhparams.pem",
 			Node: struct {
 				Enabled     bool
 				Certificate string

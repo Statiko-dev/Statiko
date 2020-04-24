@@ -113,7 +113,6 @@ func (c *appConfig) setDefaults() {
 	viper.SetDefault("azure.storage.appsContainer", "apps")
 	viper.SetDefault("azure.keyVault.codesignKey.name", "codesign")
 	viper.SetDefault("azure.keyVault.codesignKey.version", "latest")
-	viper.SetDefault("tls.dhparams", "/etc/statiko/dhparams.pem")
 	viper.SetDefault("tls.node.enabled", true)
 	viper.SetDefault("tls.node.certificate", "/etc/statiko/node-public.crt")
 	viper.SetDefault("tls.node.key", "/etc/statiko/node-private.key")

@@ -168,5 +168,7 @@ func certMonitorWorker() error {
 		sync.QueueRun()
 	}
 
+	certMonitorLogger.Println("Done")
+
 	return nil
 }

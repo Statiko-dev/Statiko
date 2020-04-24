@@ -122,14 +122,21 @@ func (m *Manager) SyncState(sites []state.SiteState) (updated bool, err error) {
 		return
 	}
 
-	// Sync self-signed certificates
-	u, err := certificates.SyncCertificates(sites)
+	// Misc files
+	u, err := m.SyncMiscFiles()
 	if err != nil {
 		return
 	}
 	updated = updated || u
 
-	// Start with apps: ensure we have the right ones
+	// Sync self-signed certificates
+	u, err = certificates.SyncCertificates(sites)
+	if err != nil {
+		return
+	}
+	updated = updated || u
+
+	// Apps: ensure we have the right ones
 	err = m.SyncApps(sites)
 	if err != nil {
 		return
@@ -477,6 +484,11 @@ func (m *Manager) InitAppRoot() error {
 		return err
 	}
 
+	// Create /approot/misc
+	if err := utils.EnsureFolder(m.appRoot + "misc"); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -517,6 +529,33 @@ func (m *Manager) WriteDefaultApp() error {
 	}
 
 	return nil
+}
+
+// SyncMiscFiles synchronizes the misc folder
+// This contains the DH parameters
+func (m *Manager) SyncMiscFiles() (bool, error) {
+	// Get the latest DH parameters
+	pem, _ := state.Instance.GetDHParams()
+
+	// Read the existing file and compare it
+	dhparamsPath := m.appRoot + "misc/dhparams.pem"
+	read, err := ioutil.ReadFile(dhparamsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	if len(read) > 0 && string(read) == pem {
+		// Nothing to do here
+		return false, nil
+	}
+
+	// Write the updated file
+	err = ioutil.WriteFile(dhparamsPath, []byte(pem), 0644)
+	if err != nil {
+		return false, err
+	}
+
+	// File has been updated
+	return true, nil
 }
 
 // ActivateApp points a site to an app, by creating the symbolic link

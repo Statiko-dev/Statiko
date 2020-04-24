@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,14 +40,15 @@ import (
 const etcdLockDuration = 20
 
 type stateStoreEtcd struct {
-	state           *NodeState
-	client          *clientv3.Client
-	stateKey        string
-	stateLockKey    string
-	syncLockKey     string
-	secretKeyPrefix string
-	lastRevisionPut int64
-	updateCallback  func()
+	state             *NodeState
+	client            *clientv3.Client
+	stateKey          string
+	stateLockKey      string
+	syncLockKey       string
+	secretKeyPrefix   string
+	dhparamsKeyPrefix string
+	lastRevisionPut   int64
+	updateCallback    func()
 }
 
 // Init initializes the object
@@ -56,6 +58,7 @@ func (s *stateStoreEtcd) Init() (err error) {
 	s.stateLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/state"
 	s.syncLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/sync"
 	s.secretKeyPrefix = appconfig.Config.GetString("state.etcd.keyPrefix") + "/secrets/"
+	s.dhparamsKeyPrefix = appconfig.Config.GetString("state.etcd.keyPrefix") + "/dhparams/"
 
 	// TLS configuration
 	var tlsConf *tls.Config
@@ -384,6 +387,7 @@ func (s *stateStoreEtcd) OnStateUpdate(callback func()) {
 
 // Serialize the state to JSON
 // Additionally, store all secrets longer than 64 bytes in a separate etcd key
+// Store the DH parameters file in a separate etcd key too
 func (s *stateStoreEtcd) serializeState() ([]byte, error) {
 	// Create a copy of the state
 	serialize := NodeState{
@@ -440,6 +444,35 @@ func (s *stateStoreEtcd) serializeState() ([]byte, error) {
 		}
 	}
 
+	// Check if we have DH params
+	if s.state.DHParams != nil && s.state.DHParams.PEM != "" && s.state.DHParams.Date != nil {
+		// Get the key
+		dhparamsKey := s.dhparamsKeyPrefix + strconv.FormatInt(s.state.DHParams.Date.Unix(), 10)
+
+		// Use a transaction that stores the value only if it doesn't exist already
+		ctx, cancel := s.getContext()
+		txn := s.client.Txn(ctx)
+		res, err := txn.If(
+			clientv3.Compare(clientv3.Version(dhparamsKey), "=", 0),
+		).Then(
+			clientv3.OpPut(dhparamsKey, s.state.DHParams.PEM),
+		).Commit()
+		cancel()
+
+		if err != nil {
+			return nil, err
+		}
+
+		if res.Succeeded {
+			logger.Println("Stored DH params:", dhparamsKey)
+		}
+
+		// Store the reference
+		serialize.DHParams = &NodeDHParams{
+			Date: s.state.DHParams.Date,
+		}
+	}
+
 	// Convert to JSON
 	var data []byte
 	data, err := json.Marshal(serialize)
@@ -451,7 +484,7 @@ func (s *stateStoreEtcd) serializeState() ([]byte, error) {
 }
 
 // Unserialize the state from JSON
-// Additionally, retrieve all secrets that were stored separately in etcd
+// Additionally, retrieve all elements that were stored separately in etcd
 func (s *stateStoreEtcd) unserializeState(data []byte) error {
 	// First, unserialize the JSON data
 	unserialized := &NodeState{}
@@ -496,8 +529,28 @@ func (s *stateStoreEtcd) unserializeState(data []byte) error {
 				unserialized.Secrets[k] = secret
 			} else {
 				// Doesn't exist, so print a warning and leave the secret empty
-				logger.Println("[Warn] Secret not found:", secretKey)
+				logger.Println("[Warn] Secret not found in etcd:", secretKey)
 			}
+		}
+	}
+
+	// Check if we have any DH parameters to retrieve
+	if unserialized.DHParams != nil && unserialized.DHParams.Date != nil {
+		// Retrieve from etcd
+		dhparamsKey := s.dhparamsKeyPrefix + strconv.FormatInt(unserialized.DHParams.Date.Unix(), 10)
+		ctx, cancel := s.getContext()
+		resp, err := s.client.Get(ctx, dhparamsKey)
+		cancel()
+		if err != nil {
+			return err
+		}
+
+		// Check if we have any response
+		if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+			unserialized.DHParams.PEM = string(resp.Kvs[0].Value)
+		} else {
+			// Doesn't exist, so print a warning and leave the secret empty
+			logger.Println("[Warn] DH params referenced but not found in etcd:", dhparamsKey)
 		}
 	}
 

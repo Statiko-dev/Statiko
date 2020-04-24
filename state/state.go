@@ -125,7 +125,11 @@ func (m *Manager) LastUpdated() *time.Time {
 // GetSites returns the list of all sites
 func (m *Manager) GetSites() []SiteState {
 	state := m.store.GetState()
-	return state.Sites
+	if state != nil {
+		return state.Sites
+	}
+
+	return nil
 }
 
 // GetSite returns the site object for a specific domain (including aliases)
@@ -281,10 +285,59 @@ func (m *Manager) OnStateUpdate(callback func()) {
 	m.store.OnStateUpdate(callback)
 }
 
+// GetDHParams returns the PEM-encoded DH parameters and their date
+func (m *Manager) GetDHParams() (string, *time.Time) {
+	// Check if we DH parameters; if not, return the default ones
+	state := m.store.GetState()
+	if state != nil && state.DHParams == nil || state.DHParams.Date == nil || state.DHParams.PEM == "" {
+		return defaultDHParams, nil
+	}
+
+	// Return the saved DH parameters
+	return state.DHParams.PEM, state.DHParams.Date
+}
+
+// SetDHParams stores new PEM-encoded DH parameters
+func (m *Manager) SetDHParams(val string) error {
+	if val == "" || val == defaultDHParams {
+		return errors.New("val is empty or invalid")
+	}
+
+	// Lock
+	leaseID, err := m.store.AcquireStateLock()
+	if err != nil {
+		return err
+	}
+	defer m.store.ReleaseStateLock(leaseID)
+
+	// Store the value
+	state := m.store.GetState()
+	if state == nil {
+		return errors.New("state not loaded")
+	}
+	now := time.Now()
+	state.DHParams = &NodeDHParams{
+		PEM:  val,
+		Date: &now,
+	}
+
+	m.setUpdated()
+
+	// Commit the state to the store
+	if err := m.store.WriteState(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // GetSecret returns the value for a secret (encrypted in the state)
 func (m *Manager) GetSecret(key string) ([]byte, error) {
 	// Check if we have a secret for this key
 	state := m.store.GetState()
+	if state == nil {
+		return nil, errors.New("state not loaded")
+	}
 	if state.Secrets == nil {
 		state.Secrets = make(map[string][]byte)
 	}
@@ -335,6 +388,9 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 
 	// Store the value
 	state := m.store.GetState()
+	if state == nil {
+		return errors.New("state not loaded")
+	}
 	if state.Secrets == nil {
 		state.Secrets = make(map[string][]byte)
 	}

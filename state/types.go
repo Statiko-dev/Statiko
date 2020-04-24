@@ -16,12 +16,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package state
 
-import "github.com/ItalyPaleAle/statiko/utils"
+import (
+	"time"
+
+	"github.com/ItalyPaleAle/statiko/utils"
+)
 
 // NodeState represents the global state of the node
 type NodeState struct {
-	Sites   []SiteState       `json:"sites"`
-	Secrets map[string][]byte `json:"secrets"`
+	Sites    []SiteState       `json:"sites"`
+	Secrets  map[string][]byte `json:"secrets"`
+	DHParams *NodeDHParams     `json:"dhparams,omitempty"`
 }
 
 // SiteState represents the state of a single site
@@ -51,6 +56,12 @@ type SiteApp struct {
 
 	// App manifest (for internal use)
 	Manifest *utils.AppManifest `json:"-"`
+}
+
+// NodeDHParams represents the DH Parameters file (PEM-encoded) and their age
+type NodeDHParams struct {
+	Date *time.Time `json:"time"`
+	PEM  string     `json:"pem"`
 }
 
 // Internal use
