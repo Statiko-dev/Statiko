@@ -449,8 +449,9 @@ const tests = {
             assert(await utils.folderExists('/data'))
             assert(await utils.folderExists('/data/apps'))
             assert(await utils.folderExists('/data/cache'))
+            assert(await utils.folderExists('/data/misc'))
             assert(await utils.folderExists('/data/sites'))
-            assert.deepStrictEqual(await fsReaddir('/data'), ['apps', 'cache', 'sites'])
+            assert.deepStrictEqual(await fsReaddir('/data'), ['apps', 'cache', 'misc', 'sites'])
 
             // Check the data directory
             await checkDataDirectory(sites)
@@ -473,6 +474,9 @@ const tests = {
             if ((process.env.STATE_STORE && process.env.STATE_STORE == 'file') || (nodeConfig && nodeConfig.state && nodeConfig.state.store == 'file')) {
                 assert(await utils.fileExists('/etc/statiko/state.json'))
             }
+
+            // Check for dhparams
+            assert(await utils.fileExists('/data/misc/dhparams.pem'))
         }
     },
 
