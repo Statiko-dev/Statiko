@@ -13,10 +13,10 @@ const production = !process.env.ROLLUP_WATCH
 export default {
     input: 'src/main.js',
     output: {
-        sourcemap: true,
+        sourcemap: !production,
         format: 'iife',
         name: 'ui',
-        file: 'dist/js/bundle.js'
+        file: 'dist/bundle.js'
     },
     plugins: [
         // Replace
@@ -32,17 +32,13 @@ export default {
             // PostCSS support
             preprocess: autoPreprocess({
                 postcss: true
-            }),
-            // We'll extract any component CSS out into a separate file
-            css: css => {
-                css.write('dist/css/components.css')
-            }
+            })
         }),
 
         // PostCSS
         postcss({
             minimize: production,
-            extract: 'dist/css/bundle.css'
+            extract: true
         }),
 
         // Copy static files
