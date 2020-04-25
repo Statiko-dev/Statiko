@@ -76,7 +76,7 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 		return err
 	}
 
-	// Ensure that errors aren't included, and that if TLS certs are self-signed, their name and version isn't either
+	// Ensure that errors aren't included, and that if TLS certs are not imported, their name and version isn't either
 	for _, s := range state.Sites {
 		if s.Error != nil {
 			s.Error = nil
@@ -84,7 +84,7 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 		if s.ErrorStr != nil {
 			s.ErrorStr = nil
 		}
-		if s.TLSCertificateSelfSigned {
+		if s.TLSCertificateType != TLSCertificateImported {
 			s.TLSCertificate = nil
 			s.TLSCertificateVersion = nil
 		}

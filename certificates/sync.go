@@ -46,8 +46,8 @@ func SyncCertificates(sites []state.SiteState) (updated bool, err error) {
 
 	// Iterate through all sites and look for those requiring a self-signed certificate
 	for _, s := range sites {
-		// Skip those who don't need a self-signed certificate
-		if !s.TLSCertificateSelfSigned {
+		// Skip those who use an imported certificate
+		if s.TLSCertificateType == state.TLSCertificateImported {
 			continue
 		}
 
