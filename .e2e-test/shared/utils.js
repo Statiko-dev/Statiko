@@ -16,12 +16,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 'use strict'
 
-const fs = require('fs')
-const promisify = require('util').promisify
+const {stat} = require('fs').promises
 const crypto = require('crypto')
 
-// Promisified methods
-const fsStat = promisify(fs.stat)
 
 /**
  * Returns stats for a path if it exists
@@ -32,8 +29,8 @@ const fsStat = promisify(fs.stat)
  */
 const pathExists = async (path) => {
     try {
-        const stat = await fsStat(path)
-        return stat
+        const res = await stat(path)
+        return res
     }
     catch (err) {
         if (err.code == 'ENOENT') {
@@ -53,8 +50,8 @@ const pathExists = async (path) => {
  * @async
  */
 const fileExists = async (path) => {
-    const stat = await pathExists(path)
-    return stat && stat.isFile()
+    const res = await pathExists(path)
+    return res && res.isFile()
 }
 
 /**
@@ -65,8 +62,8 @@ const fileExists = async (path) => {
  * @async
  */
 const folderExists = async (path) => {
-    const stat = await pathExists(path)
-    return stat && stat.isDirectory()
+    const res = await pathExists(path)
+    return res && res.isDirectory()
 }
 
 /**

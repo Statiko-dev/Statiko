@@ -68,6 +68,7 @@ async function readdirRecursive(dir) {
 async function checkStatus(sites) {
     // Request status
     const response = await nodeRequest
+        .set('Authorization', auth)
         .get('/status')
         .expect('Content-Type', /json/)
         .expect(200)
@@ -397,6 +398,7 @@ async function waitForSync() {
     let running = true
     while (running) {
         const response = await nodeRequest
+            .set('Authorization', auth)
             .get('/status')
             .expect('Content-Type', /json/)
             .expect(200)
@@ -422,6 +424,7 @@ async function waitForDeployment(domain, appData) {
         await utils.waitPromise(500)
 
         const response = await nodeRequest
+            .set('Authorization', auth)
             .get('/status')
             .expect('Content-Type', /json/)
             .expect(200)

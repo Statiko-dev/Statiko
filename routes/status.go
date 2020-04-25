@@ -18,6 +18,7 @@ package routes
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,7 +31,6 @@ import (
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
 func StatusHandler(c *gin.Context) {
 	isAuthenticated := c.GetBool("authenticated")
-	_ = isAuthenticated
 
 	// Check if the state is healthy
 	healthy, err := state.Instance.StoreHealth()
@@ -80,7 +80,7 @@ func StatusHandler(c *gin.Context) {
 	statusCode := http.StatusOK
 
 	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
-	res.Health = statuscheck.GetHealthCache()
+	healthCache := statuscheck.GetHealthCache()
 
 	// If we're requesting a domain only, filter the results
 	if domain := c.Param("domain"); len(domain) > 0 {
@@ -91,11 +91,13 @@ func StatusHandler(c *gin.Context) {
 			domain = siteObj.Domain
 
 			// Check if we have the health object for this site, and if it has any deployment error
-			var domainHealth *statuscheck.SiteHealth
+			var domainHealth statuscheck.SiteHealth
+			found := false
 			appError := false
-			for _, el := range res.Health {
+			for _, el := range healthCache {
 				if el.Domain == domain {
-					domainHealth = &el
+					domainHealth = el
+					found = true
 					if !el.IsHealthy() {
 						appError = true
 					}
@@ -103,11 +105,15 @@ func StatusHandler(c *gin.Context) {
 				}
 			}
 
-			if domainHealth != nil {
-				res.Health = make([]statuscheck.SiteHealth, 1)
-				res.Health[0] = *domainHealth
-			} else {
-				res.Health = nil
+			if found {
+				// If we're not authenticated, do not display the app name
+				// In this case, the user requested a domain only, so they know the domain anyways
+				if !isAuthenticated {
+					app := "<hidden>"
+					domainHealth.App = &app
+				}
+
+				res.Health = []statuscheck.SiteHealth{domainHealth}
 			}
 
 			// If there's a deployment error for the app, and we're requesting a domain only, return a 503 response
@@ -117,18 +123,28 @@ func StatusHandler(c *gin.Context) {
 		} else {
 			// Site not found, so return a 404
 			statusCode = http.StatusNotFound
-			res.Health = nil
 		}
 	} else {
 		// We've requested all sites; return an error status code if they're all failing
 		errorCount := 0
-		total := len(res.Health)
-		for _, el := range res.Health {
-			if !el.IsHealthy() {
-				errorCount++
-			} else if el.App == nil {
-				// Ignore sites that have no apps and no errors in the counts
-				total--
+		total := len(healthCache)
+		if total > 0 {
+			res.Health = make([]statuscheck.SiteHealth, total)
+			for i, el := range healthCache {
+				if !el.IsHealthy() {
+					errorCount++
+				} else if el.App == nil {
+					// Ignore sites that have no apps and no errors in the counts
+					total--
+				}
+
+				// If we're not authenticated, do not display the app and domain name
+				if !isAuthenticated {
+					app := "<hidden>"
+					el.App = &app
+					el.Domain = "Domain " + strconv.Itoa(i+1)
+				}
+				res.Health[i] = el
 			}
 		}
 		if total > 0 && errorCount == total {

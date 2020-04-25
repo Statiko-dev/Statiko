@@ -19,10 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 'use strict'
 
 const assert = require('assert')
-const fs = require('fs')
-const {promisify} = require('util')
-
-const fsReadFile = promisify(fs.readFile)
+const {readFile} = require('fs').promises
 
 const {cloneObject} = require('../shared/utils')
 const sitesData = require('../shared/sites-data')
@@ -224,8 +221,8 @@ describe('Manage sites', function() {
             // Skip this for patch 3 as it shouldn't change
             if (i <= 2) {
                 assert.equal(
-                    (await fsReadFile('/etc/nginx/conf.d/site1.local.conf', 'utf8')).trim(),
-                    (await fsReadFile('fixtures/nginx-site1patch' + i + '.conf', 'utf8')).trim()
+                    (await readFile('/etc/nginx/conf.d/site1.local.conf', 'utf8')).trim(),
+                    (await readFile('fixtures/nginx-site1patch' + i + '.conf', 'utf8')).trim()
                     , 'File comparison failed for nginx-site1patch' + i + '.conf')
             }
         }
