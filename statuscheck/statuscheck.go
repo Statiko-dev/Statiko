@@ -24,9 +24,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ItalyPaleAle/statiko/notifications"
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/sync"
+	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/sync"
 )
 
 // Semaphore that allows only one operation at time

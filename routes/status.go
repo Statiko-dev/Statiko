@@ -21,10 +21,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/statuscheck"
-	"github.com/ItalyPaleAle/statiko/sync"
-	"github.com/ItalyPaleAle/statiko/webserver"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/statuscheck"
+	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/webserver"
 )
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node

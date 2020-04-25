@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/azurekeyvault"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/azurekeyvault"
 )
 
 // KeyVaultInfoHandler is the handler for GET /keyvaultinfo, which returns the name of the Azure Key Vault instance used

@@ -26,9 +26,9 @@ import (
 
 	dhparam "github.com/Luzifer/go-dhparam"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/sync"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/sync"
 )
 
 // Logger for this file

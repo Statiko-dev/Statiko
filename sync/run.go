@@ -19,10 +19,10 @@ package sync
 import (
 	"time"
 
-	"github.com/ItalyPaleAle/statiko/appmanager"
-	"github.com/ItalyPaleAle/statiko/notifications"
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/webserver"
+	"github.com/statiko-dev/statiko/appmanager"
+	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/webserver"
 )
 
 // Semaphore that allows only one operation at time

@@ -27,11 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/certificates"
-	"github.com/ItalyPaleAle/statiko/notifications"
-	"github.com/ItalyPaleAle/statiko/sync"
-	"github.com/ItalyPaleAle/statiko/utils"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // Logger for this file

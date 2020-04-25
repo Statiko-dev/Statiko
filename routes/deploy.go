@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/sync"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/sync"
 )
 
 // DeploySiteHandler is the handler for POST/PUT /site/{domain}/app, which deploys an app

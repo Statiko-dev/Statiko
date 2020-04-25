@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ItalyPaleAle/statiko/statuscheck"
+	"github.com/statiko-dev/statiko/statuscheck"
 )
 
 // Logger for this file

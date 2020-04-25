@@ -30,13 +30,13 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/middlewares"
-	"github.com/ItalyPaleAle/statiko/notifications"
-	"github.com/ItalyPaleAle/statiko/routes"
-	"github.com/ItalyPaleAle/statiko/sync"
-	"github.com/ItalyPaleAle/statiko/webserver"
-	"github.com/ItalyPaleAle/statiko/worker"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/middlewares"
+	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/routes"
+	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/webserver"
+	"github.com/statiko-dev/statiko/worker"
 )
 
 func main() {

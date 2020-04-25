@@ -23,8 +23,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/buildinfo"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/buildinfo"
 )
 
 // infoResponse is the response for the /info route

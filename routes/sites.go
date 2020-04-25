@@ -21,12 +21,12 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/ItalyPaleAle/statiko/azurekeyvault"
+	"github.com/statiko-dev/statiko/azurekeyvault"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/sync"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/sync"
 )
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site

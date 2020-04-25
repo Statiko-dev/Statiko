@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/ItalyPaleAle/statiko/buildinfo"
+	"github.com/statiko-dev/statiko/buildinfo"
 )
 
 type appConfig struct {

@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/sync"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/sync"
 )
 
 // GetStateHandler is the handler for GET /state, which dumps the state

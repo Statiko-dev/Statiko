@@ -94,7 +94,7 @@ jobs:
               GOARCH=amd64 \
               GO111MODULE=on \
                 go build \
-                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
+                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_amd64
               
               echo -e "\n###\nBuilding amd64 test binary\n"
@@ -104,10 +104,10 @@ jobs:
               GOARCH=amd64 \
               GO111MODULE=on \
                 go test \
-                -coverpkg=github.com/ItalyPaleAle/statiko/... \
+                -coverpkg=github.com/statiko-dev/statiko/... \
                 -c \
                 -tags e2etests \
-                -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
+                -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                 -o .bin/statiko_linux_amd64.test
               '
         echo -e "\n###\nCompilation done\n"

@@ -19,7 +19,7 @@ package state
 import (
 	"time"
 
-	"github.com/ItalyPaleAle/statiko/utils"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // NodeState represents the global state of the node

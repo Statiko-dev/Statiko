@@ -34,8 +34,8 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"golang.org/x/crypto/pkcs12"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/utils"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // Singleton for Client

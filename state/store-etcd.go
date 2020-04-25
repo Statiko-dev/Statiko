@@ -33,7 +33,7 @@ import (
 	"github.com/etcd-io/etcd/pkg/transport"
 	"google.golang.org/grpc/connectivity"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/statiko-dev/statiko/appconfig"
 )
 
 // Maximum lock duration, in seconds

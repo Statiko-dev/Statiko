@@ -34,8 +34,8 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gin-gonic/gin"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/utils"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // uploadAuthRequest is the request body for the POST /uploadauth route

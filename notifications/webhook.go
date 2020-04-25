@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/statiko-dev/statiko/appconfig"
 )
 
 // NotificationWebhook is the class that sends notifications to a webhook

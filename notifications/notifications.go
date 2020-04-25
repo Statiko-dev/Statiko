@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
+	"github.com/statiko-dev/statiko/appconfig"
 )
 
 var notifier notificationSender

@@ -40,11 +40,11 @@ import (
 	"github.com/google/renameio"
 	"gopkg.in/yaml.v2"
 
-	"github.com/ItalyPaleAle/statiko/appconfig"
-	"github.com/ItalyPaleAle/statiko/azurekeyvault"
-	"github.com/ItalyPaleAle/statiko/certificates"
-	"github.com/ItalyPaleAle/statiko/state"
-	"github.com/ItalyPaleAle/statiko/utils"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/azurekeyvault"
+	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // Manager contains helper functions to manage apps and sites

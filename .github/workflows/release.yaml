@@ -111,7 +111,7 @@ jobs:
               GOARCH=amd64 \
               GO111MODULE=on \
                 go build \
-                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
+                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_amd64
               
               echo -e "\n###\nBuilding arm64v8\n"
@@ -120,7 +120,7 @@ jobs:
               GOARCH=arm64 \
               GO111MODULE=on \
                 go build \
-                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
+                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_arm64v8
               
               echo -e "\n###\nBuilding arm32v7\n"
@@ -130,7 +130,7 @@ jobs:
               GOARM=7 \
               GO111MODULE=on \
                 go build \
-                  -ldflags "-X github.com/ItalyPaleAle/statiko/buildinfo.ENV=production -X github.com/ItalyPaleAle/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/ItalyPaleAle/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/ItalyPaleAle/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
+                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_arm32v7
               '
         echo -e "\n###\nCompilation done\n"

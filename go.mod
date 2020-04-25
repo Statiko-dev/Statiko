@@ -1,4 +1,4 @@
-module github.com/ItalyPaleAle/statiko
+module github.com/statiko-dev/statiko
 
 go 1.14
 

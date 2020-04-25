@@ -22,7 +22,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ItalyPaleAle/statiko/state"
+	"github.com/statiko-dev/statiko/state"
 )
 
 // Package-wide properties
