@@ -108,7 +108,7 @@ func StatusHandler(c *gin.Context) {
 			if found {
 				// If we're not authenticated, do not display the app name
 				// In this case, the user requested a domain only, so they know the domain anyways
-				if !isAuthenticated {
+				if !isAuthenticated && domainHealth.App != nil {
 					app := "<hidden>"
 					domainHealth.App = &app
 				}
@@ -140,8 +140,10 @@ func StatusHandler(c *gin.Context) {
 
 				// If we're not authenticated, do not display the app and domain name
 				if !isAuthenticated {
-					app := "<hidden>"
-					el.App = &app
+					if el.App != nil {
+						app := "<hidden>"
+						el.App = &app
+					}
 					el.Domain = "Domain " + strconv.Itoa(i+1)
 				}
 				res.Health[i] = el
