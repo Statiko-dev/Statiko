@@ -68,8 +68,8 @@ async function readdirRecursive(dir) {
 async function checkStatus(sites) {
     // Request status
     const response = await nodeRequest
-        .set('Authorization', auth)
         .get('/status')
+        .set('Authorization', auth)
         .expect('Content-Type', /json/)
         .expect(200)
     assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'nginx', 'store', 'sync'])
@@ -398,8 +398,8 @@ async function waitForSync() {
     let running = true
     while (running) {
         const response = await nodeRequest
-            .set('Authorization', auth)
             .get('/status')
+            .set('Authorization', auth)
             .expect('Content-Type', /json/)
             .expect(200)
         if (!response || !response.body || !response.body.sync) {
@@ -424,8 +424,8 @@ async function waitForDeployment(domain, appData) {
         await utils.waitPromise(500)
 
         const response = await nodeRequest
-            .set('Authorization', auth)
             .get('/status')
+            .set('Authorization', auth)
             .expect('Content-Type', /json/)
             .expect(200)
         assert(response.body)
