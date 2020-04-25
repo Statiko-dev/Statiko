@@ -42,14 +42,17 @@ module.exports = {
     },
     app3: {
         app: 'app3',
-        version: '300',
+        version: '502',
         contents: {
             '403.html': 'e9f3ffd6f02ff6485585745aeda1f651',
             '404.html': 'dc39a4bece6c7c794063c716af8102c0',
-            '_statiko.yaml': '021f82d083f61fdc0bc2603b8b11f899',
-            'index.html': 'bdb096fbdc2ca7dc1f23470f9e51384a',
-            'mike-erskine-b4AD8zSAozk-unsplash.jpg': '9dbbfd4205fe99c5bd77093b2e034747'
+            '_statiko.yaml': '668c6791a7eab83f10920535c5769fb8',
+            'index.html': '7ee27795761bbb9b1cda52beade9fdaf',
+            'mike-erskine-b4AD8zSAozk-unsplash.jpg': '9dbbfd4205fe99c5bd77093b2e034747',
+            'notallowed/index.html': '03431839f82065b3b9681c4c00ac5117',
+            'notallowed/test.txt': 'a25e14c5b3b499d72bbd0fe19c613662'
         },
+        expect404: ['notallowed/index.html', 'notallowed/test.txt'],
         headers: {
             '404.html': {
                 'x-test-header': 'Hello world',

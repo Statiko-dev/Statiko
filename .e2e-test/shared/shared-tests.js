@@ -16,9 +16,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 'use strict'
 
+const path = require('path')
 const assert = require('assert')
-const {promisify} = require('util')
-const fs = require('fs')
+const {readdir, readFile} = require('fs').promises
+const {readFileSync} = require('fs')
 const request = require('supertest')
 const validator = require('validator')
 const yaml = require('js-yaml')
@@ -26,10 +27,6 @@ const yaml = require('js-yaml')
 const utils = require('./utils')
 const appData = require('./app-data')
 const tlsData = require('./tls-data')
-
-// Promisified methods
-const fsReaddir = promisify(fs.readdir)
-const fsReadFile = promisify(fs.readFile)
 
 // Auth header
 const auth = 'hello world'
@@ -43,7 +40,29 @@ const nodeRequest = request('https://' + nodeUrl)
 const nginxRequest = request('https://' + nginxUrl)
 
 // Load node's config
-const nodeConfig = yaml.safeLoad(fs.readFileSync('/etc/statiko/node-config.yaml'))
+const nodeConfig = yaml.safeLoad(readFileSync('/etc/statiko/node-config.yaml'))
+
+// Scan a directory recursively
+async function* readdirRecursiveGenerator(dir) {
+    const list = await readdir(dir, { withFileTypes: true })
+    for (const el of list) {
+        const res = path.join(dir, el.name)
+        if (el.isDirectory()) {
+            yield* readdirRecursiveGenerator(res)
+        }
+        else {
+            yield res
+        }
+    }
+}
+
+async function readdirRecursive(dir) {
+    const list = []
+    for await (const el of readdirRecursiveGenerator(dir)) {
+        list.push(el)
+    }
+    return list
+}
 
 // Checks the /status page
 async function checkStatus(sites) {
@@ -98,16 +117,16 @@ async function checkStatus(sites) {
             // Is there an app deployed?
             if (s.app && s.app.name) {
                 assert(!el.error)
-                assert.deepStrictEqual(Object.keys(el).sort(), ['app', 'domain', 'size', 'status', 'time'])
+                assert.deepStrictEqual(Object.keys(el).sort(), ['app', 'domain', 'healthy', 'time'])
                 assert(el.app === s.app.name + '-' + s.app.version)
-                assert(el.status === 200)
-                assert(el.size > 1)
+                assert(el.healthy)
                 assert(validator.isISO8601(el.time, {strict: true}))
             }
             else {
                 assert(!el.error)
-                assert.deepStrictEqual(Object.keys(el).sort(), ['app', 'domain'])
+                assert.deepStrictEqual(Object.keys(el).sort(), ['app', 'domain', 'healthy'])
                 assert(el.app === null)
+                assert(el.healthy)
             }
 
             keys.push(el.domain)
@@ -139,18 +158,18 @@ async function checkDataDirectory(sites) {
     }
 
     // Sites
-    assert.deepStrictEqual((await fsReaddir('/data/sites')).sort(), expectSites.sort())
+    assert.deepStrictEqual((await readdir('/data/sites')).sort(), expectSites.sort())
 
     for (let i = 0; i < expectSites.length; i++) {
         assert(await utils.folderExists('/data/sites/' + expectSites[i]))
         assert(await utils.fileExists('/data/sites/' + expectSites[i] + '/nginx-error.log'))
         assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/www'))
         if (expectSites[i] == '_default') {
-            assert.deepStrictEqual((await fsReaddir('/data/sites/_default')).sort(), ['nginx-error.log', 'www'])
+            assert.deepStrictEqual((await readdir('/data/sites/_default')).sort(), ['nginx-error.log', 'www'])
             assert(await utils.fileExists('/data/sites/_default/www/statiko-welcome.html'), 'File statiko-welcome.html not found in default app')
         }
         else {
-            assert.deepStrictEqual((await fsReaddir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])
+            assert.deepStrictEqual((await readdir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])
             assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/tls'))
         }
     }
@@ -170,7 +189,7 @@ async function checkDataDirectory(sites) {
 
     // Apps
     assert(await utils.folderExists('/data/apps/_default'))
-    assert.deepStrictEqual((await fsReaddir('/data/apps')).sort(), expectApps.sort())
+    assert.deepStrictEqual((await readdir('/data/apps')).sort(), expectApps.sort())
 
     for (let i = 0; i < expectApps.length; i++) {
         if (expectApps[i] == '_default') {
@@ -179,11 +198,11 @@ async function checkDataDirectory(sites) {
         else {
             // Check all files and their md5 hash
             const contents = appContents(expectApps[i])
-            assert((await fsReaddir('/data/apps/' + expectApps[i])).length == Object.keys(contents).length)
+            assert((await readdirRecursive('/data/apps/' + expectApps[i])).length == Object.keys(contents).length)
             for (const file in contents) {
                 if (Object.prototype.hasOwnProperty.call(contents, file)) {
                     const hash = contents[file]
-                    const content = await fsReadFile('/data/apps/' + expectApps[i] + '/' + file)
+                    const content = await readFile('/data/apps/' + expectApps[i] + '/' + file)
                     assert.strictEqual(hash, utils.md5String(content))
                 }
             }
@@ -206,14 +225,14 @@ async function checkNginxConfig(sites) {
     // Check the conf.d folder
     assert(await utils.fileExists('/etc/nginx/conf.d/_default.conf'))
     assert.deepStrictEqual(
-        (await fsReaddir('/etc/nginx/conf.d')).sort(),
+        (await readdir('/etc/nginx/conf.d')).sort(),
         (expectSites.map((el) => el + '.conf')).sort()
     )
 
     // Check if the configuration for the default site is correct
     assert.equal(
-        (await fsReadFile('/etc/nginx/conf.d/_default.conf', 'utf8')).trim(),
-        (await fsReadFile('fixtures/nginx-default-site.conf', 'utf8')).trim()
+        (await readFile('/etc/nginx/conf.d/_default.conf', 'utf8')).trim(),
+        (await readFile('fixtures/nginx-default-site.conf', 'utf8')).trim()
     )
 
     // Check if the configuration file for all other sites is correct
@@ -223,8 +242,8 @@ async function checkNginxConfig(sites) {
             const k = keys[i]
             if (expectSites.indexOf(k) != -1) {
                 assert.equal(
-                    (await fsReadFile('/etc/nginx/conf.d/' + k + '.conf', 'utf8')).trim(),
-                    (await fsReadFile('fixtures/nginx-' + k + '.conf', 'utf8')).trim()
+                    (await readFile('/etc/nginx/conf.d/' + k + '.conf', 'utf8')).trim(),
+                    (await readFile('fixtures/nginx-' + k + '.conf', 'utf8')).trim()
                     , 'Error with site ' + k)
             }
         }
@@ -262,7 +281,9 @@ async function checkNginxSite(site, appDeployed) {
                 }
 
                 // If the key is the manifest file, expect a 404
-                if (key == '_statiko.yaml') {
+                // Also, certain paths are denied, so we can expect a 404 there too
+                if (key == '_statiko.yaml' ||
+                    (appDeployed.expect404 && appDeployed.expect404.includes(key))) {
                     const p = nginxRequest
                         .get('/' + key)
                         .set('Host', site.domain)
@@ -451,7 +472,7 @@ const tests = {
             assert(await utils.folderExists('/data/cache'))
             assert(await utils.folderExists('/data/misc'))
             assert(await utils.folderExists('/data/sites'))
-            assert.deepStrictEqual(await fsReaddir('/data'), ['apps', 'cache', 'misc', 'sites'])
+            assert.deepStrictEqual(await readdir('/data'), ['apps', 'cache', 'misc', 'sites'])
 
             // Check the data directory
             await checkDataDirectory(sites)
@@ -488,7 +509,7 @@ const tests = {
             assert(await utils.fileExists('/etc/nginx/mime.types'))
             assert(await utils.fileExists('/etc/nginx/nginx.conf'))
             assert.deepStrictEqual(
-                (await fsReaddir('/etc/nginx')).sort(),
+                (await readdir('/etc/nginx')).sort(),
                 ['conf.d', 'mime.types', 'nginx.conf']
             )
             
