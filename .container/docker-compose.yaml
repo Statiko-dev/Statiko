@@ -2,7 +2,7 @@ version: "3.4"
 
 services:
   statiko:
-    image: italypaleale/statiko:latest
+    image: statiko/statiko:latest
     restart: always
     container_name: statiko
     volumes:
