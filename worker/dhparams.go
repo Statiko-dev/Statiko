@@ -19,12 +19,14 @@ package worker
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"log"
 	"os"
 	"time"
 
 	dhparam "github.com/Luzifer/go-dhparam"
 
+	"github.com/ItalyPaleAle/statiko/appconfig"
 	"github.com/ItalyPaleAle/statiko/state"
 	"github.com/ItalyPaleAle/statiko/sync"
 )
@@ -32,18 +34,33 @@ import (
 // Logger for this file
 var dhparamsLogger *log.Logger
 
-// Regenerate DH params if they're older than 90 days
-const dhparamsMaxAge = time.Duration((-1) * 90 * 24 * time.Hour)
+// Control how often to regenerate DH parameters
+var dhparamsMaxAge time.Duration
+var dhparamsRegeneration bool
 
 // In background, periodically re-generate DH parameters
 func startDHParamsWorker() {
 	// How often to regenerate DH params: check every 3-6 days
-	// Run every 3-6 days, but re-generate the DH params every 90 days
+	// Run every 3-6 days, but re-generate the DH params every N days (default 120)
 	var rnd uint64
 	if err := binary.Read(rand.Reader, binary.BigEndian, &rnd); err != nil {
 		panic(err)
 	}
 	hours := (rnd%25)*3 + 72
+
+	// Get the max age for dhparams
+	maxAgeDays := appconfig.Config.GetInt("tls.dhparams.maxAge")
+	// If < 0, never regenerate dhparams (besides the first time)
+	if maxAgeDays < 0 {
+		dhparamsRegeneration = false
+	} else {
+		// Must be at least one week and no more than 2 years
+		if maxAgeDays < 7 || maxAgeDays > 720 {
+			panic(errors.New("tls.dhparams.maxAge must be between 7 and 720 days; to disable automatic regeneration, set a negative value"))
+		}
+		dhparamsRegeneration = true
+		dhparamsMaxAge = time.Duration((-1) * time.Duration(maxAgeDays) * 24 * time.Hour)
+	}
 
 	// Set variables
 	dhparamsInterval := time.Duration(time.Duration(hours) * time.Hour)
@@ -57,12 +74,16 @@ func startDHParamsWorker() {
 			dhparamsLogger.Println("Worker error:", err)
 		}
 
-		// Run on ticker
-		for range ticker.C {
-			err := dhparamsWorker()
-			if err != nil {
-				dhparamsLogger.Println("Worker error:", err)
+		if dhparamsRegeneration {
+			// Run on ticker
+			for range ticker.C {
+				err := dhparamsWorker()
+				if err != nil {
+					dhparamsLogger.Println("Worker error:", err)
+				}
 			}
+		} else {
+			dhparamsLogger.Println("DH params regeneration disabled - exiting worker")
 		}
 	}()
 }
@@ -75,8 +96,9 @@ func dhparamsWorker() error {
 	needsSync := false
 
 	// Get the current DH parameters
+	// We'll regenerate them only if dhparamsRegeneration is true, or if we're using the default ones
 	_, date := state.Instance.GetDHParams()
-	if date == nil || date.Before(beforeTime) {
+	if date == nil || (dhparamsRegeneration && date.Before(beforeTime)) {
 		// Need to regenerate the DH parameters
 		dhparamsLogger.Println("DH parameters expired; starting generation")
 		result, err := dhparam.Generate(4096, dhparam.GeneratorTwo, nil)
@@ -91,6 +113,8 @@ func dhparamsWorker() error {
 		if err != nil {
 			return err
 		}
+
+		dhparamsLogger.Println("Done: DH parameters generated")
 	} else {
 		dhparamsLogger.Println("DH parameters still valid")
 	}
@@ -99,8 +123,6 @@ func dhparamsWorker() error {
 	if needsSync {
 		sync.QueueRun()
 	}
-
-	dhparamsLogger.Println("Done")
 
 	return nil
 }

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -445,7 +446,11 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 				if v.Exact != "" {
 					location = "= " + v.Exact
 				} else if v.Prefix != "" {
-					location = v.Prefix
+					if v.Prefix == "/" {
+						location = "/"
+					} else {
+						location = "^~ " + v.Prefix
+					}
 				} else if v.Match != "" {
 					if v.CaseSensitive {
 						location = "~ " + v.Match
@@ -574,6 +579,15 @@ func (n *NginxConfig) sanitizeManifestRuleOptions(v utils.ManifestRuleOptions) u
 			}
 			// Escape the header
 			v.CleanHeaders[escapeConfigString(hk)] = escapeConfigString(hv)
+		}
+	}
+
+	// Validate the URL for proxying
+	if v.Proxy != "" {
+		parsed, err := url.ParseRequestURI(v.Proxy)
+		if err != nil || parsed == nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			n.logger.Println("Ignoring invalid value for proxy:", v.Proxy)
+			v.Proxy = ""
 		}
 	}
 

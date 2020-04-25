@@ -55,7 +55,7 @@ type jwksKey struct {
 }
 
 // Auth middleware that checks the Authorization header in the request
-func Auth() gin.HandlerFunc {
+func Auth(required bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Check the Authorization header, and stop invalid requests
 		auth := c.GetHeader("Authorization")
@@ -71,6 +71,7 @@ func Auth() gin.HandlerFunc {
 			// If pre-shared keys are allowed, check if there's a match
 			if appconfig.Config.GetBool("auth.psk.enabled") && auth == appconfig.Config.GetString("auth.psk.key") {
 				// All good
+				c.Set("authenticated", true)
 				return
 			}
 
@@ -99,6 +100,7 @@ func Auth() gin.HandlerFunc {
 						issuer := strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
 						if claims["iss"] == issuer && claims["aud"] == audience && claims["exp"] != "" && claims["nbf"] != "" {
 							// All good
+							c.Set("authenticated", true)
 							return
 						}
 					}
@@ -107,9 +109,12 @@ func Auth() gin.HandlerFunc {
 		}
 
 		// If we're still here, authentication has failed
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"error": "Invalid Authorization header",
-		})
+		// If the authentication was required, abort
+		if required {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "Invalid Authorization header",
+			})
+		}
 		return
 	}
 }

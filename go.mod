@@ -14,6 +14,7 @@ require (
 	github.com/coreos/etcd v3.3.20+incompatible // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/etcd-io/etcd v3.3.20+incompatible
+	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.2
 	github.com/gobuffalo/packd v1.0.0
 	github.com/gobuffalo/packr/v2 v2.8.0

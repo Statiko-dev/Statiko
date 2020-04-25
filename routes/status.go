@@ -29,6 +29,9 @@ import (
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
 func StatusHandler(c *gin.Context) {
+	isAuthenticated := c.GetBool("authenticated")
+	_ = isAuthenticated
+
 	// Check if the state is healthy
 	healthy, err := state.Instance.StoreHealth()
 	if !healthy {
@@ -93,7 +96,7 @@ func StatusHandler(c *gin.Context) {
 			for _, el := range res.Health {
 				if el.Domain == domain {
 					domainHealth = &el
-					if el.Error != nil {
+					if !el.IsHealthy() {
 						appError = true
 					}
 					break
@@ -121,7 +124,7 @@ func StatusHandler(c *gin.Context) {
 		errorCount := 0
 		total := len(res.Health)
 		for _, el := range res.Health {
-			if el.Error != nil {
+			if !el.IsHealthy() {
 				errorCount++
 			} else if el.App == nil {
 				// Ignore sites that have no apps and no errors in the counts

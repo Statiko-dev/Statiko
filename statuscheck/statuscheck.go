@@ -189,10 +189,9 @@ func updateHealthCache() (hasError bool) {
 				appStr = &str
 			}
 			healthCache = append(healthCache, SiteHealth{
-				Domain:   s.Domain,
-				App:      appStr,
-				Error:    s.Error,
-				ErrorStr: s.ErrorStr,
+				Domain: s.Domain,
+				App:    appStr,
+				Error:  s.Error,
 			})
 			continue
 		}
@@ -227,8 +226,6 @@ func updateHealthCache() (hasError bool) {
 		health := <-res
 		if health.Error != nil {
 			hasError = true
-			health.ErrorStr = new(string)
-			*health.ErrorStr = health.Error.Error()
 			errStr := fmt.Sprintf("Status check failed for domain %v: %v", health.Domain, health.Error)
 			logger.Println(errStr)
 

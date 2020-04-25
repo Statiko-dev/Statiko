@@ -27,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
 	"github.com/ItalyPaleAle/statiko/appconfig"
@@ -69,33 +70,49 @@ func main() {
 		panic(err)
 	}
 
+	// CORS
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AddAllowHeaders("Authorization")
+	corsConfig.AllowOrigins = []string{"https://manage.statiko.dev"}
+	if appconfig.ENV != "production" {
+		// For development
+		corsConfig.AllowOrigins = append(corsConfig.AllowOrigins, "http://localhost:5000")
+	}
+	router.Use(cors.New(corsConfig))
+
 	// Add middlewares
 	router.Use(middlewares.NodeName())
 
-	// Add routes
-	router.GET("/status", routes.StatusHandler)
-	router.GET("/status/:domain", routes.StatusHandler)
-	router.GET("/info", routes.InfoHandler)
+	// Add routes that don't require authentication
+	// The middleware still checks for authentication, but it's optional
+	{
+		group := router.Group("/")
+		group.Use(middlewares.Auth(false))
+
+		group.GET("/status", routes.StatusHandler)
+		group.GET("/status/:domain", routes.StatusHandler)
+		group.GET("/info", routes.InfoHandler)
+	}
 
 	// Routes that require authorization
 	{
-		authorized := router.Group("/")
-		authorized.Use(middlewares.Auth())
-		authorized.POST("/site", routes.CreateSiteHandler)
-		authorized.GET("/site", routes.ListSiteHandler)
-		authorized.GET("/site/:domain", routes.ShowSiteHandler)
-		authorized.DELETE("/site/:domain", routes.DeleteSiteHandler)
-		authorized.PATCH("/site/:domain", routes.PatchSiteHandler)
+		group := router.Group("/")
+		group.Use(middlewares.Auth(true))
+		group.POST("/site", routes.CreateSiteHandler)
+		group.GET("/site", routes.ListSiteHandler)
+		group.GET("/site/:domain", routes.ShowSiteHandler)
+		group.DELETE("/site/:domain", routes.DeleteSiteHandler)
+		group.PATCH("/site/:domain", routes.PatchSiteHandler)
 
-		authorized.POST("/site/:domain/app", routes.DeploySiteHandler)
-		authorized.PUT("/site/:domain/app", routes.DeploySiteHandler) // Alias
+		group.POST("/site/:domain/app", routes.DeploySiteHandler)
+		group.PUT("/site/:domain/app", routes.DeploySiteHandler) // Alias
 
-		authorized.GET("/state", routes.GetStateHandler)
-		authorized.POST("/state", routes.PutStateHandler)
-		authorized.PUT("/state", routes.PutStateHandler) // Alias
+		group.GET("/state", routes.GetStateHandler)
+		group.POST("/state", routes.PutStateHandler)
+		group.PUT("/state", routes.PutStateHandler) // Alias
 
-		authorized.POST("/uploadauth", routes.UploadAuthHandler)
-		authorized.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
+		group.POST("/uploadauth", routes.UploadAuthHandler)
+		group.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
 	}
 
 	// HTTP Server

@@ -18,16 +18,19 @@ package utils
 
 // ManifestRuleOptions is used by the AppManifest struct to represent options for a specific location or file type
 type ManifestRuleOptions struct {
+	Deny          bool              `yaml:"deny"`
 	ClientCaching string            `yaml:"clientCaching"`
 	Headers       map[string]string `yaml:"headers"`
 	CleanHeaders  map[string]string `yaml:"-"`
+	Proxy         string            `yaml:"proxy"`
 }
 
 // ManifestRule is the dictionary with rules
 type ManifestRule struct {
 	// An "exact" match equals to a = modifier in the nginx location block
 	Exact string `yaml:"exact"`
-	// A "prefix" match equals to no modifier in the nginx location block
+	// A "prefix" match equals to a ^~ modifier in the nginx location block
+	// Exception is the prefix "/", which doesn't use any modifier
 	Prefix string `yaml:"prefix"`
 	// A "match" match equals to ~* modifier (or ~ modifier if "caseSensitive" is true) in the nginx location block
 	Match         string `yaml:"match"`
