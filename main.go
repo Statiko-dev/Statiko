@@ -73,6 +73,7 @@ func main() {
 	// CORS
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AddAllowHeaders("Authorization")
+	corsConfig.AddExposeHeaders("Date")
 	corsConfig.AllowOrigins = []string{"https://manage.statiko.dev"}
 	if appconfig.ENV != "production" {
 		// For development
