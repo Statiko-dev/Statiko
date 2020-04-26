@@ -222,7 +222,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		updated = updated || u
 
 		// Check if we are dealing with self-signed TLS certificates
-		if s.TLSCertificateSelfSigned {
+		if s.TLSCertificateType == state.TLSCertificateSelfSigned {
 			domains := append([]string{s.Domain}, s.Aliases...)
 			err := m.SelfSignedTLSCertificate(domains...)
 			if err != nil {

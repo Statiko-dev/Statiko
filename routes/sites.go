@@ -21,10 +21,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/statiko-dev/statiko/azurekeyvault"
-
 	"github.com/gin-gonic/gin"
 
+	"github.com/statiko-dev/statiko/azurekeyvault"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
 )
@@ -54,12 +53,21 @@ func CreateSiteHandler(c *gin.Context) {
 	}
 
 	// Self-signed TLS certificates are default when no value is specified, or when value is "selfsigned"
+	// If the value is "letsencrypt", request a certificate from Let's Encrypt (not yet implemented)
 	if site.TLSCertificate == nil || *site.TLSCertificate == "" || *site.TLSCertificate == "selfsigned" {
-		site.TLSCertificateSelfSigned = true
+		site.TLSCertificateType = state.TLSCertificateSelfSigned
 		site.TLSCertificate = nil
 		site.TLSCertificateVersion = nil
+	} else if *site.TLSCertificate == "letsencrypt" {
+		/*site.TLSCertificateType = state.TLSCertificateLetsEncrypt
+		site.TLSCertificate = nil
+		site.TLSCertificateVersion = nil*/
+		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+			"error": "Support for Let's Encrypt not yet implemented",
+		})
+		return
 	} else {
-		site.TLSCertificateSelfSigned = false
+		site.TLSCertificateType = state.TLSCertificateImported
 
 		// Check if the certificate exists
 		exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLSCertificate)
@@ -184,15 +192,18 @@ func PatchSiteHandler(c *gin.Context) {
 		case "tlscertificate":
 			if t != nil && t.Kind() == reflect.String {
 				str := v.(string)
-				if str == "selfsigned" {
+				if str == "letsencrypt" {
 					site.TLSCertificate = nil
-					site.TLSCertificateSelfSigned = true
+					site.TLSCertificateType = state.TLSCertificateLetsEncrypt
+				} else if str == "selfsigned" {
+					site.TLSCertificate = nil
+					site.TLSCertificateType = state.TLSCertificateSelfSigned
 				} else if str == "" {
 					site.TLSCertificate = nil
-					site.TLSCertificateSelfSigned = false
+					site.TLSCertificateType = state.TLSCertificateImported
 				} else {
 					site.TLSCertificate = &str
-					site.TLSCertificateSelfSigned = false
+					site.TLSCertificateType = state.TLSCertificateImported
 
 					// Check if the certificate exists
 					exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLSCertificate)
@@ -211,7 +222,7 @@ func PatchSiteHandler(c *gin.Context) {
 				updated = true
 			} else if t == nil {
 				site.TLSCertificate = nil
-				site.TLSCertificateSelfSigned = false
+				site.TLSCertificateType = state.TLSCertificateImported
 				updatedTLS = true
 				updated = true
 			}
@@ -261,7 +272,7 @@ func PatchSiteHandler(c *gin.Context) {
 	}
 
 	// If we have updated the TLS certificate, but not the version, reset the version
-	if updatedTLS && (!updatedTLSVersion || site.TLSCertificate == nil || site.TLSCertificateSelfSigned) {
+	if updatedTLS && (!updatedTLSVersion || site.TLSCertificate == nil || site.TLSCertificateType != state.TLSCertificateImported) {
 		site.TLSCertificateVersion = nil
 	}
 

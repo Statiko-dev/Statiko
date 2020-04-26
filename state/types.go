@@ -22,6 +22,12 @@ import (
 	"github.com/statiko-dev/statiko/utils"
 )
 
+const (
+	TLSCertificateImported    = "imported"
+	TLSCertificateSelfSigned  = "selfsigned"
+	TLSCertificateLetsEncrypt = "letsencrypt"
+)
+
 // NodeState represents the global state of the node
 type NodeState struct {
 	Sites    []SiteState       `json:"sites"`
@@ -32,9 +38,9 @@ type NodeState struct {
 // SiteState represents the state of a single site
 type SiteState struct {
 	// Configuration
-	TLSCertificateSelfSigned bool    `json:"tlsCertificateSelfSigned"`
-	TLSCertificate           *string `json:"tlsCertificate"`
-	TLSCertificateVersion    *string `json:"tlsCertificateVersion"`
+	TLSCertificateType    string  `json:"tlsCertificateType"`
+	TLSCertificate        *string `json:"tlsCertificate"`
+	TLSCertificateVersion *string `json:"tlsCertificateVersion"`
 
 	// Domains: primary and aliases
 	Domain  string   `json:"domain" binding:"required,ne=_default"`
