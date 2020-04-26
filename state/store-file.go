@@ -134,6 +134,13 @@ func (s *stateStoreFile) OnStateUpdate(callback func()) {
 	// NOOP
 }
 
+// ClusterMembers returns a list with one element only
+func (s *stateStoreFile) ClusterMembers() (map[string]string, error) {
+	res := make(map[string]string, 1)
+	res["0"] = appconfig.Config.GetString("nodeName")
+	return res, nil
+}
+
 func (s *stateStoreFile) createStateFile(path string) (err error) {
 	logger.Println("Will create new state file", path)
 

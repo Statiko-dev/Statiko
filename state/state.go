@@ -285,6 +285,11 @@ func (m *Manager) OnStateUpdate(callback func()) {
 	m.store.OnStateUpdate(callback)
 }
 
+// ClusterMembers returns the list of members in the cluster
+func (m *Manager) ClusterMembers() (map[string]string, error) {
+	return m.store.ClusterMembers()
+}
+
 // GetDHParams returns the PEM-encoded DH parameters and their date
 func (m *Manager) GetDHParams() (string, *time.Time) {
 	// Check if we DH parameters; if not, return the default ones

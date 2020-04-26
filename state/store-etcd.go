@@ -31,6 +31,7 @@ import (
 
 	"github.com/etcd-io/etcd/clientv3"
 	"github.com/etcd-io/etcd/pkg/transport"
+	"github.com/google/uuid"
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/statiko-dev/statiko/appconfig"
@@ -39,14 +40,19 @@ import (
 // Maximum lock duration, in seconds
 const etcdLockDuration = 20
 
+// TTL for node registration
+const etcdNodeRegistrationTTL = 30
+
 type stateStoreEtcd struct {
 	state             *NodeState
 	client            *clientv3.Client
 	stateKey          string
 	stateLockKey      string
 	syncLockKey       string
+	nodesKeyPrefix    string
 	secretKeyPrefix   string
 	dhparamsKeyPrefix string
+	clusterMemberId   string
 	lastRevisionPut   int64
 	updateCallback    func()
 }
@@ -54,11 +60,18 @@ type stateStoreEtcd struct {
 // Init initializes the object
 func (s *stateStoreEtcd) Init() (err error) {
 	s.lastRevisionPut = 0
-	s.stateKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/state"
-	s.stateLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/state"
-	s.syncLockKey = appconfig.Config.GetString("state.etcd.keyPrefix") + "/locks/sync"
-	s.secretKeyPrefix = appconfig.Config.GetString("state.etcd.keyPrefix") + "/secrets/"
-	s.dhparamsKeyPrefix = appconfig.Config.GetString("state.etcd.keyPrefix") + "/dhparams/"
+
+	// Keys and prefixes
+	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
+	s.stateKey = keyPrefix + "/state"
+	s.stateLockKey = keyPrefix + "/locks/state"
+	s.syncLockKey = keyPrefix + "/locks/sync"
+	s.nodesKeyPrefix = keyPrefix + "/nodes/"
+	s.secretKeyPrefix = keyPrefix + "/secrets/"
+	s.dhparamsKeyPrefix = keyPrefix + "/dhparams/"
+
+	// Random ID for this cluster member
+	s.clusterMemberId = uuid.New().String()
 
 	// TLS configuration
 	var tlsConf *tls.Config
@@ -101,6 +114,9 @@ func (s *stateStoreEtcd) Init() (err error) {
 		return fmt.Errorf("error while connecting to etcd cluster: %v", err)
 	}
 
+	// Register the node
+	s.registerNode()
+
 	// Watch for changes
 	go s.watch()
 
@@ -119,6 +135,40 @@ func (s *stateStoreEtcd) getContext() (context.Context, context.CancelFunc) {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
 	// Require a leader
 	return clientv3.WithRequireLeader(ctx), cancelFunc
+}
+
+// Registers the node within the cluster
+func (s *stateStoreEtcd) registerNode() error {
+	// Get a lease
+	ctx, cancel := s.getContext()
+	lease, err := s.client.Grant(ctx, etcdNodeRegistrationTTL)
+	cancel()
+	if err != nil {
+		return err
+	}
+
+	// Put the node name
+	ctx, cancel = s.getContext()
+	_, err = s.client.Put(
+		ctx,
+		s.nodesKeyPrefix+s.clusterMemberId,
+		appconfig.Config.GetString("nodeName"),
+		clientv3.WithLease(lease.ID),
+	)
+	cancel()
+	if err != nil {
+		return err
+	}
+
+	// Maintain the key for as long as the node is up
+	_, err = s.client.KeepAlive(context.Background(), lease.ID)
+	if err != nil {
+		return err
+	}
+
+	logger.Println("Registered node with etcd, with member ID", s.clusterMemberId)
+
+	return nil
 }
 
 // Starts the watcher for changes in etcd
@@ -225,9 +275,7 @@ func (s *stateStoreEtcd) AcquireSyncLock() (interface{}, error) {
 	leaseID = lease.ID
 
 	// Keep the lease alive forever
-	ctx, cancel = s.getContext()
-	_, err = s.client.KeepAlive(context.TODO(), leaseID)
-	cancel()
+	_, err = s.client.KeepAlive(context.Background(), leaseID)
 	if err != nil {
 		return leaseID, err
 	}
@@ -383,6 +431,31 @@ func (s *stateStoreEtcd) Healthy() (healthy bool, err error) {
 // OnStateUpdate stores the callback that is invoked when there's a new state from etcd
 func (s *stateStoreEtcd) OnStateUpdate(callback func()) {
 	s.updateCallback = callback
+}
+
+// ClusterMembers returns the list of members in the cluster
+func (s *stateStoreEtcd) ClusterMembers() (map[string]string, error) {
+	// Gets the list of members
+	ctx, cancel := s.getContext()
+	resp, err := s.client.Get(ctx, s.nodesKeyPrefix, clientv3.WithPrefix())
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the secret exists
+	var members map[string]string
+	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+		members = make(map[string]string, len(resp.Kvs))
+		for _, kv := range resp.Kvs {
+			key := strings.TrimPrefix(string(kv.Key), s.nodesKeyPrefix)
+			members[key] = string(kv.Value)
+		}
+	} else {
+		return nil, errors.New("Received empty list of cluster members")
+	}
+
+	return members, nil
 }
 
 // Serialize the state to JSON

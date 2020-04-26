@@ -79,4 +79,5 @@ type stateStore interface {
 	ReadState() error
 	Healthy() (bool, error)
 	OnStateUpdate(func())
+	ClusterMembers() (map[string]string, error)
 }
