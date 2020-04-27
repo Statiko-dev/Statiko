@@ -47,8 +47,7 @@ type stateStoreEtcd struct {
 	state             *NodeState
 	client            *clientv3.Client
 	stateKey          string
-	stateLockKey      string
-	syncLockKey       string
+	locksKeyPrefix    string
 	nodesKeyPrefix    string
 	secretKeyPrefix   string
 	dhparamsKeyPrefix string
@@ -64,8 +63,7 @@ func (s *stateStoreEtcd) Init() (err error) {
 	// Keys and prefixes
 	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
 	s.stateKey = keyPrefix + "/state"
-	s.stateLockKey = keyPrefix + "/locks/state"
-	s.syncLockKey = keyPrefix + "/locks/sync"
+	s.locksKeyPrefix = keyPrefix + "/locks/"
 	s.nodesKeyPrefix = keyPrefix + "/nodes/"
 	s.secretKeyPrefix = keyPrefix + "/secrets/"
 	s.dhparamsKeyPrefix = keyPrefix + "/dhparams/"
@@ -214,8 +212,8 @@ func (s *stateStoreEtcd) watch() {
 	return
 }
 
-// AcquireStateLock acquires a lock on the state before making changes, across all nodes in the cluster
-func (s *stateStoreEtcd) AcquireStateLock() (interface{}, error) {
+// AcquireLock acquires a lock, with an optional timeout
+func (s *stateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, error) {
 	var leaseID clientv3.LeaseID
 
 	// Get a lease
@@ -228,11 +226,11 @@ func (s *stateStoreEtcd) AcquireStateLock() (interface{}, error) {
 	leaseID = lease.ID
 
 	// Try to acquire the lock
-	i := etcdLockDuration + 5
+	i := etcdLockDuration * 2
 	for i > 0 {
-		logger.Println("Acquiring etcd state lock")
+		logger.Println("Acquiring lock in etcd:", name)
 
-		succeeded, err := s.tryLockAcquisition(s.stateLockKey, leaseID)
+		succeeded, err := s.tryLockAcquisition(s.locksKeyPrefix+name, leaseID)
 		if err != nil {
 			return leaseID, err
 		}
@@ -242,9 +240,13 @@ func (s *stateStoreEtcd) AcquireStateLock() (interface{}, error) {
 			break
 		} else {
 			// Someone else has a lock, so sleep for 1 second
-			logger.Printf("Another etcd node has a state lock - waiting (timeout in %d seconds)\n", i)
+			if timeout {
+				logger.Printf("Another node has a lock - waiting (timeout in %d seconds)\n", i)
+				i--
+			} else {
+				logger.Println("Another node has a lock - waiting")
+			}
 			time.Sleep(1000 * time.Millisecond)
-			i--
 		}
 	}
 
@@ -252,64 +254,15 @@ func (s *stateStoreEtcd) AcquireStateLock() (interface{}, error) {
 		return leaseID, errors.New("could not obtain a state lock - timeout occurred")
 	}
 
-	return leaseID, nil
-}
-
-// ReleaseStateLock releases the lock on the state
-func (s *stateStoreEtcd) ReleaseStateLock(leaseID interface{}) error {
-	logger.Println("Releasing etcd state lock")
-	return s.releaseLock(leaseID)
-}
-
-// AcquireSyncLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
-func (s *stateStoreEtcd) AcquireSyncLock() (interface{}, error) {
-	var leaseID clientv3.LeaseID
-
-	// Get a lease
-	ctx, cancel := s.getContext()
-	lease, err := s.client.Grant(ctx, 10)
-	cancel()
-	if err != nil {
-		return leaseID, err
-	}
-	leaseID = lease.ID
-
-	// Keep the lease alive forever
-	_, err = s.client.KeepAlive(context.Background(), leaseID)
-	if err != nil {
-		return leaseID, err
-	}
-
-	// Try to acquire the lock, waiting indefinitely if needed
-	for true {
-		logger.Println("Acquiring etcd sync lock")
-
-		succeeded, err := s.tryLockAcquisition(s.syncLockKey, leaseID)
-		if err != nil {
-			return leaseID, err
-		}
-
-		// If this succeeded, we got the lock
-		if succeeded {
-			break
-		} else {
-			// Someone else has a lock, so sleep for 5 second
-			logger.Println("Another etcd node has a sync lock - waiting 5 seconds")
-			time.Sleep(5000 * time.Millisecond)
-		}
-	}
+	logger.Println("Acquired etcd lock with ID:", leaseID)
 
 	return leaseID, nil
 }
 
-// ReleaseSyncLock releases the lock on the sync semaphore
-func (s *stateStoreEtcd) ReleaseSyncLock(leaseID interface{}) error {
-	logger.Println("Releasing etcd sync lock")
-	return s.releaseLock(leaseID)
-}
+// ReleaseLock releases a lock
+func (s *stateStoreEtcd) ReleaseLock(leaseID interface{}) error {
+	logger.Println("Releasing etcd lock with ID:", leaseID)
 
-// Releases a lock, both on state and on sync semaphore
-func (s *stateStoreEtcd) releaseLock(leaseID interface{}) error {
 	// Revoke the lease
 	ctx, cancel := s.getContext()
 	_, err := s.client.Revoke(ctx, leaseID.(clientv3.LeaseID))

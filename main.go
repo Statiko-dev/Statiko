@@ -129,7 +129,7 @@ func main() {
 	idleConnsClosed := make(chan struct{})
 	go func() {
 		s := make(chan os.Signal, 1)
-		signal.Notify(s, os.Interrupt, syscall.SIGTERM)
+		signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
 		<-s
 
 		// We received an interrupt signal, shut down.

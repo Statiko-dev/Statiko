@@ -75,10 +75,8 @@ type NodeDHParams struct {
 // Interface for the state stores
 type stateStore interface {
 	Init() error
-	AcquireStateLock() (interface{}, error)
-	ReleaseStateLock(interface{}) error
-	AcquireSyncLock() (interface{}, error)
-	ReleaseSyncLock(interface{}) error
+	AcquireLock(name string, timeout bool) (interface{}, error)
+	ReleaseLock(leaseID interface{}) error
 	GetState() *NodeState
 	SetState(*NodeState) error
 	WriteState() error

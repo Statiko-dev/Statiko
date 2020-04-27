@@ -26,15 +26,59 @@ import (
 	"errors"
 	"math/big"
 	"time"
+
+	"github.com/statiko-dev/statiko/state"
 )
 
 // SelfSignedCertificateIssuer is the organization that issues self-signed certificates
 const SelfSignedCertificateIssuer = "statiko self-signed"
 
-// GenerateCertificate generates a new self-signed TLS certificate (with a RSA 4096-bit key) and returns the private key and public certificate encoded as PEM
+// GetSelfSignedCertificate returns a self-signed certificate, with key and certificate PEM-encoded
+func GetSelfSignedCertificate(site *state.SiteState) (key []byte, cert []byte, err error) {
+	// List of domains
+	domains := append([]string{site.Domain}, site.Aliases...)
+
+	// Keys
+	storePathKey := "cert/" + site.Domain + ".key.pem"
+	storePathCert := "cert/" + site.Domain + ".cert.pem"
+
+	// Check if we have certificates generated already in the state store
+	key, err = state.Instance.GetSecret(storePathKey)
+	if err != nil {
+		key = nil
+		return
+	}
+	cert, err = state.Instance.GetSecret(storePathCert)
+	if err != nil {
+		key = nil
+		cert = nil
+		return
+	}
+
+	// Check if the certificate is not empty and if it's still valid
+	if key == nil || len(key) == 0 || cert == nil || len(cert) == 0 {
+		key, cert, err = generateSelfSignedCertificate(domains...)
+		return
+	}
+
+	// Check if the certificate is not valid anymore
+	var certObj *x509.Certificate
+	certObj, err = x509.ParseCertificate(cert)
+	if err != nil {
+		return
+	}
+	if InspectCertificate(site, certObj) != nil {
+		key, cert, err = generateSelfSignedCertificate(domains...)
+		return
+	}
+
+	return
+}
+
+// generateSelfSignedCertificate generates a new self-signed TLS certificate (with a RSA 4096-bit key) and returns the private key and public certificate encoded as PEM
 // The first domain is the primary one, used as value for the "Common Name" value too
 // Each certificate is valid for 1 year
-func GenerateCertificate(domains ...string) (keyPEM []byte, certPEM []byte, err error) {
+func generateSelfSignedCertificate(domains ...string) (keyPEM []byte, certPEM []byte, err error) {
 	// Ensure we have at least 1 domain
 	if len(domains) < 1 {
 		err = errors.New("need to specify at least one domain name")

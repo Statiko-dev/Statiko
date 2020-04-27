@@ -884,22 +884,3 @@ func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCer
 
 	return tlsCertificateVersion, nil
 }
-
-// InspectCertificate loads a X.509 certificate and checks its details, such as expiration
-func (m *Manager) InspectCertificate(name string, cert *x509.Certificate) error {
-	now := time.Now()
-
-	// Check "NotBefore"
-	if !cert.NotBefore.Before(now) {
-		// Print a warning
-		m.log.Println("[Warn] Certificate's NotBefore is in the future:", name, cert.NotBefore)
-	}
-
-	// Check "NotAfter"
-	if cert.NotAfter.Before(now) {
-		// Print a warning
-		m.log.Println("[Warn] Certificate has expired:", name, cert.NotAfter)
-	}
-
-	return nil
-}

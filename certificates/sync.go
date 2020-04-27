@@ -18,13 +18,8 @@ package certificates
 
 import (
 	"bytes"
-	"crypto/x509"
-	"encoding/pem"
 	"io/ioutil"
-	"reflect"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/state"
@@ -90,7 +85,7 @@ func processSite(site *state.SiteState) (updated bool, err error) {
 	if keyPEM == nil || len(keyPEM) == 0 || certPEM == nil || len(certPEM) == 0 || !checkSelfSignedTLSCertificate(certPEM, domains) {
 		logger.Println("Need to generate a self-signed certificate for site", site.Domain)
 
-		keyPEM, certPEM, err = GenerateCertificate(domains...)
+		keyPEM, certPEM, err = generateSelfSignedCertificate(domains...)
 		if err != nil {
 			return
 		}
@@ -170,36 +165,4 @@ func processSite(site *state.SiteState) (updated bool, err error) {
 	}
 
 	return
-}
-
-// Checks a self-signed TLS certificate to ensure it's still valid
-func checkSelfSignedTLSCertificate(certPEM []byte, domains []string) bool {
-	// Copy then sort the list of domains
-	domainsSorted := append(make([]string, 0, len(domains)), domains...)
-	sort.Strings(domainsSorted)
-
-	// Decode the certificate
-	block, _ := pem.Decode(certPEM)
-	if block == nil || block.Type != "CERTIFICATE" {
-		return false
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return false
-	}
-
-	// Check if the certificate is expiring in less than 7 days
-	if cert.NotAfter.Before(time.Now().Add(7 * 24 * time.Hour)) {
-		return false
-	}
-
-	// Check if the list of domains matches
-	certDomains := append(make([]string, 0, len(cert.DNSNames)), cert.DNSNames...)
-	sort.Strings(certDomains)
-	if !reflect.DeepEqual(domainsSorted, certDomains) {
-		return false
-	}
-
-	// Certificate is still valid
-	return true
 }
