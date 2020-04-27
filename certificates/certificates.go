@@ -68,7 +68,7 @@ func GetImportedCertificate(site *state.SiteState) (key []byte, cert []byte, cer
 		return
 	}
 	name = *site.TLSCertificate
-	if site.TLSCertificateVersion == nil && *site.TLSCertificateVersion == "" {
+	if site.TLSCertificateVersion != nil && *site.TLSCertificateVersion != "" {
 		version = *site.TLSCertificateVersion
 	}
 	version, cert, key, certObj, err = azurekeyvault.GetInstance().GetCertificate(name, version)

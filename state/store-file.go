@@ -129,6 +129,12 @@ func (s *stateStoreFile) ClusterMembers() (map[string]string, error) {
 	return res, nil
 }
 
+// IsLeader returns true if this node is the leader of the cluster
+func (s *stateStoreFile) IsLeader() bool {
+	// When storing state in a file, we're operating in single-node mode
+	return true
+}
+
 func (s *stateStoreFile) createStateFile(path string) (err error) {
 	logger.Println("Will create new state file", path)
 

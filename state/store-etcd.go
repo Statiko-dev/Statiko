@@ -18,19 +18,17 @@ package state
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/etcd-io/etcd/clientv3"
-	"github.com/etcd-io/etcd/pkg/transport"
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
+	"github.com/coreos/etcd/pkg/transport"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/connectivity"
 
@@ -44,29 +42,33 @@ const etcdLockDuration = 20
 const etcdNodeRegistrationTTL = 30
 
 type stateStoreEtcd struct {
-	state             *NodeState
-	client            *clientv3.Client
-	stateKey          string
-	locksKeyPrefix    string
-	nodesKeyPrefix    string
-	secretKeyPrefix   string
-	dhparamsKeyPrefix string
-	clusterMemberId   string
-	lastRevisionPut   int64
-	updateCallback    func()
+	state            *NodeState
+	client           *clientv3.Client
+	stateKey         string
+	electionKey      string
+	dhparamsKey      string
+	locksKeyPrefix   string
+	nodesKeyPrefix   string
+	secretsKeyPrefix string
+	clusterMemberId  string
+	isLeader         bool
+	lastRevisionPut  int64
+	updateCallback   func()
 }
 
 // Init initializes the object
 func (s *stateStoreEtcd) Init() (err error) {
 	s.lastRevisionPut = 0
+	s.isLeader = false
 
 	// Keys and prefixes
 	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
 	s.stateKey = keyPrefix + "/state"
+	s.electionKey = keyPrefix + "/election"
+	s.dhparamsKey = keyPrefix + "/dhparams"
 	s.locksKeyPrefix = keyPrefix + "/locks/"
 	s.nodesKeyPrefix = keyPrefix + "/nodes/"
-	s.secretKeyPrefix = keyPrefix + "/secrets/"
-	s.dhparamsKeyPrefix = keyPrefix + "/dhparams/"
+	s.secretsKeyPrefix = keyPrefix + "/secrets/"
 
 	// Random ID for this cluster member
 	s.clusterMemberId = uuid.New().String()
@@ -114,6 +116,12 @@ func (s *stateStoreEtcd) Init() (err error) {
 
 	// Register the node
 	s.registerNode()
+
+	// Start leader election
+	_, err = s.runElection()
+	if err != nil {
+		return fmt.Errorf("error while running etcd election campaign: %v", err)
+	}
 
 	// Watch for changes
 	go s.watch()
@@ -210,6 +218,145 @@ func (s *stateStoreEtcd) watch() {
 	cancel()
 
 	return
+}
+
+// Starts a leader election
+func (s *stateStoreEtcd) runElection() (<-chan bool, error) {
+	// Adapted from https://gist.github.com/thrawn01/c007e6a37b682d3899910e33243a3cdc
+	var errChan chan error
+
+	var leaderChan chan bool
+	setLeader := func(set bool) {
+		// Only report changes in leadership
+		if s.isLeader == set {
+			return
+		}
+		s.isLeader = set
+		leaderChan <- set
+	}
+
+	createSession := func(id int64) (session *concurrency.Session, election *concurrency.Election, err error) {
+		ctx, cancel := s.getContext()
+		session, err = concurrency.NewSession(
+			s.client,
+			concurrency.WithTTL(etcdLockDuration),
+			concurrency.WithContext(ctx),
+			concurrency.WithLease(clientv3.LeaseID(id)),
+		)
+		cancel()
+		if err != nil {
+			session = nil
+			return
+		}
+		election = concurrency.NewElection(session, s.electionKey)
+		return
+	}
+
+	session, election, err := createSession(0)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		leaderChan = make(chan bool, 10)
+		defer close(leaderChan)
+
+		for {
+			// Discover who if any, is leader of this election
+			ctx, cancel := s.getContext()
+			node, err := election.Leader(ctx)
+			cancel()
+			if err != nil {
+				if err != concurrency.ErrElectionNoLeader {
+					logger.Printf("[Error] Error while determining election leader: %s\n", err)
+					goto reconnect
+				}
+			} else if string(node.Kvs[0].Value) == s.clusterMemberId {
+				// Resuming an election from which we previously had leadership
+				// If resign takes longer than our TTL then lease is expired and we are no
+				// longer leader anyway.
+				ctx, cancel := s.getContext()
+				election = concurrency.ResumeElection(session, s.electionKey,
+					string(node.Kvs[0].Key), node.Kvs[0].CreateRevision)
+				err = election.Resign(ctx)
+				cancel()
+				if err != nil {
+					logger.Printf("[Error] Error while resigning leadership after reconnect: %s\n", err)
+					goto reconnect
+				}
+			}
+			// Reset leadership if we had it previously
+			setLeader(false)
+
+			// Attempt to become leader
+			errChan = make(chan error)
+			go func() {
+				// Make this a non blocking call so we can check for session close
+				errChan <- election.Campaign(ctx, s.clusterMemberId)
+			}()
+
+			select {
+			case err = <-errChan:
+				if err != nil {
+					if err == context.Canceled {
+						return
+					}
+					// NOTE: Campaign currently does not return an error if session expires
+					logger.Printf("[Error] Error while campaigning for leader: %s\n", err)
+					session.Close()
+					goto reconnect
+				}
+			case <-ctx.Done():
+				session.Close()
+				return
+			case <-session.Done():
+				goto reconnect
+			}
+
+		reconnect:
+			setLeader(false)
+
+			for {
+				session, election, err = createSession(0)
+				if err != nil {
+					if err == context.Canceled {
+						return
+					}
+					logger.Printf("[Error] Error while creating new session: %s", err)
+					tick := time.NewTicker(1 * time.Second)
+					select {
+					case <-ctx.Done():
+						tick.Stop()
+						return
+					case <-tick.C:
+						tick.Stop()
+					}
+					continue
+				}
+				break
+			}
+		}
+	}()
+
+	// Wait until we have a leader before returning
+	for {
+		ctx, cancel := s.getContext()
+		resp, err := election.Leader(ctx)
+		cancel()
+		if err != nil {
+			if err != concurrency.ErrElectionNoLeader {
+				return nil, err
+			}
+			time.Sleep(time.Millisecond * 300)
+			continue
+		}
+		// If we are not leader, notify the channel
+		if string(resp.Kvs[0].Value) != s.clusterMemberId {
+			leaderChan <- false
+		}
+		break
+	}
+	return leaderChan, nil
 }
 
 // AcquireLock acquires a lock, with an optional timeout
@@ -411,6 +558,11 @@ func (s *stateStoreEtcd) ClusterMembers() (map[string]string, error) {
 	return members, nil
 }
 
+// IsLeader returns true if this node is the leader of the cluster
+func (s *stateStoreEtcd) IsLeader() bool {
+	return s.isLeader
+}
+
 // Serialize the state to JSON
 // Additionally, store all secrets longer than 64 bytes in a separate etcd key
 // Store the DH parameters file in a separate etcd key too
@@ -422,80 +574,44 @@ func (s *stateStoreEtcd) serializeState() ([]byte, error) {
 
 	// Check if we have any secret
 	if s.state.Secrets != nil && len(s.state.Secrets) > 0 {
-		serialize.Secrets = make(map[string][]byte, len(s.state.Secrets))
-
 		for k, v := range s.state.Secrets {
-			// If the secret is up to 64 bytes, add it as is
-			if len(v) <= 64 {
-				serialize.Secrets[k] = v
-				continue
-			}
-
-			// Value is longer than 64 bytes, so store it as a separate key
-			// First, calculate its hash
-			h := sha256.New()
-			if _, err := h.Write(v); err != nil {
-				return nil, err
-			}
-			hash := h.Sum(nil)
-
-			// Convert to hex for the key name
-			secretKey := s.secretKeyPrefix + hex.EncodeToString(hash)
-
 			// Encode the value to b64
 			secretData := base64.StdEncoding.EncodeToString(v)
 
-			// If the secret doesn't exist, store it
-			// Use a transaction that stores the value only if it doesn't exist already
-			// Since the key of the secret is its hash, if the key already exists, then we have the same secret
+			// Store the secret if different
 			ctx, cancel := s.getContext()
 			txn := s.client.Txn(ctx)
-			res, err := txn.If(
-				clientv3.Compare(clientv3.Version(secretKey), "=", 0),
+			_, err := txn.If(
+				clientv3.Compare(clientv3.Value(s.secretsKeyPrefix+k), "!=", secretData),
 			).Then(
-				clientv3.OpPut(secretKey, secretData),
+				clientv3.OpPut(s.secretsKeyPrefix+k, secretData),
 			).Commit()
 			cancel()
-
 			if err != nil {
 				return nil, err
 			}
-
-			if res.Succeeded {
-				logger.Println("Stored secret:", secretKey)
-			}
-
-			// Set the value of the secret to the hash, with the "etcd:" prefix
-			serialize.Secrets[k] = append([]byte("etcd:"), hash...)
 		}
 	}
 
 	// Check if we have DH params
 	if s.state.DHParams != nil && s.state.DHParams.PEM != "" && s.state.DHParams.Date != nil {
-		// Get the key
-		dhparamsKey := s.dhparamsKeyPrefix + strconv.FormatInt(s.state.DHParams.Date.Unix(), 10)
-
-		// Use a transaction that stores the value only if it doesn't exist already
-		ctx, cancel := s.getContext()
-		txn := s.client.Txn(ctx)
-		res, err := txn.If(
-			clientv3.Compare(clientv3.Version(dhparamsKey), "=", 0),
-		).Then(
-			clientv3.OpPut(dhparamsKey, s.state.DHParams.PEM),
-		).Commit()
-		cancel()
-
+		// Encode to JSON
+		dhparams, err := json.Marshal(s.state.DHParams)
 		if err != nil {
 			return nil, err
 		}
 
-		if res.Succeeded {
-			logger.Println("Stored DH params:", dhparamsKey)
-		}
-
-		// Store the reference
-		serialize.DHParams = &NodeDHParams{
-			Date: s.state.DHParams.Date,
+		// Store the value if different
+		ctx, cancel := s.getContext()
+		txn := s.client.Txn(ctx)
+		_, err = txn.If(
+			clientv3.Compare(clientv3.Value(s.dhparamsKey), "!=", string(dhparams)),
+		).Then(
+			clientv3.OpPut(s.dhparamsKey, string(dhparams)),
+		).Commit()
+		cancel()
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -518,65 +634,35 @@ func (s *stateStoreEtcd) unserializeState(data []byte) error {
 		return err
 	}
 
-	// Iterate through the secrets, if any
-	if unserialized.Secrets != nil && len(unserialized.Secrets) > 0 {
-		for k, v := range unserialized.Secrets {
-			// If the value isn't 37-byte and starting with "etcd:", it's definitely not a hash
-			if len(v) != 37 || string(v[0:5]) != "etcd:" {
-				continue
-			}
-
-			// Check if the secret is already in the current version of the state
-			// Since secrets are referenced by its hash, they're immutable
-			if s.state != nil && s.state.Secrets != nil {
-				if _, ok := s.state.Secrets[k]; ok {
-					unserialized.Secrets[k] = s.state.Secrets[k]
-					continue
-				}
-			}
-
-			// Need to retrieve the secret from etcd
-			hash := v[5:]
-			secretKey := s.secretKeyPrefix + hex.EncodeToString(hash)
-			ctx, cancel := s.getContext()
-			resp, err := s.client.Get(ctx, secretKey)
-			cancel()
-			if err != nil {
-				return err
-			}
-
-			// Check if the secret exists
-			if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+	// Retrieve the list of secrets
+	ctx, cancel := s.getContext()
+	resp, err := s.client.Get(ctx, s.secretsKeyPrefix, clientv3.WithPrefix())
+	cancel()
+	if err != nil {
+		return err
+	}
+	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+		unserialized.Secrets = make(map[string][]byte)
+		for _, kv := range resp.Kvs {
+			if kv.Value != nil && len(kv.Value) > 0 {
 				// Decode the value from base64
-				secret, err := base64.StdEncoding.DecodeString(string(resp.Kvs[0].Value))
+				secret, err := base64.StdEncoding.DecodeString(string(kv.Value))
 				if err != nil {
 					return err
 				}
-				unserialized.Secrets[k] = secret
-			} else {
-				// Doesn't exist, so print a warning and leave the secret empty
-				logger.Println("[Warn] Secret not found in etcd:", secretKey)
+				unserialized.Secrets[string(kv.Key)] = secret
 			}
 		}
 	}
 
-	// Check if we have any DH parameters to retrieve
-	if unserialized.DHParams != nil && unserialized.DHParams.Date != nil {
-		// Retrieve from etcd
-		dhparamsKey := s.dhparamsKeyPrefix + strconv.FormatInt(unserialized.DHParams.Date.Unix(), 10)
-		ctx, cancel := s.getContext()
-		resp, err := s.client.Get(ctx, dhparamsKey)
-		cancel()
+	// Retrieve DH parameters, if any
+	ctx, cancel = s.getContext()
+	resp, err = s.client.Get(ctx, s.dhparamsKey)
+	cancel()
+	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+		err := json.Unmarshal(resp.Kvs[0].Value, unserialized.DHParams)
 		if err != nil {
 			return err
-		}
-
-		// Check if we have any response
-		if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
-			unserialized.DHParams.PEM = string(resp.Kvs[0].Value)
-		} else {
-			// Doesn't exist, so print a warning and leave the secret empty
-			logger.Println("[Warn] DH params referenced but not found in etcd:", dhparamsKey)
 		}
 	}
 

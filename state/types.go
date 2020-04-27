@@ -31,7 +31,7 @@ const (
 // NodeState represents the global state of the node
 type NodeState struct {
 	Sites    []SiteState       `json:"sites"`
-	Secrets  map[string][]byte `json:"secrets"`
+	Secrets  map[string][]byte `json:"secrets,omitempty"`
 	DHParams *NodeDHParams     `json:"dhparams,omitempty"`
 }
 
@@ -84,4 +84,5 @@ type stateStore interface {
 	Healthy() (bool, error)
 	OnStateUpdate(func())
 	ClusterMembers() (map[string]string, error)
+	IsLeader() bool
 }

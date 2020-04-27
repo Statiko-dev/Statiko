@@ -55,23 +55,38 @@ func GetSelfSignedCertificate(site *state.SiteState) (key []byte, cert []byte, e
 		return
 	}
 
+	var certObj *x509.Certificate
+
+	// TODO: THIS SHOULD HAPPEN IN THE CLUSTER LEADER ONLY
 	// Check if the certificate is not empty and if it's still valid
 	if key == nil || len(key) == 0 || cert == nil || len(cert) == 0 {
-		key, cert, err = generateSelfSignedCertificate(domains...)
-		return
+		goto generate
 	}
 
 	// Check if the certificate is not valid anymore
-	var certObj *x509.Certificate
 	certObj, err = x509.ParseCertificate(cert)
 	if err != nil {
 		return
 	}
 	if InspectCertificate(site, certObj) != nil {
-		key, cert, err = generateSelfSignedCertificate(domains...)
-		return
+		goto generate
 	}
 
+	return
+
+generate:
+	// Generate a new certificate
+	key, cert, err = generateSelfSignedCertificate(domains...)
+
+	// Store the certificate
+	err = state.Instance.SetSecret(storePathKey, key)
+	if err != nil {
+		return
+	}
+	err = state.Instance.SetSecret(storePathCert, cert)
+	if err != nil {
+		return
+	}
 	return
 }
 
