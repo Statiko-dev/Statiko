@@ -465,17 +465,24 @@ func (s *stateStoreEtcd) WriteState() (err error) {
 	// Set revision to -1 as a semaphore
 	s.lastRevisionPut = -1
 
-	// Store in etcd
-	var res *clientv3.PutResponse
+	// Store in etcd only if it has changed
 	ctx, cancel := s.getContext()
-	res, err = s.client.Put(ctx, s.stateKey, string(data))
+	txn := s.client.Txn(ctx)
+	res, err := txn.If(
+		clientv3.Compare(clientv3.Value(s.stateKey), "!=", string(data)),
+	).Then(
+		clientv3.OpPut(s.stateKey, string(data)),
+	).Commit()
 	cancel()
 	if err != nil {
 		s.lastRevisionPut = 0
-		return
+		return err
 	}
-	s.lastRevisionPut = res.Header.GetRevision()
-	logger.Println("Stored state in etcd: version", s.lastRevisionPut)
+	// If it has changed
+	if res.Succeeded {
+		s.lastRevisionPut = res.Header.GetRevision()
+		logger.Println("Stored state in etcd: version", s.lastRevisionPut)
+	}
 	return
 }
 

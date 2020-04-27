@@ -55,6 +55,7 @@ func GetSelfSignedCertificate(site *state.SiteState) (key []byte, cert []byte, e
 		return
 	}
 
+	var block *pem.Block
 	var certObj *x509.Certificate
 
 	// TODO: THIS SHOULD HAPPEN IN THE CLUSTER LEADER ONLY
@@ -64,7 +65,14 @@ func GetSelfSignedCertificate(site *state.SiteState) (key []byte, cert []byte, e
 	}
 
 	// Check if the certificate is not valid anymore
-	certObj, err = x509.ParseCertificate(cert)
+	block, _ = pem.Decode(cert)
+	if block == nil {
+		key = nil
+		cert = nil
+		err = errors.New("invalid certificate PEM block")
+		return
+	}
+	certObj, err = x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return
 	}
