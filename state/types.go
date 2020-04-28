@@ -84,6 +84,4 @@ type stateStore interface {
 	Healthy() (bool, error)
 	OnStateUpdate(func())
 	ClusterMembers() (map[string]string, error)
-	IsLeader() bool
-	AddJob(job string) error
 }

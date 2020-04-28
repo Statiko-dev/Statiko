@@ -26,42 +26,42 @@ import (
 	"github.com/statiko-dev/statiko/utils"
 )
 
-type stateStoreFile struct {
+type StateStoreFile struct {
 	state *NodeState
 }
 
 // Init initializes the object
-func (s *stateStoreFile) Init() (err error) {
+func (s *StateStoreFile) Init() (err error) {
 	// Read the state from disk
 	err = s.ReadState()
 	return
 }
 
 // AcquireLock acquires a lock, with an optional timeout
-func (s *stateStoreFile) AcquireLock(name string, timeout bool) (interface{}, error) {
+func (s *StateStoreFile) AcquireLock(name string, timeout bool) (interface{}, error) {
 	// When storing state in a file, we're operating in single-node mode
 	return nil, nil
 }
 
 // ReleaseLock releases a lock
-func (s *stateStoreFile) ReleaseLock(leaseID interface{}) error {
+func (s *StateStoreFile) ReleaseLock(leaseID interface{}) error {
 	// When storing state in a file, we're operating in single-node mode
 	return nil
 }
 
 // GetState returns the full state
-func (s *stateStoreFile) GetState() *NodeState {
+func (s *StateStoreFile) GetState() *NodeState {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *stateStoreFile) SetState(state *NodeState) (err error) {
+func (s *StateStoreFile) SetState(state *NodeState) (err error) {
 	s.state = state
 	return
 }
 
 // WriteState stores the state on disk
-func (s *stateStoreFile) WriteState() (err error) {
+func (s *StateStoreFile) WriteState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Writing state to disk", path)
 
@@ -78,7 +78,7 @@ func (s *stateStoreFile) WriteState() (err error) {
 }
 
 // ReadState reads the state from disk
-func (s *stateStoreFile) ReadState() (err error) {
+func (s *StateStoreFile) ReadState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Reading state from disk", path)
 
@@ -113,35 +113,23 @@ func (s *stateStoreFile) ReadState() (err error) {
 }
 
 // Healthy returns always true
-func (s *stateStoreFile) Healthy() (bool, error) {
+func (s *StateStoreFile) Healthy() (bool, error) {
 	return true, nil
 }
 
 // OnStateUpdate isn't used with this store
-func (s *stateStoreFile) OnStateUpdate(callback func()) {
+func (s *StateStoreFile) OnStateUpdate(callback func()) {
 	// NOOP
 }
 
 // ClusterMembers returns a list with one element only
-func (s *stateStoreFile) ClusterMembers() (map[string]string, error) {
+func (s *StateStoreFile) ClusterMembers() (map[string]string, error) {
 	res := make(map[string]string, 1)
 	res["0"] = appconfig.Config.GetString("nodeName")
 	return res, nil
 }
 
-// IsLeader returns true if this node is the leader of the cluster
-func (s *stateStoreFile) IsLeader() bool {
-	// When storing state in a file, we're operating in single-node mode
-	return true
-}
-
-// AddJob adds a job to the queue
-func (s *stateStoreFile) AddJob(job string) error {
-	// Since there's no queue, process it right away
-	return nil
-}
-
-func (s *stateStoreFile) createStateFile(path string) (err error) {
+func (s *StateStoreFile) createStateFile(path string) (err error) {
 	logger.Println("Will create new state file", path)
 
 	// File doesn't exist, so load an empty state

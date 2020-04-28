@@ -35,44 +35,37 @@ import (
 )
 
 // Maximum lock duration, in seconds
-const etcdLockDuration = 20
+const EtcdLockDuration = 20
 
 // TTL for node registration
 const etcdNodeRegistrationTTL = 30
 
-type stateStoreEtcd struct {
+type StateStoreEtcd struct {
 	state  *NodeState
 	client *clientv3.Client
 
 	stateKey         string
-	electionKey      string
 	dhparamsKey      string
 	locksKeyPrefix   string
 	nodesKeyPrefix   string
 	secretsKeyPrefix string
-	jobsKeyPrefix    string
 
 	clusterMemberId string
-	isLeader        bool
-	lastJobRevision int64
 	lastRevisionPut int64
 	updateCallback  func()
 }
 
 // Init initializes the object
-func (s *stateStoreEtcd) Init() (err error) {
+func (s *StateStoreEtcd) Init() (err error) {
 	s.lastRevisionPut = 0
-	s.isLeader = false
 
 	// Keys and prefixes
 	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
 	s.stateKey = keyPrefix + "/state"
-	s.electionKey = keyPrefix + "/election"
 	s.dhparamsKey = keyPrefix + "/dhparams"
 	s.locksKeyPrefix = keyPrefix + "/locks/"
 	s.nodesKeyPrefix = keyPrefix + "/nodes/"
 	s.secretsKeyPrefix = keyPrefix + "/secrets/"
-	s.jobsKeyPrefix = keyPrefix + "/jobs/"
 
 	// Random ID for this cluster member
 	s.clusterMemberId = uuid.New().String()
@@ -121,12 +114,6 @@ func (s *stateStoreEtcd) Init() (err error) {
 	// Register the node
 	s.registerNode()
 
-	// Start the worker that executes jobs
-	err = s.startWorker()
-	if err != nil {
-		return fmt.Errorf("error while starting the worker:\n%v", err)
-	}
-
 	// Watch for changes
 	go s.watch()
 
@@ -139,18 +126,28 @@ func (s *stateStoreEtcd) Init() (err error) {
 	return
 }
 
-// Returns a context that times out
-func (s *stateStoreEtcd) getContext() (context.Context, context.CancelFunc) {
+// GetContext returns a context that times out
+func (s *StateStoreEtcd) GetContext() (context.Context, context.CancelFunc) {
 	timeout := time.Duration(appconfig.Config.GetInt("state.etcd.timeout")) * time.Millisecond
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
-	// Require a leader
+	// Require a leader in the etcd cluster
 	return clientv3.WithRequireLeader(ctx), cancelFunc
 }
 
+// GetMemberId returns the ID of this member in the cluster
+func (s *StateStoreEtcd) GetMemberId() string {
+	return s.clusterMemberId
+}
+
+// GetClient returns the etcd client with the active connection
+func (s *StateStoreEtcd) GetClient() *clientv3.Client {
+	return s.client
+}
+
 // Registers the node within the cluster
-func (s *stateStoreEtcd) registerNode() error {
+func (s *StateStoreEtcd) registerNode() error {
 	// Get a lease
-	ctx, cancel := s.getContext()
+	ctx, cancel := s.GetContext()
 	lease, err := s.client.Grant(ctx, etcdNodeRegistrationTTL)
 	cancel()
 	if err != nil {
@@ -158,7 +155,7 @@ func (s *stateStoreEtcd) registerNode() error {
 	}
 
 	// Put the node name
-	ctx, cancel = s.getContext()
+	ctx, cancel = s.GetContext()
 	_, err = s.client.Put(
 		ctx,
 		s.nodesKeyPrefix+s.clusterMemberId,
@@ -182,7 +179,7 @@ func (s *stateStoreEtcd) registerNode() error {
 }
 
 // Starts the watcher for changes in etcd
-func (s *stateStoreEtcd) watch() {
+func (s *StateStoreEtcd) watch() {
 	// Start watching for changes in the key
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = clientv3.WithRequireLeader(ctx)
@@ -226,12 +223,12 @@ func (s *stateStoreEtcd) watch() {
 }
 
 // AcquireLock acquires a lock, with an optional timeout
-func (s *stateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, error) {
+func (s *StateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, error) {
 	var leaseID clientv3.LeaseID
 
 	// Get a lease
-	ctx, cancel := s.getContext()
-	lease, err := s.client.Grant(ctx, etcdLockDuration)
+	ctx, cancel := s.GetContext()
+	lease, err := s.client.Grant(ctx, EtcdLockDuration)
 	cancel()
 	if err != nil {
 		return leaseID, err
@@ -239,7 +236,7 @@ func (s *stateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, er
 	leaseID = lease.ID
 
 	// Try to acquire the lock
-	i := etcdLockDuration * 2
+	i := EtcdLockDuration * 2
 	for i > 0 {
 		logger.Println("Acquiring lock in etcd:", name)
 
@@ -273,11 +270,11 @@ func (s *stateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, er
 }
 
 // ReleaseLock releases a lock
-func (s *stateStoreEtcd) ReleaseLock(leaseID interface{}) error {
+func (s *StateStoreEtcd) ReleaseLock(leaseID interface{}) error {
 	logger.Println("Releasing etcd lock with ID:", leaseID)
 
 	// Revoke the lease
-	ctx, cancel := s.getContext()
+	ctx, cancel := s.GetContext()
 	_, err := s.client.Revoke(ctx, leaseID.(clientv3.LeaseID))
 	cancel()
 	if err != nil {
@@ -288,9 +285,9 @@ func (s *stateStoreEtcd) ReleaseLock(leaseID interface{}) error {
 }
 
 // Tries to acquire a lock if no other node has it
-func (s *stateStoreEtcd) tryLockAcquisition(lockKey string, leaseID clientv3.LeaseID) (bool, error) {
+func (s *StateStoreEtcd) tryLockAcquisition(lockKey string, leaseID clientv3.LeaseID) (bool, error) {
 	lockValue := fmt.Sprintf("%s-%d", appconfig.Config.GetString("nodeName"), time.Now().UnixNano())
-	ctx, cancel := s.getContext()
+	ctx, cancel := s.GetContext()
 	txn := s.client.Txn(ctx)
 	res, err := txn.If(
 		clientv3.Compare(clientv3.Version(lockKey), "=", 0),
@@ -307,18 +304,18 @@ func (s *stateStoreEtcd) tryLockAcquisition(lockKey string, leaseID clientv3.Lea
 }
 
 // GetState returns the full state
-func (s *stateStoreEtcd) GetState() *NodeState {
+func (s *StateStoreEtcd) GetState() *NodeState {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *stateStoreEtcd) SetState(state *NodeState) (err error) {
+func (s *StateStoreEtcd) SetState(state *NodeState) (err error) {
 	s.state = state
 	return
 }
 
 // WriteState stores the state in etcd
-func (s *stateStoreEtcd) WriteState() (err error) {
+func (s *StateStoreEtcd) WriteState() (err error) {
 	logger.Println("Writing state in etcd")
 
 	// Convert to JSON
@@ -332,7 +329,7 @@ func (s *stateStoreEtcd) WriteState() (err error) {
 	s.lastRevisionPut = -1
 
 	// Store in etcd only if it has changed
-	ctx, cancel := s.getContext()
+	ctx, cancel := s.GetContext()
 	txn := s.client.Txn(ctx)
 	res, err := txn.If(
 		clientv3.Compare(clientv3.Value(s.stateKey), "!=", string(data)),
@@ -353,11 +350,11 @@ func (s *stateStoreEtcd) WriteState() (err error) {
 }
 
 // ReadState reads the state from etcd
-func (s *stateStoreEtcd) ReadState() (err error) {
+func (s *StateStoreEtcd) ReadState() (err error) {
 	logger.Println("Reading state from etcd")
 
 	// Read the state
-	ctx, cancel := s.getContext()
+	ctx, cancel := s.GetContext()
 	resp, err := s.client.Get(ctx, s.stateKey)
 	cancel()
 	if err != nil {
@@ -385,7 +382,7 @@ func (s *stateStoreEtcd) ReadState() (err error) {
 }
 
 // Healthy returns true if the connection with etcd is active
-func (s *stateStoreEtcd) Healthy() (healthy bool, err error) {
+func (s *StateStoreEtcd) Healthy() (healthy bool, err error) {
 	healthy = true
 
 	// Get state of the connection
@@ -402,14 +399,14 @@ func (s *stateStoreEtcd) Healthy() (healthy bool, err error) {
 }
 
 // OnStateUpdate stores the callback that is invoked when there's a new state from etcd
-func (s *stateStoreEtcd) OnStateUpdate(callback func()) {
+func (s *StateStoreEtcd) OnStateUpdate(callback func()) {
 	s.updateCallback = callback
 }
 
 // ClusterMembers returns the list of members in the cluster
-func (s *stateStoreEtcd) ClusterMembers() (map[string]string, error) {
+func (s *StateStoreEtcd) ClusterMembers() (map[string]string, error) {
 	// Gets the list of members
-	ctx, cancel := s.getContext()
+	ctx, cancel := s.GetContext()
 	resp, err := s.client.Get(ctx, s.nodesKeyPrefix, clientv3.WithPrefix())
 	cancel()
 	if err != nil {
@@ -431,15 +428,10 @@ func (s *stateStoreEtcd) ClusterMembers() (map[string]string, error) {
 	return members, nil
 }
 
-// IsLeader returns true if this node is the leader of the cluster
-func (s *stateStoreEtcd) IsLeader() bool {
-	return s.isLeader
-}
-
 // Serialize the state to JSON
 // Additionally, store all secrets longer than 64 bytes in a separate etcd key
 // Store the DH parameters file in a separate etcd key too
-func (s *stateStoreEtcd) serializeState() ([]byte, error) {
+func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 	// Create a copy of the state
 	serialize := NodeState{
 		Sites: s.state.Sites,
@@ -452,7 +444,7 @@ func (s *stateStoreEtcd) serializeState() ([]byte, error) {
 			secretData := base64.StdEncoding.EncodeToString(v)
 
 			// Store the secret if different
-			ctx, cancel := s.getContext()
+			ctx, cancel := s.GetContext()
 			txn := s.client.Txn(ctx)
 			_, err := txn.If(
 				clientv3.Compare(clientv3.Value(s.secretsKeyPrefix+k), "!=", secretData),
@@ -475,7 +467,7 @@ func (s *stateStoreEtcd) serializeState() ([]byte, error) {
 		}
 
 		// Store the value if different
-		ctx, cancel := s.getContext()
+		ctx, cancel := s.GetContext()
 		txn := s.client.Txn(ctx)
 		_, err = txn.If(
 			clientv3.Compare(clientv3.Value(s.dhparamsKey), "!=", string(dhparams)),
@@ -500,7 +492,7 @@ func (s *stateStoreEtcd) serializeState() ([]byte, error) {
 
 // Unserialize the state from JSON
 // Additionally, retrieve all elements that were stored separately in etcd
-func (s *stateStoreEtcd) unserializeState(data []byte) error {
+func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	// First, unserialize the JSON data
 	unserialized := &NodeState{}
 	if err := json.Unmarshal(data, unserialized); err != nil {
@@ -508,7 +500,7 @@ func (s *stateStoreEtcd) unserializeState(data []byte) error {
 	}
 
 	// Retrieve the list of secrets
-	ctx, cancel := s.getContext()
+	ctx, cancel := s.GetContext()
 	resp, err := s.client.Get(ctx, s.secretsKeyPrefix, clientv3.WithPrefix())
 	cancel()
 	if err != nil {
@@ -529,7 +521,7 @@ func (s *stateStoreEtcd) unserializeState(data []byte) error {
 	}
 
 	// Retrieve DH parameters, if any
-	ctx, cancel = s.getContext()
+	ctx, cancel = s.GetContext()
 	resp, err = s.client.Get(ctx, s.dhparamsKey)
 	cancel()
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {

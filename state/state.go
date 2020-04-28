@@ -29,10 +29,16 @@ import (
 	"github.com/statiko-dev/statiko/utils"
 )
 
+const (
+	StoreTypeFile = "file"
+	StoreTypeEtcd = "etcd"
+)
+
 // Manager is the state manager class
 type Manager struct {
-	updated *time.Time
-	store   stateStore
+	updated   *time.Time
+	store     stateStore
+	storeType string
 }
 
 // Init loads the state from the store
@@ -41,15 +47,27 @@ func (m *Manager) Init() (err error) {
 	typ := appconfig.Config.GetString("state.store")
 	switch typ {
 	case "file":
-		m.store = &stateStoreFile{}
+		m.store = &StateStoreFile{}
+		m.storeType = StoreTypeFile
 	case "etcd":
-		m.store = &stateStoreEtcd{}
+		m.store = &StateStoreEtcd{}
+		m.storeType = StoreTypeEtcd
 	default:
 		err = errors.New("invalid value for configuration `state.store`; valid options are `file` or `etcd`")
 		return
 	}
 	err = m.store.Init()
 	return
+}
+
+// GetStoreType returns the type of the store in use
+func (m *Manager) GetStoreType() string {
+	return m.storeType
+}
+
+// GetStore returns the instance of the store in use
+func (m *Manager) GetStore() stateStore {
+	return m.store
 }
 
 // AcquireLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
@@ -409,11 +427,6 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	}
 
 	return nil
-}
-
-// AddJob adds a job to be processed
-func (m *Manager) AddJob(job string) error {
-	return m.store.AddJob(job)
 }
 
 // Returns a cipher for AES-GCM-128 initialized
