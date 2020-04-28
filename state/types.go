@@ -85,4 +85,5 @@ type stateStore interface {
 	OnStateUpdate(func())
 	ClusterMembers() (map[string]string, error)
 	IsLeader() bool
+	AddJob(job string) error
 }

@@ -135,6 +135,12 @@ func (s *stateStoreFile) IsLeader() bool {
 	return true
 }
 
+// AddJob adds a job to the queue
+func (s *stateStoreFile) AddJob(job string) error {
+	// Since there's no queue, process it right away
+	return nil
+}
+
 func (s *stateStoreFile) createStateFile(path string) (err error) {
 	logger.Println("Will create new state file", path)
 

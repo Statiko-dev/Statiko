@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/pkg/transport"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/connectivity"
@@ -42,18 +41,22 @@ const etcdLockDuration = 20
 const etcdNodeRegistrationTTL = 30
 
 type stateStoreEtcd struct {
-	state            *NodeState
-	client           *clientv3.Client
+	state  *NodeState
+	client *clientv3.Client
+
 	stateKey         string
 	electionKey      string
 	dhparamsKey      string
 	locksKeyPrefix   string
 	nodesKeyPrefix   string
 	secretsKeyPrefix string
-	clusterMemberId  string
-	isLeader         bool
-	lastRevisionPut  int64
-	updateCallback   func()
+	jobsKeyPrefix    string
+
+	clusterMemberId string
+	isLeader        bool
+	lastJobRevision int64
+	lastRevisionPut int64
+	updateCallback  func()
 }
 
 // Init initializes the object
@@ -69,6 +72,7 @@ func (s *stateStoreEtcd) Init() (err error) {
 	s.locksKeyPrefix = keyPrefix + "/locks/"
 	s.nodesKeyPrefix = keyPrefix + "/nodes/"
 	s.secretsKeyPrefix = keyPrefix + "/secrets/"
+	s.jobsKeyPrefix = keyPrefix + "/jobs/"
 
 	// Random ID for this cluster member
 	s.clusterMemberId = uuid.New().String()
@@ -105,8 +109,8 @@ func (s *stateStoreEtcd) Init() (err error) {
 	addr := strings.Split(appconfig.Config.GetString("state.etcd.address"), ",")
 	s.client, err = clientv3.New(clientv3.Config{
 		Endpoints:            addr,
-		DialTimeout:          2 * time.Second, //5 * time.Second,
-		DialKeepAliveTime:    5 * time.Second, //30 * time.Second,
+		DialTimeout:          5 * time.Second,
+		DialKeepAliveTime:    5 * time.Second,
 		DialKeepAliveTimeout: 5 * time.Second,
 		TLS:                  tlsConf,
 	})
@@ -117,10 +121,10 @@ func (s *stateStoreEtcd) Init() (err error) {
 	// Register the node
 	s.registerNode()
 
-	// Start leader election
-	_, err = s.runElection()
+	// Start the worker that executes jobs
+	err = s.startWorker()
 	if err != nil {
-		return fmt.Errorf("error while running etcd election campaign: %v", err)
+		return fmt.Errorf("error while starting the worker:\n%v", err)
 	}
 
 	// Watch for changes
@@ -184,6 +188,7 @@ func (s *stateStoreEtcd) watch() {
 	ctx = clientv3.WithRequireLeader(ctx)
 	rch := s.client.Watch(ctx, s.stateKey)
 
+	// TODO: WATCH FOR CLOSED CHANNELS
 	for resp := range rch {
 		for _, event := range resp.Events {
 			// Semaphore if the other goroutine is still at work
@@ -218,145 +223,6 @@ func (s *stateStoreEtcd) watch() {
 	cancel()
 
 	return
-}
-
-// Starts a leader election
-func (s *stateStoreEtcd) runElection() (<-chan bool, error) {
-	// Adapted from https://gist.github.com/thrawn01/c007e6a37b682d3899910e33243a3cdc
-	var errChan chan error
-
-	var leaderChan chan bool
-	setLeader := func(set bool) {
-		// Only report changes in leadership
-		if s.isLeader == set {
-			return
-		}
-		s.isLeader = set
-		leaderChan <- set
-	}
-
-	createSession := func(id int64) (session *concurrency.Session, election *concurrency.Election, err error) {
-		ctx, cancel := s.getContext()
-		session, err = concurrency.NewSession(
-			s.client,
-			concurrency.WithTTL(etcdLockDuration),
-			concurrency.WithContext(ctx),
-			concurrency.WithLease(clientv3.LeaseID(id)),
-		)
-		cancel()
-		if err != nil {
-			session = nil
-			return
-		}
-		election = concurrency.NewElection(session, s.electionKey)
-		return
-	}
-
-	session, election, err := createSession(0)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		leaderChan = make(chan bool, 10)
-		defer close(leaderChan)
-
-		for {
-			// Discover who if any, is leader of this election
-			ctx, cancel := s.getContext()
-			node, err := election.Leader(ctx)
-			cancel()
-			if err != nil {
-				if err != concurrency.ErrElectionNoLeader {
-					logger.Printf("[Error] Error while determining election leader: %s\n", err)
-					goto reconnect
-				}
-			} else if string(node.Kvs[0].Value) == s.clusterMemberId {
-				// Resuming an election from which we previously had leadership
-				// If resign takes longer than our TTL then lease is expired and we are no
-				// longer leader anyway.
-				ctx, cancel := s.getContext()
-				election = concurrency.ResumeElection(session, s.electionKey,
-					string(node.Kvs[0].Key), node.Kvs[0].CreateRevision)
-				err = election.Resign(ctx)
-				cancel()
-				if err != nil {
-					logger.Printf("[Error] Error while resigning leadership after reconnect: %s\n", err)
-					goto reconnect
-				}
-			}
-			// Reset leadership if we had it previously
-			setLeader(false)
-
-			// Attempt to become leader
-			errChan = make(chan error)
-			go func() {
-				// Make this a non blocking call so we can check for session close
-				errChan <- election.Campaign(ctx, s.clusterMemberId)
-			}()
-
-			select {
-			case err = <-errChan:
-				if err != nil {
-					if err == context.Canceled {
-						return
-					}
-					// NOTE: Campaign currently does not return an error if session expires
-					logger.Printf("[Error] Error while campaigning for leader: %s\n", err)
-					session.Close()
-					goto reconnect
-				}
-			case <-ctx.Done():
-				session.Close()
-				return
-			case <-session.Done():
-				goto reconnect
-			}
-
-		reconnect:
-			setLeader(false)
-
-			for {
-				session, election, err = createSession(0)
-				if err != nil {
-					if err == context.Canceled {
-						return
-					}
-					logger.Printf("[Error] Error while creating new session: %s", err)
-					tick := time.NewTicker(1 * time.Second)
-					select {
-					case <-ctx.Done():
-						tick.Stop()
-						return
-					case <-tick.C:
-						tick.Stop()
-					}
-					continue
-				}
-				break
-			}
-		}
-	}()
-
-	// Wait until we have a leader before returning
-	for {
-		ctx, cancel := s.getContext()
-		resp, err := election.Leader(ctx)
-		cancel()
-		if err != nil {
-			if err != concurrency.ErrElectionNoLeader {
-				return nil, err
-			}
-			time.Sleep(time.Millisecond * 300)
-			continue
-		}
-		// If we are not leader, notify the channel
-		if string(resp.Kvs[0].Value) != s.clusterMemberId {
-			leaderChan <- false
-		}
-		break
-	}
-	return leaderChan, nil
 }
 
 // AcquireLock acquires a lock, with an optional timeout

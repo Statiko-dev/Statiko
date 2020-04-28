@@ -411,6 +411,11 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	return nil
 }
 
+// AddJob adds a job to be processed
+func (m *Manager) AddJob(job string) error {
+	return m.store.AddJob(job)
+}
+
 // Returns a cipher for AES-GCM-128 initialized
 func (m *Manager) getSecretsCipher() (cipher.AEAD, error) {
 	// Get the symmetric encryption key
