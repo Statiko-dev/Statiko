@@ -21,10 +21,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/google/uuid"
 
 	"github.com/statiko-dev/statiko/appconfig"
@@ -33,8 +31,8 @@ import (
 
 // ControllerEtcd is a worker controller that uses etcd as backend
 type ControllerEtcd struct {
+	leaderKey       string
 	jobsKeyPrefix   string
-	electionKey     string
 	isLeader        bool
 	lastJobRevision int64
 	store           *state.StateStoreEtcd
@@ -45,8 +43,8 @@ type ControllerEtcd struct {
 func (w *ControllerEtcd) Init(store *state.StateStoreEtcd) {
 	// Init variables
 	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
+	w.leaderKey = keyPrefix + "/leader"
 	w.jobsKeyPrefix = keyPrefix + "/jobs/"
-	w.electionKey = keyPrefix + "/election"
 	w.isLeader = false
 	w.lastJobRevision = 0
 	w.store = store
@@ -77,17 +75,18 @@ func (w *ControllerEtcd) AddJob(job string) error {
 
 // Starts the listener that processes all job requests
 func (w *ControllerEtcd) startListener() error {
-	// Start leader election
+	// Acquire leadership
 	leaderChan := make(chan bool)
 	go func() {
-		err := w.runElection(leaderChan)
+		err := w.acquireLeadership(leaderChan)
 		if err != nil {
-			panic(fmt.Errorf("error while running etcd election campaign:\n%v", err))
+			panic(fmt.Errorf("error while electing leader:\n%v", err))
 		}
 	}()
 
 	// Listen for changes in leadership
 	go func() {
+		var ctx context.Context
 		var cancel context.CancelFunc
 		var err error
 		for _ = range leaderChan {
@@ -99,32 +98,38 @@ func (w *ControllerEtcd) startListener() error {
 
 			// If we're leader now, start listening for jobs
 			if w.isLeader {
-				cancel, err = w.listenForJobs()
+				ctx, cancel = context.WithCancel(context.Background())
+				err = w.listenForJobs(ctx)
 				if err != nil {
 					panic(fmt.Errorf("error while listening for jobs:\n%v", err))
 				}
+
+				// Start workers that require leadership
+				startLeaderWorkers(ctx)
 			}
 		}
+
+		cancel()
 	}()
 
 	return nil
 }
 
 // Listens for jobs
-func (w *ControllerEtcd) listenForJobs() (context.CancelFunc, error) {
+func (w *ControllerEtcd) listenForJobs(ctx context.Context) error {
 	w.lastJobRevision = 0
 
 	// Start watching for jobs
-	var ctx context.Context
-	var cancel context.CancelFunc
 	go func() {
-		ctx, cancel = context.WithCancel(context.Background())
-
 		rch := w.store.GetClient().Watch(ctx, w.jobsKeyPrefix, clientv3.WithPrefix())
 
 		// Listen to events
-		// TODO: WATCH FOR CLOSED CHANNELS
 		for resp := range rch {
+			// Check for unrecoverable errors
+			if resp.Err() != nil {
+				panic(fmt.Errorf("unrecoverable error from etcd watcher: %v", resp.Err()))
+			}
+
 			// Only look for new jobs
 			for _, event := range resp.Events {
 				if event.Kv.ModRevision > w.lastJobRevision && event.IsCreate() {
@@ -141,8 +146,7 @@ func (w *ControllerEtcd) listenForJobs() (context.CancelFunc, error) {
 	resp, err := w.store.GetClient().Get(reqCtx, w.jobsKeyPrefix, clientv3.WithPrefix())
 	reqCancel()
 	if err != nil {
-		cancel()
-		return nil, err
+		return err
 	}
 	w.lastJobRevision = resp.Header.GetRevision()
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
@@ -154,13 +158,11 @@ func (w *ControllerEtcd) listenForJobs() (context.CancelFunc, error) {
 		}
 	}
 
-	return cancel, nil
+	return nil
 }
 
-// Runs a leader election
-func (w *ControllerEtcd) runElection(leaderChan chan bool) error {
-	// Adapted from https://gist.github.com/thrawn01/c007e6a37b682d3899910e33243a3cdc
-	var errChan chan error
+// Acquires leadership
+func (w *ControllerEtcd) acquireLeadership(leaderChan chan bool) error {
 	ctx := context.Background()
 
 	setLeader := func(set bool) {
@@ -176,157 +178,80 @@ func (w *ControllerEtcd) runElection(leaderChan chan bool) error {
 		w.isLeader = set
 		leaderChan <- set
 	}
+	setLeader(false)
 
-	createSession := func(id int64) (session *concurrency.Session, election *concurrency.Election, err error) {
-		session, err = concurrency.NewSession(
-			w.store.GetClient(),
-			concurrency.WithTTL(state.EtcdLockDuration),
-			concurrency.WithContext(ctx),
-			concurrency.WithLease(clientv3.LeaseID(id)),
-		)
+	// Try acquiring leadership
+	// We are not using the etcdv3 leader election APIs because they are too advanced for our needs and they had some inconsistencies that make them challenging to use for us
+	// In particular, on reconnections they cause nodes to receive multiple messages at the same time, making them acquire leadership briefly to then lose it again
+	// For our needs, this solution below is enough and it limits the number of leadership changes
+	acquireLeadership := func() error {
+		innerCtx, cancel := w.store.GetContext()
+		lease, err := w.store.GetClient().Grant(innerCtx, state.EtcdLockDuration)
+		cancel()
 		if err != nil {
-			session = nil
-			return
+			return err
 		}
-		election = concurrency.NewElection(session, w.electionKey)
-		return
+
+		// Losing a connection will cause the loss of leadership. Even if we re-connected, we would still lose the lease. That's fine, we'll have a new "election"
+		innerCtx, cancel = w.store.GetContext()
+		txn := w.store.GetClient().Txn(innerCtx)
+		res, err := txn.If(
+			clientv3.Compare(clientv3.Version(w.leaderKey), "=", 0),
+		).Then(
+			clientv3.OpPut(w.leaderKey, w.store.GetMemberId(), clientv3.WithLease(lease.ID)),
+		).Commit()
+		cancel()
+		if err != nil {
+			return err
+		}
+		if !res.Succeeded {
+			// We don't have leadership
+			setLeader(false)
+			return nil
+		}
+
+		// We acquired the lock, so we're leaders. Maintain the key alive
+		_, err = w.store.GetClient().KeepAlive(ctx, lease.ID)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}
 
-	session, election, err := createSession(0)
-	if err != nil {
-		return err
-	}
-
+	// Watch for changes of leadership
 	go func() {
-		defer close(leaderChan)
+		rch := w.store.GetClient().Watch(ctx, w.leaderKey)
 
-		for {
-			observe := election.Observe(ctx)
-
-			// Discover who if any, is leader of this election
-			node, err := election.Leader(ctx)
-			if err != nil {
-				if err != concurrency.ErrElectionNoLeader {
-					w.logger.Printf("[Error] Error while determining election leader: %s\n", err)
-					goto reconnect
-				}
-			} else if string(node.Kvs[0].Value) == w.store.GetMemberId() {
-				// Resuming an election from which we previously had leadership
-				// If resign takes longer than our TTL then lease is expired and we are no
-				// longer leader anyway.
-				election = concurrency.ResumeElection(session, w.electionKey,
-					string(node.Kvs[0].Key), node.Kvs[0].CreateRevision)
-				err = election.Resign(ctx)
-				if err != nil {
-					w.logger.Printf("[Error] Error while resigning leadership after reconnect: %s\n", err)
-					goto reconnect
-				}
-			}
-			// Reset leadership if we had it previously
-			setLeader(false)
-
-			// Attempt to become leader
-			errChan = make(chan error)
-			go func() {
-				// Make this a non blocking call so we can check for session close
-				errChan <- election.Campaign(ctx, w.store.GetMemberId())
-			}()
-
-			select {
-			case err = <-errChan:
-				if err != nil {
-					if err == context.Canceled {
-						return
-					}
-					// NOTE: Campaign currently does not return an error if session expires
-					w.logger.Printf("[Error] Error while campaigning for leader: %s\n", err)
-					session.Close()
-					goto reconnect
-				}
-			case <-ctx.Done():
-				session.Close()
-				return
-			case <-session.Done():
-				goto reconnect
+		// Listen to events
+		for resp := range rch {
+			// Check for unrecoverable errors
+			if resp.Err() != nil {
+				panic(fmt.Errorf("unrecoverable error from etcd watcher: %v", resp.Err()))
 			}
 
-			// If Campaign() returned without error, we are leader
-			setLeader(true)
+			// Always get the last message only
+			event := resp.Events[len(resp.Events)-1]
 
-			// Observe changes to leadership
-			for {
-				select {
-				case resp, ok := <-observe:
-					if !ok {
-						// NOTE: Observe will not close if the session expires, we must
-						// watch for session.Done()
-						session.Close()
-						goto reconnect
-					}
-					if string(resp.Kvs[0].Value) == w.store.GetMemberId() {
-						setLeader(true)
-					} else {
-						// We are not leader
-						setLeader(false)
-						break
-					}
-				case <-ctx.Done():
-					if w.isLeader {
-						// If resign takes longer than our TTL then lease is expired and we are no
-						// longer leader anyway.
-						ctx, cancel := w.store.GetContext()
-						if err = election.Resign(ctx); err != nil {
-							w.logger.Printf("[Error] Error while resigning leadership during shutdown: %s\n", err)
-						}
-						cancel()
-					}
-					session.Close()
-					return
-				case <-session.Done():
-					goto reconnect
-				}
-			}
-
-		reconnect:
-			setLeader(false)
-
-			for {
-				session, election, err = createSession(0)
+			// If there's no leader, try acquiring the leadership
+			if len(event.Kv.Value) == 0 {
+				err := acquireLeadership()
 				if err != nil {
-					if err == context.Canceled {
-						return
-					}
-					w.logger.Printf("[Error] Error while creating new session: %s", err)
-					tick := time.NewTicker(1 * time.Second)
-					select {
-					case <-ctx.Done():
-						tick.Stop()
-						return
-					case <-tick.C:
-						tick.Stop()
-					}
-					continue
+					w.logger.Println("Error while trying to acquire leadership", err)
 				}
-				break
+			} else {
+				// If we have a leader, check if that's us
+				leader := string(event.Kv.Value)
+				setLeader(leader == w.store.GetMemberId())
 			}
 		}
 	}()
 
-	// Wait until we have a leader before returning
-	for {
-		resp, err := election.Leader(ctx)
-		if err != nil {
-			if err != concurrency.ErrElectionNoLeader {
-				return err
-			}
-			time.Sleep(time.Millisecond * 300)
-			continue
-		}
-		// If we are not leader, notify the channel
-		if string(resp.Kvs[0].Value) != w.store.GetMemberId() {
-			leaderChan <- false
-		}
-		break
+	// Try acquiring the leadership now
+	err := acquireLeadership()
+	if err != nil {
+		return err
 	}
+
 	return nil
 }

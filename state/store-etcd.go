@@ -112,7 +112,10 @@ func (s *StateStoreEtcd) Init() (err error) {
 	}
 
 	// Register the node
-	s.registerNode()
+	err = s.registerNode()
+	if err != nil {
+		return fmt.Errorf("error while registering node: %v", err)
+	}
 
 	// Watch for changes
 	go s.watch()
@@ -185,34 +188,39 @@ func (s *StateStoreEtcd) watch() {
 	ctx = clientv3.WithRequireLeader(ctx)
 	rch := s.client.Watch(ctx, s.stateKey)
 
-	// TODO: WATCH FOR CLOSED CHANNELS
 	for resp := range rch {
-		for _, event := range resp.Events {
-			// Semaphore if the other goroutine is still at work
-			i := 0
-			for s.lastRevisionPut == -1 && i < 100 {
-				i++
-				time.Sleep(10 * time.Millisecond)
+		// Check for unrecoverable errors
+		if resp.Err() != nil {
+			panic(fmt.Errorf("unrecoverable error from etcd watcher: %v", resp.Err()))
+		}
+
+		// Always get the last message only
+		event := resp.Events[len(resp.Events)-1]
+
+		// Semaphore if the other goroutine is still at work
+		i := 0
+		for s.lastRevisionPut == -1 && i < 100 {
+			i++
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		// Skip if we just stored this value
+		if event.Kv.ModRevision > s.lastRevisionPut {
+			logger.Println("Received new state from etcd: version", event.Kv.ModRevision)
+			oldState := s.state
+			err := s.unserializeState(event.Kv.Value)
+			if err != nil {
+				logger.Println("Error while parsing state", err)
+				s.state = oldState
 			}
 
-			// Skip if we just stored this value
-			if event.Kv.ModRevision > s.lastRevisionPut {
-				logger.Println("Received new state from etcd: version", event.Kv.ModRevision)
-				oldState := s.state
-				err := s.unserializeState(event.Kv.Value)
-				if err != nil {
-					logger.Println("Error while parsing state", err)
-					s.state = oldState
-				}
-
-				// Invoke the callback as the state has been replaced
-				if s.updateCallback != nil {
-					s.updateCallback()
-				}
-			} else if event.Kv.ModRevision < s.lastRevisionPut {
-				// Ignoring the case ==, which means we just received the state we just committed
-				logger.Println("Ignoring an older state received from etcd: version", event.Kv.ModRevision)
+			// Invoke the callback as the state has been replaced
+			if s.updateCallback != nil {
+				s.updateCallback()
 			}
+		} else if event.Kv.ModRevision < s.lastRevisionPut {
+			// Ignoring the case ==, which means we just received the state we just committed
+			logger.Println("Ignoring an older state received from etcd: version", event.Kv.ModRevision)
 		}
 	}
 
