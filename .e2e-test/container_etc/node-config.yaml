@@ -24,3 +24,8 @@ azure:
       name: "codesign"
 
 nodeName: "e2e-test"
+
+tls:
+  dhparams:
+    # DEV NOTE: in development, use smaller DH parameters to test generation
+    bits: 1024

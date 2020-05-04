@@ -109,6 +109,7 @@ func (w *ControllerEtcd) startListener() error {
 			}
 		}
 
+		w.logger.Println("Terminating all leader workers")
 		cancel()
 	}()
 

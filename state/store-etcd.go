@@ -337,14 +337,7 @@ func (s *StateStoreEtcd) WriteState() (err error) {
 	s.lastRevisionPut = -1
 
 	// Store in etcd only if it has changed
-	ctx, cancel := s.GetContext()
-	txn := s.client.Txn(ctx)
-	res, err := txn.If(
-		clientv3.Compare(clientv3.Value(s.stateKey), "!=", string(data)),
-	).Then(
-		clientv3.OpPut(s.stateKey, string(data)),
-	).Commit()
-	cancel()
+	res, err := s.setIfDifferent(s.stateKey, string(data))
 	if err != nil {
 		s.lastRevisionPut = 0
 		return err
@@ -452,14 +445,7 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 			secretData := base64.StdEncoding.EncodeToString(v)
 
 			// Store the secret if different
-			ctx, cancel := s.GetContext()
-			txn := s.client.Txn(ctx)
-			_, err := txn.If(
-				clientv3.Compare(clientv3.Value(s.secretsKeyPrefix+k), "!=", secretData),
-			).Then(
-				clientv3.OpPut(s.secretsKeyPrefix+k, secretData),
-			).Commit()
-			cancel()
+			_, err := s.setIfDifferent(s.secretsKeyPrefix+k, secretData)
 			if err != nil {
 				return nil, err
 			}
@@ -475,14 +461,7 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 		}
 
 		// Store the value if different
-		ctx, cancel := s.GetContext()
-		txn := s.client.Txn(ctx)
-		_, err = txn.If(
-			clientv3.Compare(clientv3.Value(s.dhparamsKey), "!=", string(dhparams)),
-		).Then(
-			clientv3.OpPut(s.dhparamsKey, string(dhparams)),
-		).Commit()
-		cancel()
+		_, err = s.setIfDifferent(s.dhparamsKey, string(dhparams))
 		if err != nil {
 			return nil, err
 		}
@@ -533,6 +512,7 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	resp, err = s.client.Get(ctx, s.dhparamsKey)
 	cancel()
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+		unserialized.DHParams = &NodeDHParams{}
 		err := json.Unmarshal(resp.Kvs[0].Value, unserialized.DHParams)
 		if err != nil {
 			return err
@@ -543,4 +523,43 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	s.state = unserialized
 
 	return nil
+}
+
+// Set a value in etcd if the current value is different
+func (s *StateStoreEtcd) setIfDifferent(key string, value string) (*clientv3.TxnResponse, error) {
+	// There's currently a bug with etcd that causes value comparisons to always be false if the key doesn't exist
+	// See: https://github.com/etcd-io/etcd/issues/10566
+	// Because of that, we need to run the transaction twice. First, we store the value if it doesn't exist. If that transaction fails, we try again storing the value if it's different.
+	// Because the keys we're using this function against are never deleted, this should be safe
+	ctx, cancel := s.GetContext()
+	txn := s.client.Txn(ctx)
+	resp, err := txn.If(
+		clientv3.Compare(clientv3.ModRevision(key), "=", 0),
+	).Then(
+		clientv3.OpPut(key, value),
+	).Commit()
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	if resp.Succeeded {
+		// We wrote the key which did not exist
+		return resp, nil
+	}
+
+	// If the first transaction didn't suceed, it means the key exists
+	// So, let's overwrite it if the value is different
+	ctx, cancel = s.GetContext()
+	txn = s.client.Txn(ctx)
+	resp, err = txn.If(
+		clientv3.Compare(clientv3.Value(key), "!=", value),
+	).Then(
+		clientv3.OpPut(key, value),
+	).Commit()
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

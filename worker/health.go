@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package worker
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
@@ -28,16 +29,15 @@ import (
 var healthLogger *log.Logger
 
 // In background, periodically check the status of the sites
-func startHealthWorker() {
+func startHealthWorker(ctx context.Context) {
 	// Set variables
 	// This runs every minute, but the cache is refreshed only if it's older than N minutes (configured in the statuscheck module)
 	// So, the cache might be older than N minutes, and it's fine
 	healthInterval := time.Duration(statuscheck.StatusCheckInterval) * time.Second
 	healthLogger = log.New(os.Stdout, "worker/health: ", log.Ldate|log.Ltime|log.LUTC)
 
-	ticker := time.NewTicker(healthInterval)
 	go func() {
-		// Wait 30 seconds, then run right away
+		// Wait 30 seconds at node startup, then run right away
 		time.Sleep(30 * time.Second)
 		err := healthWorker()
 		if err != nil {
@@ -45,10 +45,18 @@ func startHealthWorker() {
 		}
 
 		// Run on ticker
-		for range ticker.C {
-			err := healthWorker()
-			if err != nil {
-				healthLogger.Println("Worker error:", err)
+		ticker := time.NewTicker(healthInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				err := healthWorker()
+				if err != nil {
+					healthLogger.Println("Worker error:", err)
+				}
+			case <-ctx.Done():
+				healthLogger.Println("Worker's context canceled")
+				return
 			}
 		}
 	}()

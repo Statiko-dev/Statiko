@@ -17,13 +17,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package worker
 
 import (
+	"context"
+
 	"github.com/statiko-dev/statiko/state"
 )
 
 // StartWorker starts all the background workers
 func StartWorker() {
-	//startCertMonitorWorker()
-	//startDHParamsWorker()
 	startSharedWorkers()
 	startController()
 }
@@ -39,7 +39,16 @@ func startController() {
 	}
 }
 
+// Start the workers that run on the leader only
+// This is invoked by the controller
+func startLeaderWorkers(ctx context.Context) {
+	startDHParamsWorker(ctx)
+	startCertMonitorWorker(ctx)
+}
+
 // Start the workers that run on all nodes
 func startSharedWorkers() {
-	startHealthWorker()
+	// These workers don't need to be stopped
+	ctx := context.Background()
+	startHealthWorker(ctx)
 }

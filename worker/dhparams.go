@@ -17,8 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package worker
 
 import (
-	"crypto/rand"
-	"encoding/binary"
+	"context"
 	"errors"
 	"log"
 	"os"
@@ -39,15 +38,12 @@ var dhparamsMaxAge time.Duration
 var dhparamsRegeneration bool
 
 // In background, periodically re-generate DH parameters
-func startDHParamsWorker() {
-	// How often to regenerate DH params: check every 3-6 days
-	// Run every 3-6 days, but re-generate the DH params every N days (default 120)
-	var rnd uint64
-	if err := binary.Read(rand.Reader, binary.BigEndian, &rnd); err != nil {
-		panic(err)
+func startDHParamsWorker(ctx context.Context) {
+	// Ensure the number of bits is 1024, 2048 or 4096
+	bits := appconfig.Config.GetInt("tls.dhparams.bits")
+	if bits != 1024 && bits != 2048 && bits != 4096 {
+		panic(errors.New("tls.dhparams.bits must be 1024, 2048 or 4096"))
 	}
-	hours := (rnd%25)*3 + 72
-
 	// Get the max age for dhparams
 	maxAgeDays := appconfig.Config.GetInt("tls.dhparams.maxAge")
 	// If < 0, never regenerate dhparams (besides the first time)
@@ -63,23 +59,31 @@ func startDHParamsWorker() {
 	}
 
 	// Set variables
-	dhparamsInterval := time.Duration(time.Duration(hours) * time.Hour)
+	// Run every 2 days, but re-generate the DH params every N days (default 120)
+	dhparamsInterval := time.Duration(48 * time.Hour)
 	dhparamsLogger = log.New(os.Stdout, "worker/dhparams: ", log.Ldate|log.Ltime|log.LUTC)
 
-	ticker := time.NewTicker(dhparamsInterval)
 	go func() {
 		// Run right away
-		err := dhparamsWorker()
+		err := dhparamsWorker(ctx)
 		if err != nil {
 			dhparamsLogger.Println("Worker error:", err)
 		}
 
 		if dhparamsRegeneration {
 			// Run on ticker
-			for range ticker.C {
-				err := dhparamsWorker()
-				if err != nil {
-					dhparamsLogger.Println("Worker error:", err)
+			ticker := time.NewTicker(dhparamsInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					err := dhparamsWorker(ctx)
+					if err != nil {
+						dhparamsLogger.Println("Worker error:", err)
+					}
+				case <-ctx.Done():
+					dhparamsLogger.Println("Worker's context canceled")
+					return
 				}
 			}
 		} else {
@@ -89,7 +93,7 @@ func startDHParamsWorker() {
 }
 
 // Generate a new set of DH parameters if needed
-func dhparamsWorker() error {
+func dhparamsWorker(ctx context.Context) error {
 	dhparamsLogger.Println("Starting dhparams worker")
 
 	beforeTime := time.Now().Add(dhparamsMaxAge)
@@ -100,10 +104,16 @@ func dhparamsWorker() error {
 	_, date := state.Instance.GetDHParams()
 	if date == nil || (dhparamsRegeneration && date.Before(beforeTime)) {
 		// Need to regenerate the DH parameters
-		dhparamsLogger.Println("DH parameters expired; starting generation")
-		result, err := dhparam.Generate(4096, dhparam.GeneratorTwo, nil)
+		bits := appconfig.Config.GetInt("tls.dhparams.bits")
+		dhparamsLogger.Printf("DH parameters expired; starting generation with %d bits\n", bits)
+		result, err := dhparam.GenerateWithContext(ctx, bits, dhparam.GeneratorTwo, nil)
 		if err != nil {
-			return err
+			if err == context.Canceled {
+				dhparamsLogger.Println("DH parameters generation aborted")
+				return nil
+			} else {
+				return err
+			}
 		}
 		pem, err := result.ToPEM()
 		if err != nil {

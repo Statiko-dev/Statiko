@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package worker
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -44,7 +45,7 @@ var certMonitorNotifications map[string]int
 var certMonitorChecks []int
 
 // In background, periodically check for expired certificates
-func startCertMonitorWorker() {
+func startCertMonitorWorker(ctx context.Context) {
 	// Set variables
 	certMonitorInterval := time.Duration(24 * time.Hour) // Run every 24 hours
 	certMonitorLogger = log.New(os.Stdout, "worker/cert-monitor: ", log.Ldate|log.Ltime|log.LUTC)
@@ -53,7 +54,6 @@ func startCertMonitorWorker() {
 	// Notification days
 	certMonitorChecks = []int{-2, -1, 0, 1, 2, 3, 7, 14, 30}
 
-	ticker := time.NewTicker(certMonitorInterval)
 	go func() {
 		// Run right away
 		err := certMonitorWorker()
@@ -62,10 +62,18 @@ func startCertMonitorWorker() {
 		}
 
 		// Run on ticker
-		for range ticker.C {
-			err := certMonitorWorker()
-			if err != nil {
-				certMonitorLogger.Println("Worker error:", err)
+		ticker := time.NewTicker(certMonitorInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				err := certMonitorWorker()
+				if err != nil {
+					certMonitorLogger.Println("Worker error:", err)
+				}
+			case <-ctx.Done():
+				certMonitorLogger.Println("Worker's context canceled")
+				return
 			}
 		}
 	}()
