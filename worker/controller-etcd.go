@@ -111,6 +111,7 @@ func (w *ControllerEtcd) CompleteJob(jobID string) error {
 		return err
 	}
 
+	w.logger.Println("Completed job", jobID)
 	return nil
 }
 

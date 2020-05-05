@@ -33,6 +33,9 @@ func startController() {
 	// Get the store
 	store := state.Instance.GetStore()
 	switch state.Instance.GetStoreType() {
+	case state.StoreTypeFile:
+		state.Worker = &ControllerFile{}
+		state.Worker.Init(store.(*state.StateStoreFile))
 	case state.StoreTypeEtcd:
 		state.Worker = &ControllerEtcd{}
 		state.Worker.Init(store.(*state.StateStoreEtcd))
