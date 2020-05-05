@@ -96,16 +96,39 @@ func startDHParamsWorker(ctx context.Context) {
 }
 
 // Generate a new set of DH parameters if needed
-func dhparamsWorker(ctx context.Context) error {
+func dhparamsWorker(parentCtx context.Context) error {
 	dhparamsLogger.Println("Starting dhparams worker")
 
 	beforeTime := time.Now().Add(dhparamsMaxAge)
 	needsSync := false
 
+	// Get a sub-context
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
 	// Get the current DH parameters
 	// We'll regenerate them only if dhparamsRegeneration is true, or if we're using the default ones
 	_, date := state.Instance.GetDHParams()
 	if date == nil || (dhparamsRegeneration && date.Before(beforeTime)) {
+		// In background, periodically check if we have new DH parameters
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					_, newDate := state.Instance.GetDHParams()
+					if newDate != nil && (date == nil || !newDate.Equal(*date)) {
+						dhparamsLogger.Println("DH parameters have been updated externally")
+						cancel()
+						return
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+
 		// Need to regenerate the DH parameters
 		bits := appconfig.Config.GetInt("tls.dhparams.bits")
 		dhparamsLogger.Printf("DH parameters expired; starting generation with %d bits\n", bits)

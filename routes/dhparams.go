@@ -77,8 +77,6 @@ func DHParamsHandler(c *gin.Context) {
 		return
 	}
 
-	// TODO: ABORT GENERATION (IF ANY)
-
 	// Return
 	c.Status(http.StatusNoContent)
 }
