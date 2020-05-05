@@ -64,9 +64,9 @@ func (h *SiteHealth) MarshalJSON() ([]byte, error) {
 	// Marshal the JSON object
 	type Alias SiteHealth
 	return json.Marshal(&struct {
+		*Alias
 		Healthy  bool   `json:"healthy"`
 		ErrorStr string `json:"error,omitempty"`
-		*Alias
 	}{
 		Healthy:  h.IsHealthy(),
 		ErrorStr: errorStr,

@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package routes
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -27,6 +28,8 @@ import (
 	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/webserver"
 )
+
+var hiddenError = errors.New("<hidden error>")
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
 func StatusHandler(c *gin.Context) {
@@ -106,11 +109,14 @@ func StatusHandler(c *gin.Context) {
 			}
 
 			if found {
-				// If we're not authenticated, do not display the app name
+				// If we're not authenticated, do not display the app name, nor the full error
 				// In this case, the user requested a domain only, so they know the domain anyways
 				if !isAuthenticated && domainHealth.App != nil {
 					app := "<hidden>"
 					domainHealth.App = &app
+					if domainHealth.Error != nil {
+						domainHealth.Error = hiddenError
+					}
 				}
 
 				res.Health = []statuscheck.SiteHealth{domainHealth}
@@ -145,6 +151,9 @@ func StatusHandler(c *gin.Context) {
 						el.App = &app
 					}
 					el.Domain = "Domain " + strconv.Itoa(i+1)
+					if el.Error != nil {
+						el.Error = hiddenError
+					}
 				}
 				res.Health[i] = el
 			}
