@@ -33,7 +33,7 @@ func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) 
 	var certObj *x509.Certificate
 
 	// Check the type of the TLS certificate
-	switch site.TLSCertificateType {
+	switch site.TLS.Type {
 	case state.TLSCertificateImported:
 		// Get the certificate
 		key, cert, certObj, err = GetImportedCertificate(site)
@@ -63,13 +63,13 @@ func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) 
 // GetImportedCertificate returns a certificate from Azure Key Vault
 func GetImportedCertificate(site *state.SiteState) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
 	var name, version string
-	if site.TLSCertificate == nil || *site.TLSCertificate == "" {
+	if site.TLS.Certificate == nil || *site.TLS.Certificate == "" {
 		err = errors.New("certificate name is empty")
 		return
 	}
-	name = *site.TLSCertificate
-	if site.TLSCertificateVersion != nil && *site.TLSCertificateVersion != "" {
-		version = *site.TLSCertificateVersion
+	name = *site.TLS.Certificate
+	if site.TLS.Version != nil && *site.TLS.Version != "" {
+		version = *site.TLS.Version
 	}
 	version, cert, key, certObj, err = azurekeyvault.GetInstance().GetCertificate(name, version)
 	if err != nil {
@@ -97,7 +97,7 @@ func InspectCertificate(site *state.SiteState, cert *x509.Certificate) error {
 
 	// Check if the list of domains matches, but not for imported certificates
 	// We're not checking this for imported certificates because they might have wildcards and be valid for more domains
-	if site.TLSCertificateType != state.TLSCertificateImported {
+	if site.TLS.Type != state.TLSCertificateImported {
 		domains := append([]string{site.Domain}, site.Aliases...)
 		sort.Strings(domains)
 		certDomains := append(make([]string, 0), cert.DNSNames...)

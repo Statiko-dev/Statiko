@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -52,25 +53,27 @@ func CreateSiteHandler(c *gin.Context) {
 		}
 	}
 
-	// Self-signed TLS certificates are default when no value is specified, or when value is "selfsigned"
+	// Self-signed TLS certificates are default when no value is specified
 	// If the value is "letsencrypt", request a certificate from Let's Encrypt (not yet implemented)
-	if site.TLSCertificate == nil || *site.TLSCertificate == "" || *site.TLSCertificate == "selfsigned" {
-		site.TLSCertificateType = state.TLSCertificateSelfSigned
-		site.TLSCertificate = nil
-		site.TLSCertificateVersion = nil
-	} else if *site.TLSCertificate == "letsencrypt" {
-		/*site.TLSCertificateType = state.TLSCertificateLetsEncrypt
-		site.TLSCertificate = nil
-		site.TLSCertificateVersion = nil*/
+	if site.TLS == nil || site.TLS.Type == "" || site.TLS.Type == state.TLSCertificateSelfSigned {
+		site.TLS = &state.SiteTLS{
+			Type:        state.TLSCertificateSelfSigned,
+			Certificate: nil,
+			Version:     nil,
+		}
+	} else if site.TLS.Type == state.TLSCertificateLetsEncrypt {
+		/*site.TLS.Type = state.TLSCertificateLetsEncrypt
+		site.TLS.Certificate = nil
+		site.TLS.Version = nil*/
 		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
 			"error": "Support for Let's Encrypt not yet implemented",
 		})
 		return
-	} else {
-		site.TLSCertificateType = state.TLSCertificateImported
+	} else if site.TLS.Type == state.TLSCertificateImported && site.TLS.Certificate != nil && *site.TLS.Certificate != "" {
+		site.TLS.Type = state.TLSCertificateImported
 
 		// Check if the certificate exists
-		exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLSCertificate)
+		exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLS.Certificate)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -81,6 +84,11 @@ func CreateSiteHandler(c *gin.Context) {
 			})
 			return
 		}
+	} else {
+		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+			"error": "Invalid TLS configuration",
+		})
+		return
 	}
 
 	// Add the website to the store
@@ -180,6 +188,7 @@ func PatchSiteHandler(c *gin.Context) {
 		})
 		return
 	}
+	fmt.Println("UPDATE", update)
 
 	// Iterate through the fields in the input and update site
 	updated := false
@@ -189,46 +198,68 @@ func PatchSiteHandler(c *gin.Context) {
 		t := reflect.TypeOf(v)
 
 		switch strings.ToLower(k) {
-		case "tlscertificate":
-			if t != nil && t.Kind() == reflect.String {
-				str := v.(string)
-				if str == "letsencrypt" {
-					site.TLSCertificate = nil
-					site.TLSCertificateType = state.TLSCertificateLetsEncrypt
-				} else if str == "selfsigned" || str == "" {
-					site.TLSCertificate = nil
-					site.TLSCertificateType = state.TLSCertificateSelfSigned
-				} else {
-					site.TLSCertificate = &str
-					site.TLSCertificateType = state.TLSCertificateImported
+		case "tls":
+			if t != nil && t.Kind() == reflect.Map {
+				vMap := v.(map[string]interface{})
+				for k, v := range vMap {
+					t := reflect.TypeOf(v)
 
-					// Check if the certificate exists
-					exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLSCertificate)
-					if err != nil {
-						c.AbortWithError(http.StatusInternalServerError, err)
-						return
-					}
-					if !exists {
-						c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-							"error": "TLS certificate does not exist in the key vault",
-						})
-						return
+					switch strings.ToLower(k) {
+					case "type":
+						if t != nil && t.Kind() == reflect.String {
+							str := v.(string)
+							if str == "" {
+								site.TLS.Type = state.TLSCertificateSelfSigned
+							} else {
+								if str != state.TLSCertificateLetsEncrypt && str != state.TLSCertificateSelfSigned && str != state.TLSCertificateImported {
+									c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+										"error": "Invalid TLS certificate type",
+									})
+									return
+								}
+								site.TLS.Type = str
+							}
+							updatedTLS = true
+							updated = true
+						} else {
+							site.TLS.Type = state.TLSCertificateSelfSigned
+							updatedTLS = true
+							updated = true
+						}
+					case "cert":
+						if t != nil && t.Kind() == reflect.String {
+							str := v.(string)
+							if str != "" {
+								site.TLS.Certificate = &str
+								site.TLS.Type = state.TLSCertificateImported
+
+								// Check if the certificate exists
+								exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLS.Certificate)
+								if err != nil {
+									c.AbortWithError(http.StatusInternalServerError, err)
+									return
+								}
+								if !exists {
+									c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+										"error": "TLS certificate does not exist in the key vault",
+									})
+									return
+								}
+								updatedTLS = true
+								updated = true
+							}
+						}
+					case "ver":
+						if t.Kind() == reflect.String {
+							str := v.(string)
+							if str != "" {
+								site.TLS.Version = &str
+								updatedTLSVersion = true
+								updated = true
+							}
+						}
 					}
 				}
-				updatedTLS = true
-				updated = true
-			} else if t == nil {
-				site.TLSCertificate = nil
-				site.TLSCertificateType = state.TLSCertificateSelfSigned
-				updatedTLS = true
-				updated = true
-			}
-		case "tlscertificateversion":
-			if t.Kind() == reflect.String {
-				str := v.(string)
-				site.TLSCertificateVersion = &str
-				updatedTLSVersion = true
-				updated = true
 			}
 		case "aliases":
 			if t == nil {
@@ -269,8 +300,22 @@ func PatchSiteHandler(c *gin.Context) {
 	}
 
 	// If we have updated the TLS certificate, but not the version, reset the version
-	if updatedTLS && (!updatedTLSVersion || site.TLSCertificate == nil || site.TLSCertificateType != state.TLSCertificateImported) {
-		site.TLSCertificateVersion = nil
+	if updatedTLS && (!updatedTLSVersion || site.TLS.Certificate == nil || site.TLS.Type != state.TLSCertificateImported) {
+		site.TLS.Version = nil
+	}
+
+	// If the TLS certificate type is not imported, then ensure we don't have a certificate name or version
+	if updatedTLS && site.TLS.Type != state.TLSCertificateImported {
+		site.TLS.Certificate = nil
+		site.TLS.Version = nil
+	}
+
+	// If the TLS certificate type is imported, ensure we have a certificate name
+	if updatedTLS && site.TLS.Type == state.TLSCertificateImported && (site.TLS.Certificate == nil || *site.TLS.Certificate == "") {
+		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+			"error": "Invalid TLS configuration",
+		})
+		return
 	}
 
 	// Update the site object if something has changed

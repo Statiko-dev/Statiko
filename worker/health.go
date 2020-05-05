@@ -37,6 +37,9 @@ func startHealthWorker(ctx context.Context) {
 	healthLogger = log.New(os.Stdout, "worker/health: ", log.Ldate|log.Ltime|log.LUTC)
 
 	go func() {
+		// Wait for startup
+		waitForStartup()
+
 		// Wait 30 seconds at node startup, then run right away
 		time.Sleep(30 * time.Second)
 		err := healthWorker()

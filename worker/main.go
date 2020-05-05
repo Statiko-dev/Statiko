@@ -18,14 +18,16 @@ package worker
 
 import (
 	"context"
+	"time"
 
 	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/sync"
 )
 
 // StartWorker starts all the background workers
 func StartWorker() {
-	startSharedWorkers()
 	startController()
+	startSharedWorkers()
 }
 
 // Start the controller that manages the workers that only run in the cluster's leader node
@@ -54,4 +56,11 @@ func startSharedWorkers() {
 	// These workers don't need to be stopped
 	ctx := context.Background()
 	startHealthWorker(ctx)
+}
+
+// Waits for first sync to complete
+func waitForStartup() {
+	for !sync.StartupComplete {
+		time.Sleep(2 * time.Second)
+	}
 }

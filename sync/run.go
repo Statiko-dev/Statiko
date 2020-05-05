@@ -31,6 +31,9 @@ var semaphore = make(chan int, 1)
 // Semaphore that indicates if there's already one sync waiting
 var isWaiting = make(chan int, 1)
 
+// Boolean notifying if the first sync has completed
+var StartupComplete = false
+
 // Last time the sync was started
 var lastSync *time.Time
 
@@ -51,6 +54,7 @@ func QueueRun() {
 	syncError = nil
 	go func() {
 		syncError = runner()
+		StartupComplete = true
 		if syncError != nil {
 			logger.Println("Error returned by async run", syncError)
 			sendErrorNotification("Unrecoverable error running state synchronization: " + syncError.Error())
@@ -64,6 +68,7 @@ func QueueRun() {
 func Run() error {
 	semaphore <- 1
 	syncError = runner()
+	StartupComplete = true
 	<-semaphore
 	if syncError != nil {
 		sendErrorNotification("Unrecoverable error running state synchronization: " + syncError.Error())

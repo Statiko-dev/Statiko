@@ -37,14 +37,12 @@ type NodeState struct {
 
 // SiteState represents the state of a single site
 type SiteState struct {
-	// Configuration
-	TLSCertificateType    string  `json:"tlsCertificateType"`
-	TLSCertificate        *string `json:"tlsCertificate"`
-	TLSCertificateVersion *string `json:"tlsCertificateVersion"`
-
 	// Domains: primary and aliases
 	Domain  string   `json:"domain" binding:"required,ne=_default"`
 	Aliases []string `json:"aliases" binding:"dive,ne=_default"`
+
+	// TLS configuration
+	TLS *SiteTLS `json:"tls"`
 
 	// Deployment error
 	Error    error   `json:"-"`
@@ -52,6 +50,13 @@ type SiteState struct {
 
 	// App
 	App *SiteApp `json:"app"`
+}
+
+// SiteTLS represents the TLS configuration for the site
+type SiteTLS struct {
+	Type        string  `json:"type"`
+	Certificate *string `json:"cert,omitempty"`
+	Version     *string `json:"ver,omitempty"`
 }
 
 // SiteApp represents the state of an app deployed or being deployed

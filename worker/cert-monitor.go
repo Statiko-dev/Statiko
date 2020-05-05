@@ -55,6 +55,9 @@ func startCertMonitorWorker(ctx context.Context) {
 	certMonitorChecks = []int{-2, -1, 0, 1, 2, 3, 7, 14, 30}
 
 	go func() {
+		// Wait for startup
+		waitForStartup()
+
 		// Run right away
 		err := certMonitorWorker()
 		if err != nil {

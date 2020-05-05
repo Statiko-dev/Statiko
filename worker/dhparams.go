@@ -64,6 +64,9 @@ func startDHParamsWorker(ctx context.Context) {
 	dhparamsLogger = log.New(os.Stdout, "worker/dhparams: ", log.Ldate|log.Ltime|log.LUTC)
 
 	go func() {
+		// Wait for startup
+		waitForStartup()
+
 		// Run right away
 		err := dhparamsWorker(ctx)
 		if err != nil {

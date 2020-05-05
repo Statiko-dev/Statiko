@@ -102,9 +102,9 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 		if s.ErrorStr != nil {
 			s.ErrorStr = nil
 		}
-		if s.TLSCertificateType != TLSCertificateImported {
-			s.TLSCertificate = nil
-			s.TLSCertificateVersion = nil
+		if s.TLS.Type != TLSCertificateImported {
+			s.TLS.Certificate = nil
+			s.TLS.Version = nil
 		}
 	}
 
