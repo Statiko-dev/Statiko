@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package routes
 
 import (
-	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -188,7 +187,6 @@ func PatchSiteHandler(c *gin.Context) {
 		})
 		return
 	}
-	fmt.Println("UPDATE", update)
 
 	// Iterate through the fields in the input and update site
 	updated := false

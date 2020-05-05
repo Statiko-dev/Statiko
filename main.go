@@ -116,6 +116,7 @@ func main() {
 		group.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
 
 		group.POST("/sync", routes.SyncHandler)
+		group.POST("/dhparams", routes.DHParamsHandler)
 	}
 
 	// HTTP Server
