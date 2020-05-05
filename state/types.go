@@ -70,10 +70,17 @@ type NodeDHParams struct {
 	PEM  string     `json:"pem"`
 }
 
-// Internal use
+// WorkerController is the interface for the controller
+type WorkerController interface {
+	Init(store StateStore)
+	IsLeader() bool
+	AddJob(job utils.JobData) (string, error)
+	CompleteJob(jobID string) error
+	WaitForJob(jobID string, ch chan error)
+}
 
-// Interface for the state stores
-type stateStore interface {
+// StateStore is the interface for the state stores
+type StateStore interface {
 	Init() error
 	AcquireLock(name string, timeout bool) (interface{}, error)
 	ReleaseLock(leaseID interface{}) error

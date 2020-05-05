@@ -18,7 +18,9 @@ package utils
 
 import (
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -95,4 +97,10 @@ func RandString(n int) string {
 		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
 	}
 	return string(b)
+}
+
+// SHA256String returns the SHA256 of a string, as a hex-encoded string
+func SHA256String(str string) string {
+	hash := sha256.Sum256([]byte(str))
+	return hex.EncodeToString(hash[:])
 }

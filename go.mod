@@ -10,7 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.8.3
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
-	github.com/Luzifer/go-dhparam v0.0.0-00010101000000-000000000000
+	github.com/Luzifer/go-dhparam v1.1.0
 	github.com/coreos/etcd v3.3.20+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.3.1
@@ -27,6 +27,3 @@ require (
 
 // See https://github.com/etcd-io/etcd/issues/11563
 replace github.com/coreos/go-systemd => github.com/coreos/go-systemd/v22 v22.0.0
-
-// https://github.com/Luzifer/go-dhparam/pull/2
-replace github.com/Luzifer/go-dhparam => github.com/ItalyPaleAle/go-dhparam v1.0.1-0.20200503232255-6673139a84c1

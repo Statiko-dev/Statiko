@@ -195,12 +195,9 @@ func PatchSiteHandler(c *gin.Context) {
 				if str == "letsencrypt" {
 					site.TLSCertificate = nil
 					site.TLSCertificateType = state.TLSCertificateLetsEncrypt
-				} else if str == "selfsigned" {
+				} else if str == "selfsigned" || str == "" {
 					site.TLSCertificate = nil
 					site.TLSCertificateType = state.TLSCertificateSelfSigned
-				} else if str == "" {
-					site.TLSCertificate = nil
-					site.TLSCertificateType = state.TLSCertificateImported
 				} else {
 					site.TLSCertificate = &str
 					site.TLSCertificateType = state.TLSCertificateImported
@@ -222,7 +219,7 @@ func PatchSiteHandler(c *gin.Context) {
 				updated = true
 			} else if t == nil {
 				site.TLSCertificate = nil
-				site.TLSCertificateType = state.TLSCertificateImported
+				site.TLSCertificateType = state.TLSCertificateSelfSigned
 				updatedTLS = true
 				updated = true
 			}

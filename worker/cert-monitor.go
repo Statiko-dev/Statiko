@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/certificates"
 	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -124,7 +124,7 @@ func certMonitorWorker() error {
 
 		// Is this certificate self-signed?
 		selfSigned := false
-		if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer {
+		if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == utils.SelfSignedCertificateIssuer {
 			selfSigned = true
 		}
 
@@ -139,7 +139,27 @@ func certMonitorWorker() error {
 		if selfSigned {
 			// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than 7 days left
 			if exp.Before(now.Add(time.Duration(7 * 24 * time.Hour))) {
-				certMonitorLogger.Println("Certificate for site", site, "is expiring in less than 7 days; queueing a sync to regenerate it")
+				certMonitorLogger.Println("Certificate for site", site, "is expiring in less than 7 days; regenerating it")
+
+				// Queue a job
+				job := utils.JobData{
+					Type: utils.JobTypeTLSCertificate,
+					Data: strings.Join(cert.DNSNames, ","),
+				}
+				jobID, err := state.Worker.AddJob(job)
+				if err != nil {
+					return err
+				}
+
+				// Wait for the job
+				ch := make(chan error, 1)
+				go state.Worker.WaitForJob(jobID, ch)
+				err = <-ch
+				close(ch)
+				if err != nil {
+					return err
+				}
+
 				// We'll queue a sync
 				needsSync = true
 			}

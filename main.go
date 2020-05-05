@@ -48,6 +48,9 @@ func main() {
 		panic(err)
 	}
 
+	// Start all background workers
+	worker.StartWorker()
+
 	// If we're in production mode, set Gin to "release" mode
 	if appconfig.ENV == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -61,9 +64,6 @@ func main() {
 	if err := sync.Run(); err != nil {
 		panic(err)
 	}
-
-	// Start all background workers
-	worker.StartWorker()
 
 	// Ensure Nginx is running
 	if err := webserver.Instance.EnsureServerRunning(); err != nil {

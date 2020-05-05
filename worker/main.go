@@ -34,8 +34,8 @@ func startController() {
 	store := state.Instance.GetStore()
 	switch state.Instance.GetStoreType() {
 	case state.StoreTypeEtcd:
-		controller := &ControllerEtcd{}
-		controller.Init(store.(*state.StateStoreEtcd))
+		state.Worker = &ControllerEtcd{}
+		state.Worker.Init(store.(*state.StateStoreEtcd))
 	}
 }
 

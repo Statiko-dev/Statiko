@@ -108,7 +108,7 @@ func dhparamsWorker(ctx context.Context) error {
 		dhparamsLogger.Printf("DH parameters expired; starting generation with %d bits\n", bits)
 		result, err := dhparam.GenerateWithContext(ctx, bits, dhparam.GeneratorTwo, nil)
 		if err != nil {
-			if err == context.Canceled {
+			if err == context.Canceled || err == context.DeadlineExceeded {
 				dhparamsLogger.Println("DH parameters generation aborted")
 				return nil
 			} else {
@@ -123,6 +123,9 @@ func dhparamsWorker(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+
+		// Queue a new sync
+		needsSync = true
 
 		dhparamsLogger.Println("Done: DH parameters generated")
 	} else {

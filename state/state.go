@@ -37,7 +37,7 @@ const (
 // Manager is the state manager class
 type Manager struct {
 	updated   *time.Time
-	store     stateStore
+	store     StateStore
 	storeType string
 }
 
@@ -66,7 +66,7 @@ func (m *Manager) GetStoreType() string {
 }
 
 // GetStore returns the instance of the store in use
-func (m *Manager) GetStore() stateStore {
+func (m *Manager) GetStore() StateStore {
 	return m.store
 }
 

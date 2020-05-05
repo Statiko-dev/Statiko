@@ -100,7 +100,7 @@ func InspectCertificate(site *state.SiteState, cert *x509.Certificate) error {
 	if site.TLSCertificateType != state.TLSCertificateImported {
 		domains := append([]string{site.Domain}, site.Aliases...)
 		sort.Strings(domains)
-		certDomains := append(make([]string, len(cert.DNSNames)), cert.DNSNames...)
+		certDomains := append(make([]string, 0), cert.DNSNames...)
 		sort.Strings(certDomains)
 		if !reflect.DeepEqual(domains, certDomains) {
 			return fmt.Errorf("list of domains in certificate does not match: %v", certDomains)

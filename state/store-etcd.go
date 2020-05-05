@@ -118,7 +118,8 @@ func (s *StateStoreEtcd) Init() (err error) {
 	}
 
 	// Watch for changes
-	go s.watch()
+	go s.watchStateChanges()
+	s.startAuxiliaryKeysWatcher()
 
 	// Load the current state
 	err = s.ReadState()
@@ -181,11 +182,12 @@ func (s *StateStoreEtcd) registerNode() error {
 	return nil
 }
 
-// Starts the watcher for changes in etcd
-func (s *StateStoreEtcd) watch() {
-	// Start watching for changes in the key
-	ctx, cancel := context.WithCancel(context.Background())
-	ctx = clientv3.WithRequireLeader(ctx)
+// Starts the watcher for state changes in etcd
+func (s *StateStoreEtcd) watchStateChanges() {
+	// Get a background context that doesn't have a timeout
+	ctx := clientv3.WithRequireLeader(context.Background())
+
+	// Start watching for changes in the state key
 	rch := s.client.Watch(ctx, s.stateKey)
 
 	for resp := range rch {
@@ -224,10 +226,49 @@ func (s *StateStoreEtcd) watch() {
 		}
 	}
 
-	// Cancel the context
-	cancel()
-
 	return
+}
+
+// Starts the watcher for changes to secrets and dhparams in etcd
+func (s *StateStoreEtcd) startAuxiliaryKeysWatcher() {
+	// Get a background context that doesn't have a timeout
+	ctx := clientv3.WithRequireLeader(context.Background())
+
+	// Watcher function
+	watcher := func(key string, prefix bool, invokeCallbackOnChanges bool) {
+		var rch clientv3.WatchChan
+		if prefix {
+			rch = s.client.Watch(ctx, key, clientv3.WithPrefix(), clientv3.WithKeysOnly())
+		} else {
+			rch = s.client.Watch(ctx, key, clientv3.WithKeysOnly())
+		}
+
+		for resp := range rch {
+			// Check for unrecoverable errors
+			if resp.Err() != nil {
+				panic(fmt.Errorf("unrecoverable error from etcd watcher: %v", resp.Err()))
+			}
+
+			// Read the state again
+			if len(resp.Events) > 0 {
+				if err := s.ReadState(); err != nil {
+					logger.Printf("Error while refreshing state from etcd cluster: %v\n", err)
+					continue
+				}
+
+				// Check if we need to invoke the callback
+				if invokeCallbackOnChanges && s.updateCallback != nil {
+					s.updateCallback()
+				}
+			}
+		}
+	}
+
+	// Watch for secrets
+	go watcher(s.secretsKeyPrefix, true, true)
+
+	// Watch for dhparams
+	go watcher(s.dhparamsKey, false, true)
 }
 
 // AcquireLock acquires a lock, with an optional timeout
@@ -502,7 +543,8 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 				if err != nil {
 					return err
 				}
-				unserialized.Secrets[string(kv.Key)] = secret
+				key := strings.TrimPrefix(string(kv.Key), s.secretsKeyPrefix)
+				unserialized.Secrets[key] = secret
 			}
 		}
 	}

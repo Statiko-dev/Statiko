@@ -18,15 +18,19 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/coreos/etcd/clientv3"
-	"github.com/google/uuid"
+	"github.com/coreos/etcd/mvcc/mvccpb"
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // ControllerEtcd is a worker controller that uses etcd as backend
@@ -40,31 +44,68 @@ type ControllerEtcd struct {
 }
 
 // Init the object
-func (w *ControllerEtcd) Init(store *state.StateStoreEtcd) {
+func (w *ControllerEtcd) Init(store state.StateStore) {
 	// Init variables
 	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
 	w.leaderKey = keyPrefix + "/leader"
 	w.jobsKeyPrefix = keyPrefix + "/jobs/"
 	w.isLeader = false
 	w.lastJobRevision = 0
-	w.store = store
+	w.store = store.(*state.StateStoreEtcd)
 	w.logger = log.New(os.Stdout, "worker/controller-etcd: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Start the listener
-	err := w.startListener()
-	if err != nil {
-		panic(fmt.Errorf("error while starting the listener:\n%v", err))
+	// Start the leadership manager if this node can become a leader
+	if !appconfig.Config.GetBool("disallowLeadership") {
+		err := w.leadershipManager()
+		if err != nil {
+			panic(fmt.Errorf("error while starting the leadership manager:\n%v", err))
+		}
 	}
 }
 
-// AddJob adds a job to the queue
-func (w *ControllerEtcd) AddJob(job string) error {
-	// Generate a random job id
-	jobID := uuid.New().String()
+// IsLeader returns true if this node is the leader of the cluster
+func (w *ControllerEtcd) IsLeader() bool {
+	return w.isLeader
+}
+
+// AddJob adds a job to the queue, returning its ID
+func (w *ControllerEtcd) AddJob(job utils.JobData) (string, error) {
+	// Ensure we have a leader
+	hasLeader, err := w.hasLeader()
+	if err != nil {
+		return "", err
+	}
+	if !hasLeader {
+		return "", errors.New("cluster does not have a leader")
+	}
+
+	// Get the job ID
+	jobID := utils.CreateJobID(job)
+
+	// Serialize the job
+	message, err := json.Marshal(job)
+	if err != nil {
+		return "", err
+	}
 
 	// Write the job
 	ctx, cancel := w.store.GetContext()
-	_, err := w.store.GetClient().Put(ctx, w.jobsKeyPrefix+jobID, job)
+	_, err = w.store.GetClient().Put(ctx, w.jobsKeyPrefix+jobID, string(message))
+	cancel()
+	if err != nil {
+		return "", err
+	}
+
+	w.logger.Printf("Added job %s: %s\n", jobID, string(message))
+
+	return jobID, nil
+}
+
+// CompleteJob marks a job as complete
+func (w *ControllerEtcd) CompleteJob(jobID string) error {
+	// Delete the job
+	ctx, cancel := w.store.GetContext()
+	_, err := w.store.GetClient().Delete(ctx, w.jobsKeyPrefix+jobID)
 	cancel()
 	if err != nil {
 		return err
@@ -73,8 +114,63 @@ func (w *ControllerEtcd) AddJob(job string) error {
 	return nil
 }
 
-// Starts the listener that processes all job requests
-func (w *ControllerEtcd) startListener() error {
+// WaitForJob waits until the job with the specified ID is done
+func (w *ControllerEtcd) WaitForJob(jobID string, ch chan error) {
+	// First, start a watcher to check when the key is deleted
+	watchCtx, watchCancel := context.WithCancel(context.Background())
+	watchCtx = clientv3.WithRequireLeader(watchCtx)
+	go func() {
+		rch := w.store.GetClient().Watch(watchCtx, w.jobsKeyPrefix+jobID)
+
+		// Listen to events
+		for resp := range rch {
+			// Check for unrecoverable errors
+			if resp.Err() != nil {
+				ch <- fmt.Errorf("unrecoverable error from etcd watcher: %v", resp.Err())
+				watchCancel()
+				return
+			}
+
+			// Only look for deleted keys
+			for _, event := range resp.Events {
+				if event.Type == mvccpb.DELETE {
+					ch <- nil
+					watchCancel()
+					return
+				}
+			}
+		}
+	}()
+
+	// Check if the the key was already deleted
+	reqCtx, reqCancel := w.store.GetContext()
+	resp, err := w.store.GetClient().Get(reqCtx, w.jobsKeyPrefix+jobID)
+	reqCancel()
+	if err != nil {
+		watchCancel()
+		ch <- err
+	} else if resp.Count == 0 {
+		// Key was already deleted
+		watchCancel()
+		ch <- nil
+	}
+}
+
+// Returns true if the cluster has a leader
+func (w *ControllerEtcd) hasLeader() (bool, error) {
+	// Get the current leader
+	reqCtx, reqCancel := w.store.GetContext()
+	resp, err := w.store.GetClient().Get(reqCtx, w.leaderKey)
+	reqCancel()
+	if err != nil {
+		return false, err
+	}
+
+	return resp.Count > 0 && len(resp.Kvs[0].Value) > 0, nil
+}
+
+// Try to acquire leadership and watch for changes in leadership
+func (w *ControllerEtcd) leadershipManager() error {
 	// Acquire leadership
 	leaderChan := make(chan bool)
 	go func() {
@@ -99,6 +195,7 @@ func (w *ControllerEtcd) startListener() error {
 			// If we're leader now, start listening for jobs
 			if w.isLeader {
 				ctx, cancel = context.WithCancel(context.Background())
+				ctx = clientv3.WithRequireLeader(ctx)
 				err = w.listenForJobs(ctx)
 				if err != nil {
 					panic(fmt.Errorf("error while listening for jobs:\n%v", err))
@@ -120,6 +217,23 @@ func (w *ControllerEtcd) startListener() error {
 func (w *ControllerEtcd) listenForJobs(ctx context.Context) error {
 	w.lastJobRevision = 0
 
+	// Receive jobs
+	receiveJob := func(jobID string, message []byte) error {
+		// Process the job
+		job := utils.JobData{}
+		err := json.Unmarshal(message, &job)
+		if err != nil {
+			return err
+		}
+		err = ProcessJob(job)
+		if err != nil {
+			return err
+		}
+
+		// Mark job as complete
+		return w.CompleteJob(jobID)
+	}
+
 	// Start watching for jobs
 	go func() {
 		rch := w.store.GetClient().Watch(ctx, w.jobsKeyPrefix, clientv3.WithPrefix())
@@ -134,8 +248,14 @@ func (w *ControllerEtcd) listenForJobs(ctx context.Context) error {
 			// Only look for new jobs
 			for _, event := range resp.Events {
 				if event.Kv.ModRevision > w.lastJobRevision && event.IsCreate() {
-					// Process jobs here
-					fmt.Println("Received job:", string(event.Kv.Key), string(event.Kv.Value))
+					// Process jobs
+					jobID := strings.TrimPrefix(string(event.Kv.Key), w.jobsKeyPrefix)
+					w.logger.Println("Received job", jobID)
+					err := receiveJob(jobID, event.Kv.Value)
+					if err != nil {
+						w.logger.Printf("Error in job %s: %v\n", jobID, err)
+						continue
+					}
 					w.lastJobRevision = event.Kv.ModRevision
 				}
 			}
@@ -153,8 +273,14 @@ func (w *ControllerEtcd) listenForJobs(ctx context.Context) error {
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
 		for _, kv := range resp.Kvs {
 			if kv.Value != nil && len(kv.Value) > 0 {
-				// Process jobs here
-				fmt.Println("Loaded job:", string(kv.Key), string(kv.Value))
+				// Process jobs
+				jobID := strings.TrimPrefix(string(kv.Key), w.jobsKeyPrefix)
+				w.logger.Println("Loaded job", jobID)
+				err := receiveJob(jobID, kv.Value)
+				if err != nil {
+					w.logger.Printf("Error in job %s: %v\n", jobID, err)
+					continue
+				}
 			}
 		}
 	}

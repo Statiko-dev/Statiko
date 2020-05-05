@@ -48,7 +48,7 @@ func init() {
 			s := <-handleSIGUSR1()
 			if s == syscall.SIGUSR1 {
 				logger.Println("Received SIGUSR1, trigger a sync")
-				go Run()
+				go QueueRun()
 			}
 		}
 	}()

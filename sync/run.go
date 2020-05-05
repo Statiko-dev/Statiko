@@ -28,6 +28,9 @@ import (
 // Semaphore that allows only one operation at time
 var semaphore = make(chan int, 1)
 
+// Semaphore that indicates if there's already one sync waiting
+var isWaiting = make(chan int, 1)
+
 // Last time the sync was started
 var lastSync *time.Time
 
@@ -36,7 +39,15 @@ var syncError error
 
 // QueueRun is a thread-safe version of Run that ensures that only one sync can happen at a time
 func QueueRun() {
+	// No need to trigger multiple sync in a row: if there's already one waiting, then don't queue a second one, since they would pick the same state
+	select {
+	case isWaiting <- 1:
+		break
+	default:
+		return
+	}
 	semaphore <- 1
+	<-isWaiting
 	syncError = nil
 	go func() {
 		syncError = runner()
