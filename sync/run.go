@@ -125,8 +125,8 @@ func runner() error {
 
 	// Check if any site has an error
 	for _, s := range sites {
-		if s.Error != nil {
-			sendErrorNotification("Site " + s.Domain + " has an error: " + s.Error.Error())
+		if siteErr := state.Instance.GetSiteHealth(s.Domain); siteErr != nil {
+			sendErrorNotification("Site " + s.Domain + " has an error: " + siteErr.Error())
 		}
 	}
 

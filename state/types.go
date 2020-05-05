@@ -44,10 +44,6 @@ type SiteState struct {
 	// TLS configuration
 	TLS *SiteTLS `json:"tls"`
 
-	// Deployment error
-	Error    error   `json:"-"`
-	ErrorStr *string `json:"error" binding:"-"` // Not allowed as input
-
 	// App
 	App *SiteApp `json:"app"`
 }
@@ -74,6 +70,9 @@ type NodeDHParams struct {
 	Date *time.Time `json:"time"`
 	PEM  string     `json:"pem"`
 }
+
+// SiteHealth represents the health of each site in the node
+type SiteHealth map[string]error
 
 // WorkerController is the interface for the controller
 type WorkerController interface {

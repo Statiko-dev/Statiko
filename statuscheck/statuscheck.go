@@ -182,7 +182,7 @@ func updateHealthCache() (hasError bool) {
 	healthCache = make([]SiteHealth, 0)
 	for _, s := range sites {
 		// Skip sites that have deployment errors
-		if s.Error != nil {
+		if siteErr := state.Instance.GetSiteHealth(s.Domain); siteErr != nil {
 			var appStr *string
 			if s.App != nil {
 				str := s.App.Name + "-" + s.App.Version
@@ -191,7 +191,7 @@ func updateHealthCache() (hasError bool) {
 			healthCache = append(healthCache, SiteHealth{
 				Domain: s.Domain,
 				App:    appStr,
-				Error:  s.Error,
+				Error:  siteErr,
 			})
 			continue
 		}

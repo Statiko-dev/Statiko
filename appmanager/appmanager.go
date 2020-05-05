@@ -189,8 +189,8 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	expectFolders[0] = "_default"
 	for _, s := range sites {
 		// If the app failed to deploy, skip this
-		if s.Error != nil {
-			m.log.Println("Skipping because of errors:", s.Domain)
+		if state.Instance.GetSiteHealth(s.Domain) != nil {
+			m.log.Println("Skipping because of unhealthy site:", s.Domain)
 			continue
 		}
 
@@ -198,8 +198,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
 		if err != nil {
 			m.log.Println("Error while creating folder for site:", s.Domain, err)
-			s.Error = err
-			state.Instance.UpdateSite(&s, true)
+			state.Instance.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
@@ -209,8 +208,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		u, err = ensureFolderWithUpdated(pathTLS)
 		if err != nil {
 			m.log.Println("Error while creating tls folder for site:", s.Domain, err)
-			s.Error = err
-			state.Instance.UpdateSite(&s, true)
+			state.Instance.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
@@ -221,8 +219,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		keyPEM, certPEM, err := certificates.GetCertificate(&s)
 		if err != nil {
 			m.log.Println("Error while getting TLS certificate for site:", s.Domain, err)
-			s.Error = err
-			state.Instance.UpdateSite(&s, true)
+			state.Instance.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		u, err = m.writeFileIfChanged(pathKey, keyPEM)
@@ -239,8 +236,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		}
 		if err := m.ActivateApp(bundle, s.Domain); err != nil {
 			m.log.Println("Error while activating app for site:", s.Domain, err)
-			s.Error = err
-			state.Instance.UpdateSite(&s, true)
+			state.Instance.SetSiteHealth(s.Domain, err)
 			continue
 		}
 
@@ -299,10 +295,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	fetchAppsList := make(map[string]int)
 	for i, s := range sites {
 		// Reset the error
-		if s.Error != nil {
-			s.Error = nil
-			state.Instance.UpdateSite(&s, true)
-		}
+		state.Instance.SetSiteHealth(s.Domain, nil)
 
 		// Check if the jobs channel is full
 		for len(jobs) == cap(jobs) {
@@ -597,9 +590,8 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 		if err != nil {
 			m.log.Println("Error staging app "+j.App.Name+"-"+j.App.Version+":", err)
 
-			// Store it in the site object
-			j.Error = err
-			state.Instance.UpdateSite(&j, true)
+			// Store the error
+			state.Instance.SetSiteHealth(j.Domain, err)
 		}
 		res <- 1
 	}

@@ -39,6 +39,7 @@ type Manager struct {
 	updated   *time.Time
 	store     StateStore
 	storeType string
+	health    SiteHealth
 }
 
 // Init loads the state from the store
@@ -57,6 +58,10 @@ func (m *Manager) Init() (err error) {
 		return
 	}
 	err = m.store.Init()
+
+	// Init variables
+	m.health = make(SiteHealth)
+
 	return
 }
 
@@ -94,14 +99,8 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 		return err
 	}
 
-	// Ensure that errors aren't included, and that if TLS certs are not imported, their name and version isn't either
+	// Ensure that if TLS certs are not imported, their name and version isn't included
 	for _, s := range state.Sites {
-		if s.Error != nil {
-			s.Error = nil
-		}
-		if s.ErrorStr != nil {
-			s.ErrorStr = nil
-		}
 		if s.TLS.Type != TLSCertificateImported {
 			s.TLS.Certificate = nil
 			s.TLS.Version = nil
@@ -171,10 +170,6 @@ func (m *Manager) AddSite(site *SiteState) error {
 		return err
 	}
 
-	// Reset the error in the site object
-	site.Error = nil
-	site.ErrorStr = nil
-
 	// Lock
 	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
@@ -202,14 +197,6 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 	healthy, err := m.StoreHealth()
 	if !healthy {
 		return err
-	}
-
-	// Sync ErrorStr with Error
-	if site.Error != nil {
-		errorStr := site.Error.Error()
-		site.ErrorStr = &errorStr
-	} else {
-		site.ErrorStr = nil
 	}
 
 	// Lock
@@ -306,6 +293,16 @@ func (m *Manager) OnStateUpdate(callback func()) {
 // ClusterMembers returns the list of members in the cluster
 func (m *Manager) ClusterMembers() (map[string]string, error) {
 	return m.store.ClusterMembers()
+}
+
+// GetSiteHealth returns the health of a site
+func (m *Manager) GetSiteHealth(domain string) error {
+	return m.health[domain]
+}
+
+// SetSiteHealth sets the health of a site
+func (m *Manager) SetSiteHealth(domain string, err error) {
+	m.health[domain] = err
 }
 
 // GetDHParams returns the PEM-encoded DH parameters and their date
