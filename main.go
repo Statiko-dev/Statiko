@@ -114,6 +114,8 @@ func main() {
 
 		group.POST("/uploadauth", routes.UploadAuthHandler)
 		group.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
+
+		group.POST("/sync", routes.SyncHandler)
 	}
 
 	// HTTP Server
