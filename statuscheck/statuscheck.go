@@ -106,7 +106,7 @@ func RequestHealth(domain string, app string, ch chan<- utils.SiteHealth) {
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        err,
+			Error:        err.Error(),
 		}
 		return
 	}
@@ -120,7 +120,7 @@ func RequestHealth(domain string, app string, ch chan<- utils.SiteHealth) {
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        fmt.Errorf("Invalid status code: %d", resp.StatusCode),
+			Error:        fmt.Errorf("Invalid status code: %d", resp.StatusCode).Error(),
 		}
 		return
 	}
@@ -134,7 +134,7 @@ func RequestHealth(domain string, app string, ch chan<- utils.SiteHealth) {
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        err,
+			Error:        err.Error(),
 		}
 		return
 	}
@@ -146,7 +146,7 @@ func RequestHealth(domain string, app string, ch chan<- utils.SiteHealth) {
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        fmt.Errorf("Invalid response size: %d", responseSize),
+			Error:        fmt.Errorf("Invalid response size: %d", responseSize).Error(),
 		}
 		return
 	}
@@ -158,7 +158,7 @@ func RequestHealth(domain string, app string, ch chan<- utils.SiteHealth) {
 		StatusCode:   &statusCode,
 		ResponseSize: &responseSize,
 		Time:         &now,
-		Error:        nil,
+		Error:        "",
 	}
 }
 
@@ -192,7 +192,7 @@ func updateHealthCache() (hasError bool) {
 			healthCache = append(healthCache, utils.SiteHealth{
 				Domain: s.Domain,
 				App:    appStr,
-				Error:  siteErr,
+				Error:  siteErr.Error(),
 			})
 			continue
 		}
@@ -225,7 +225,7 @@ func updateHealthCache() (hasError bool) {
 	// Read responses
 	for i := 0; i < requested; i++ {
 		health := <-res
-		if health.Error != nil {
+		if health.Error != "" {
 			hasError = true
 			errStr := fmt.Sprintf("Status check failed for domain %v: %v", health.Domain, health.Error)
 			logger.Println(errStr)

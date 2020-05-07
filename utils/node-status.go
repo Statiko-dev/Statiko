@@ -27,14 +27,14 @@ type SiteHealth struct {
 	App          *string    `json:"app"`
 	StatusCode   *int       `json:"-"`
 	ResponseSize *int       `json:"-"`
-	Error        error      `json:"-"`
+	Error        string     `json:"error,omitempty"`
 	Time         *time.Time `json:"time,omitempty"`
 }
 
 // IsHealthy returns true if the site is in a healthy state
 func (h *SiteHealth) IsHealthy() bool {
 	// If there's an error, it's unhealthy by default
-	if h.Error != nil {
+	if h.Error != "" {
 		return false
 	}
 
@@ -55,22 +55,14 @@ func (h *SiteHealth) IsHealthy() bool {
 
 // MarshalJSON implements a custom JSON serializer for the SiteHealth object
 func (h *SiteHealth) MarshalJSON() ([]byte, error) {
-	// Error string - if any
-	errorStr := ""
-	if h.Error != nil {
-		errorStr = h.Error.Error()
-	}
-
 	// Marshal the JSON object
 	type Alias SiteHealth
 	return json.Marshal(&struct {
 		*Alias
-		Healthy  bool   `json:"healthy"`
-		ErrorStr string `json:"error,omitempty"`
+		Healthy bool `json:"healthy"`
 	}{
-		Healthy:  h.IsHealthy(),
-		ErrorStr: errorStr,
-		Alias:    (*Alias)(h),
+		Alias:   (*Alias)(h),
+		Healthy: h.IsHealthy(),
 	})
 }
 
