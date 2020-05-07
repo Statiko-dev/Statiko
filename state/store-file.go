@@ -122,13 +122,33 @@ func (s *StateStoreFile) OnStateUpdate(callback func()) {
 	// NOOP
 }
 
-// ClusterMembers returns a list with one element only
-func (s *StateStoreFile) ClusterMembers() (map[string]string, error) {
-	res := make(map[string]string, 1)
-	res["0"] = appconfig.Config.GetString("nodeName")
+// ClusterHealth returns the health of all members in the cluster
+func (s *StateStoreFile) ClusterHealth() (map[string]NodeHealth, error) {
+	// Sites: convert errors to strings
+	health := Instance.GetAllSiteHealth()
+	sites := make(map[string]string, len(health))
+	for k, v := range health {
+		if v != nil {
+			sites[k] = v.Error()
+		}
+	}
+
+	// Response
+	res := make(map[string]NodeHealth, 1)
+	res["0"] = NodeHealth{
+		NodeName: appconfig.Config.GetString("nodeName"),
+		Sites:    sites,
+	}
+
 	return res, nil
 }
 
+// StoreNodeHealth isn't used with this store
+func (s *StateStoreFile) StoreNodeHealth(health SiteHealth) error {
+	return nil
+}
+
+// Create a new state file
 func (s *StateStoreFile) createStateFile(path string) (err error) {
 	logger.Println("Will create new state file", path)
 

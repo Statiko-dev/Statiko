@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // Package-wide properties
@@ -33,7 +35,7 @@ var (
 	stateUpdatedTime *time.Time
 
 	// Cached health data
-	healthCache []SiteHealth
+	healthCache []utils.SiteHealth
 
 	// Last time the health checks were run
 	appTestedTime time.Time

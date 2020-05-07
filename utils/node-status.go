@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package statuscheck
+package utils
 
 import (
 	"encoding/json"
@@ -94,13 +94,9 @@ type NodeStore struct {
 
 // NodeStatus contains the current status of the node
 type NodeStatus struct {
-	Nginx  NginxStatus  `json:"nginx"`
-	Sync   NodeSync     `json:"sync"`
-	Store  NodeStore    `json:"store"`
-	Health []SiteHealth `json:"health"`
-}
-
-type healthcheckJob struct {
-	domain string
-	bundle string
+	NodeName string       `json:"name"`
+	Nginx    NginxStatus  `json:"nginx"`
+	Sync     NodeSync     `json:"sync"`
+	Store    NodeStore    `json:"store"`
+	Health   []SiteHealth `json:"health"`
 }

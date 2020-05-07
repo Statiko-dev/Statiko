@@ -23,9 +23,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/statuscheck"
 	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/utils"
 	"github.com/statiko-dev/statiko/webserver"
 )
 
@@ -46,12 +48,15 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	// Response object
-	res := &statuscheck.NodeStatus{}
+	res := &utils.NodeStatus{}
+
+	// Node name
+	res.NodeName = appconfig.Config.GetString("nodeName")
 
 	// Nginx server status
 	// Ignore errors in this command
 	nginxStatus, _ := webserver.Instance.Status()
-	res.Nginx = statuscheck.NginxStatus{
+	res.Nginx = utils.NginxStatus{
 		Running: nginxStatus,
 	}
 
@@ -61,7 +66,7 @@ func StatusHandler(c *gin.Context) {
 	if syncError != nil {
 		syncErrorStr = syncError.Error()
 	}
-	res.Sync = statuscheck.NodeSync{
+	res.Sync = utils.NodeSync{
 		Running:   sync.IsRunning(),
 		LastSync:  sync.LastSync(),
 		SyncError: syncErrorStr,
@@ -69,7 +74,7 @@ func StatusHandler(c *gin.Context) {
 
 	// Store status
 	storeHealth, _ := state.Instance.StoreHealth()
-	res.Store = statuscheck.NodeStore{
+	res.Store = utils.NodeStore{
 		Healthy: storeHealth,
 	}
 
@@ -94,7 +99,7 @@ func StatusHandler(c *gin.Context) {
 			domain = siteObj.Domain
 
 			// Check if we have the health object for this site, and if it has any deployment error
-			var domainHealth statuscheck.SiteHealth
+			var domainHealth utils.SiteHealth
 			found := false
 			appError := false
 			for _, el := range healthCache {
@@ -119,7 +124,7 @@ func StatusHandler(c *gin.Context) {
 					}
 				}
 
-				res.Health = []statuscheck.SiteHealth{domainHealth}
+				res.Health = []utils.SiteHealth{domainHealth}
 			}
 
 			// If there's a deployment error for the app, and we're requesting a domain only, return a 503 response
@@ -135,7 +140,7 @@ func StatusHandler(c *gin.Context) {
 		errorCount := 0
 		total := len(healthCache)
 		if total > 0 {
-			res.Health = make([]statuscheck.SiteHealth, total)
+			res.Health = make([]utils.SiteHealth, total)
 			for i, el := range healthCache {
 				if !el.IsHealthy() {
 					errorCount++

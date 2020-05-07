@@ -38,7 +38,7 @@ describe('Health check', function() {
             .expect(200)
 
         assert(response.body)
-        assert(Object.keys(response.body).length == 5)
+        assert(Object.keys(response.body).length == 4)
         assert.deepEqual(response.body.authMethods.sort(), ['azureAD', 'psk'])
         assert(response.body.version)
         // If we're in a dev environment, version might be empty (" (; )")
@@ -50,9 +50,6 @@ describe('Health check', function() {
             assert(/(v[0-9\.]+(-[a-z0-9\.]+)?|canary) (\([0-9a-f]{7}; [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z?\)) go[0-9\.]+/.test(response.body.version), 'Invalid value for version: ' + response.body.version)
         }
         assert(response.body.hostname)
-        assert(response.body.cluster)
-        assert(response.body.cluster.length == 1)
-        assert(response.body.cluster[0] == response.body.hostname)
         assert(response.body.azureAD)
         assert.deepEqual(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
         assert(response.body.azureAD.authorizeUrl.startsWith('https://login.microsoftonline.com'))
@@ -67,7 +64,7 @@ describe('Health check', function() {
             .expect(200)
 
         assert(response.body)
-        assert(Object.keys(response.body).length == 5)
+        assert(Object.keys(response.body).length == 4)
         assert.deepEqual(response.body.authMethods.sort(), ['azureAD', 'psk'])
         assert(response.body.version)
         // If we're in a dev environment, version might be empty (" (; )")
@@ -80,9 +77,6 @@ describe('Health check', function() {
         }
         assert(response.body.hostname)
         assert(response.body.azureAD)
-        assert(response.body.cluster)
-        assert(response.body.cluster.length == 1)
-        assert(response.body.cluster[0] == response.body.hostname)
         assert.deepEqual(Object.keys(response.body.azureAD).sort(), ['authorizeUrl', 'clientId', 'tokenUrl'])
         assert(response.body.azureAD.authorizeUrl.startsWith('https://login.microsoftonline.com'))
         assert(response.body.azureAD.tokenUrl.startsWith('https://login.microsoftonline.com'))

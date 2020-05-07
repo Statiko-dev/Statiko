@@ -290,9 +290,9 @@ func (m *Manager) OnStateUpdate(callback func()) {
 	m.store.OnStateUpdate(callback)
 }
 
-// ClusterMembers returns the list of members in the cluster
-func (m *Manager) ClusterMembers() (map[string]string, error) {
-	return m.store.ClusterMembers()
+// ClusterHealth returns the health of all members in the cluster
+func (m *Manager) ClusterHealth() (map[string]NodeHealth, error) {
+	return m.store.ClusterHealth()
 }
 
 // GetSiteHealth returns the health of a site
@@ -300,9 +300,22 @@ func (m *Manager) GetSiteHealth(domain string) error {
 	return m.health[domain]
 }
 
+// GetAllSiteHealth returns the health of all objects
+func (m *Manager) GetAllSiteHealth() SiteHealth {
+	// Deep-clone the object
+	r := make(SiteHealth)
+	for k, v := range m.health {
+		r[k] = v
+	}
+	return r
+}
+
 // SetSiteHealth sets the health of a site
 func (m *Manager) SetSiteHealth(domain string, err error) {
-	m.health[domain] = err
+	if err != m.health[domain] {
+		m.health[domain] = err
+		m.store.StoreNodeHealth(m.health)
+	}
 }
 
 // GetDHParams returns the PEM-encoded DH parameters and their date

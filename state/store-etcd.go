@@ -48,11 +48,13 @@ type StateStoreEtcd struct {
 	dhparamsKey      string
 	locksKeyPrefix   string
 	nodesKeyPrefix   string
+	healthKeyPrefix  string
 	secretsKeyPrefix string
 
-	clusterMemberId string
-	lastRevisionPut int64
-	updateCallback  func()
+	clusterMemberId    string
+	clusterMemberLease clientv3.LeaseID
+	lastRevisionPut    int64
+	updateCallback     func()
 }
 
 // Init initializes the object
@@ -65,6 +67,7 @@ func (s *StateStoreEtcd) Init() (err error) {
 	s.dhparamsKey = keyPrefix + "/dhparams"
 	s.locksKeyPrefix = keyPrefix + "/locks/"
 	s.nodesKeyPrefix = keyPrefix + "/nodes/"
+	s.healthKeyPrefix = keyPrefix + "/health/"
 	s.secretsKeyPrefix = keyPrefix + "/secrets/"
 
 	// Random ID for this cluster member
@@ -111,11 +114,12 @@ func (s *StateStoreEtcd) Init() (err error) {
 		return fmt.Errorf("error while connecting to etcd cluster: %v", err)
 	}
 
-	// Register the node
-	err = s.registerNode()
+	// Register the node by storing the node's health (empty for now)
+	err = s.StoreNodeHealth(nil)
 	if err != nil {
 		return fmt.Errorf("error while registering node: %v", err)
 	}
+	logger.Println("Registered node with etcd, with member ID", s.clusterMemberId)
 
 	// Watch for changes
 	go s.watchStateChanges()
@@ -146,40 +150,6 @@ func (s *StateStoreEtcd) GetMemberId() string {
 // GetClient returns the etcd client with the active connection
 func (s *StateStoreEtcd) GetClient() *clientv3.Client {
 	return s.client
-}
-
-// Registers the node within the cluster
-func (s *StateStoreEtcd) registerNode() error {
-	// Get a lease
-	ctx, cancel := s.GetContext()
-	lease, err := s.client.Grant(ctx, etcdNodeRegistrationTTL)
-	cancel()
-	if err != nil {
-		return err
-	}
-
-	// Put the node name
-	ctx, cancel = s.GetContext()
-	_, err = s.client.Put(
-		ctx,
-		s.nodesKeyPrefix+s.clusterMemberId,
-		appconfig.Config.GetString("nodeName"),
-		clientv3.WithLease(lease.ID),
-	)
-	cancel()
-	if err != nil {
-		return err
-	}
-
-	// Maintain the key for as long as the node is up
-	_, err = s.client.KeepAlive(context.Background(), lease.ID)
-	if err != nil {
-		return err
-	}
-
-	logger.Println("Registered node with etcd, with member ID", s.clusterMemberId)
-
-	return nil
 }
 
 // Starts the watcher for state changes in etcd
@@ -445,9 +415,9 @@ func (s *StateStoreEtcd) OnStateUpdate(callback func()) {
 	s.updateCallback = callback
 }
 
-// ClusterMembers returns the list of members in the cluster
-func (s *StateStoreEtcd) ClusterMembers() (map[string]string, error) {
-	// Gets the list of members
+// ClusterHealth returns the health of all members in the cluster
+func (s *StateStoreEtcd) ClusterHealth() (map[string]NodeHealth, error) {
+	// Gets all members and their health
 	ctx, cancel := s.GetContext()
 	resp, err := s.client.Get(ctx, s.nodesKeyPrefix, clientv3.WithPrefix())
 	cancel()
@@ -455,19 +425,66 @@ func (s *StateStoreEtcd) ClusterMembers() (map[string]string, error) {
 		return nil, err
 	}
 
-	// Check if the secret exists
-	var members map[string]string
+	// Parse the response
+	var res map[string]NodeHealth
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
-		members = make(map[string]string, len(resp.Kvs))
+		res = make(map[string]NodeHealth, len(resp.Kvs))
 		for _, kv := range resp.Kvs {
+			// Key
 			key := strings.TrimPrefix(string(kv.Key), s.nodesKeyPrefix)
-			members[key] = string(kv.Value)
+
+			// Decode the value
+			val := NodeHealth{}
+			err := json.Unmarshal(kv.Value, &val)
+			if err != nil {
+				return nil, err
+			}
+			res[key] = val
 		}
 	} else {
 		return nil, errors.New("Received empty list of cluster members")
 	}
 
-	return members, nil
+	return res, nil
+}
+
+// StoreNodeHealth stores the health of this node in etcd
+func (s *StateStoreEtcd) StoreNodeHealth(health SiteHealth) error {
+	// Get a lease if we don't have it already
+	if s.clusterMemberLease == 0 {
+		ctx, cancel := s.GetContext()
+		lease, err := s.client.Grant(ctx, etcdNodeRegistrationTTL)
+		cancel()
+		if err != nil {
+			return err
+		}
+
+		// Maintain the key for as long as the node is up
+		_, err = s.client.KeepAlive(context.Background(), lease.ID)
+		if err != nil {
+			return err
+		}
+
+		s.clusterMemberLease = lease.ID
+	}
+
+	// Serialize the health
+	serialized, err := s.serializeNodeHealth(health)
+	if err != nil {
+		return err
+	}
+
+	// Store the health
+	_, err = s.setIfDifferent(
+		s.nodesKeyPrefix+s.clusterMemberId,
+		string(serialized),
+		clientv3.WithLease(s.clusterMemberLease),
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Serialize the state to JSON
@@ -568,7 +585,7 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 }
 
 // Set a value in etcd if the current value is different
-func (s *StateStoreEtcd) setIfDifferent(key string, value string) (*clientv3.TxnResponse, error) {
+func (s *StateStoreEtcd) setIfDifferent(key string, value string, opts ...clientv3.OpOption) (*clientv3.TxnResponse, error) {
 	// There's currently a bug with etcd that causes value comparisons to always be false if the key doesn't exist
 	// See: https://github.com/etcd-io/etcd/issues/10566
 	// Because of that, we need to run the transaction twice. First, we store the value if it doesn't exist. If that transaction fails, we try again storing the value if it's different.
@@ -578,7 +595,7 @@ func (s *StateStoreEtcd) setIfDifferent(key string, value string) (*clientv3.Txn
 	resp, err := txn.If(
 		clientv3.Compare(clientv3.ModRevision(key), "=", 0),
 	).Then(
-		clientv3.OpPut(key, value),
+		clientv3.OpPut(key, value, opts...),
 	).Commit()
 	cancel()
 	if err != nil {
@@ -589,14 +606,14 @@ func (s *StateStoreEtcd) setIfDifferent(key string, value string) (*clientv3.Txn
 		return resp, nil
 	}
 
-	// If the first transaction didn't suceed, it means the key exists
+	// If the first transaction didn't succeed, it means the key exists
 	// So, let's overwrite it if the value is different
 	ctx, cancel = s.GetContext()
 	txn = s.client.Txn(ctx)
 	resp, err = txn.If(
 		clientv3.Compare(clientv3.Value(key), "!=", value),
 	).Then(
-		clientv3.OpPut(key, value),
+		clientv3.OpPut(key, value, opts...),
 	).Commit()
 	cancel()
 	if err != nil {
@@ -604,4 +621,18 @@ func (s *StateStoreEtcd) setIfDifferent(key string, value string) (*clientv3.Txn
 	}
 
 	return resp, nil
+}
+
+// Serialize the health of the node in the cluster
+func (s *StateStoreEtcd) serializeNodeHealth(health SiteHealth) ([]byte, error) {
+	message := &NodeHealth{
+		NodeName: appconfig.Config.GetString("nodeName"),
+		Sites:    make(map[string]string),
+	}
+	for k, v := range health {
+		if v != nil {
+			message.Sites[k] = v.Error()
+		}
+	}
+	return json.Marshal(message)
 }
