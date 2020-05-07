@@ -123,22 +123,10 @@ func (s *StateStoreFile) OnStateUpdate(callback func()) {
 }
 
 // ClusterHealth returns the health of all members in the cluster
-func (s *StateStoreFile) ClusterHealth() (map[string]NodeHealth, error) {
-	// Sites: convert errors to strings
-	health := Instance.GetAllSiteHealth()
-	sites := make(map[string]string, len(health))
-	for k, v := range health {
-		if v != nil {
-			sites[k] = v.Error()
-		}
-	}
-
-	// Response
-	res := make(map[string]NodeHealth, 1)
-	res["0"] = NodeHealth{
-		NodeName: appconfig.Config.GetString("nodeName"),
-		Sites:    sites,
-	}
+func (s *StateStoreFile) ClusterHealth() (map[string]*utils.NodeStatus, error) {
+	// There's only one node in this cluster
+	res := make(map[string]*utils.NodeStatus, 1)
+	res["00000000-0000-0000-0000-000000000000"] = Instance.GetNodeHealth()
 
 	return res, nil
 }

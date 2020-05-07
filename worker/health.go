@@ -41,12 +41,9 @@ func startHealthWorker(ctx context.Context) {
 		// Wait for startup
 		waitForStartup()
 
-		// Wait 30 seconds at node startup, then run right away
-		time.Sleep(30 * time.Second)
-		err := healthWorker()
-		if err != nil {
-			healthLogger.Println("Worker error:", err)
-		}
+		// Wait 15 seconds at node startup
+		// No need to run right away, as the sync module will make this code run
+		time.Sleep(15 * time.Second)
 
 		// Run on ticker
 		ticker := time.NewTicker(healthInterval)

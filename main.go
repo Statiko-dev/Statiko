@@ -108,6 +108,8 @@ func main() {
 		group.POST("/site/:domain/app", routes.DeploySiteHandler)
 		group.PUT("/site/:domain/app", routes.DeploySiteHandler) // Alias
 
+		group.GET("/clusterstatus", routes.ClusterStatusHandler)
+
 		group.GET("/state", routes.GetStateHandler)
 		group.POST("/state", routes.PutStateHandler)
 		group.PUT("/state", routes.PutStateHandler) // Alias

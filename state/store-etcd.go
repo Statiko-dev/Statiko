@@ -417,7 +417,7 @@ func (s *StateStoreEtcd) OnStateUpdate(callback func()) {
 }
 
 // ClusterHealth returns the health of all members in the cluster
-func (s *StateStoreEtcd) ClusterHealth() (map[string]NodeHealth, error) {
+func (s *StateStoreEtcd) ClusterHealth() (map[string]*utils.NodeStatus, error) {
 	// Gets all members and their health
 	ctx, cancel := s.GetContext()
 	resp, err := s.client.Get(ctx, s.nodesKeyPrefix, clientv3.WithPrefix())
@@ -427,16 +427,16 @@ func (s *StateStoreEtcd) ClusterHealth() (map[string]NodeHealth, error) {
 	}
 
 	// Parse the response
-	var res map[string]NodeHealth
+	var res map[string]*utils.NodeStatus
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
-		res = make(map[string]NodeHealth, len(resp.Kvs))
+		res = make(map[string]*utils.NodeStatus, len(resp.Kvs))
 		for _, kv := range resp.Kvs {
 			// Key
 			key := strings.TrimPrefix(string(kv.Key), s.nodesKeyPrefix)
 
 			// Decode the value
-			val := NodeHealth{}
-			err := json.Unmarshal(kv.Value, &val)
+			val := &utils.NodeStatus{}
+			err := json.Unmarshal(kv.Value, val)
 			if err != nil {
 				return nil, err
 			}

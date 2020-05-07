@@ -294,7 +294,7 @@ func (m *Manager) OnStateUpdate(callback func()) {
 }
 
 // ClusterHealth returns the health of all members in the cluster
-func (m *Manager) ClusterHealth() (map[string]NodeHealth, error) {
+func (m *Manager) ClusterHealth() (map[string]*utils.NodeStatus, error) {
 	return m.store.ClusterHealth()
 }
 
