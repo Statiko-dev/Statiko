@@ -144,7 +144,7 @@ func (s *StateStoreFile) ClusterHealth() (map[string]NodeHealth, error) {
 }
 
 // StoreNodeHealth isn't used with this store
-func (s *StateStoreFile) StoreNodeHealth(health SiteHealth) error {
+func (s *StateStoreFile) StoreNodeHealth(health *utils.NodeStatus) error {
 	return nil
 }
 

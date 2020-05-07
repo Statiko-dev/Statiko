@@ -36,10 +36,12 @@ const (
 
 // Manager is the state manager class
 type Manager struct {
-	updated   *time.Time
-	store     StateStore
-	storeType string
-	health    SiteHealth
+	RefreshHealth chan int
+	updated       *time.Time
+	store         StateStore
+	storeType     string
+	siteHealth    SiteHealth
+	nodeHealth    *utils.NodeStatus
 }
 
 // Init loads the state from the store
@@ -60,7 +62,8 @@ func (m *Manager) Init() (err error) {
 	err = m.store.Init()
 
 	// Init variables
-	m.health = make(SiteHealth)
+	m.siteHealth = make(SiteHealth)
+	m.RefreshHealth = make(chan int)
 
 	return
 }
@@ -297,14 +300,14 @@ func (m *Manager) ClusterHealth() (map[string]NodeHealth, error) {
 
 // GetSiteHealth returns the health of a site
 func (m *Manager) GetSiteHealth(domain string) error {
-	return m.health[domain]
+	return m.siteHealth[domain]
 }
 
 // GetAllSiteHealth returns the health of all objects
 func (m *Manager) GetAllSiteHealth() SiteHealth {
 	// Deep-clone the object
 	r := make(SiteHealth)
-	for k, v := range m.health {
+	for k, v := range m.siteHealth {
 		r[k] = v
 	}
 	return r
@@ -312,10 +315,7 @@ func (m *Manager) GetAllSiteHealth() SiteHealth {
 
 // SetSiteHealth sets the health of a site
 func (m *Manager) SetSiteHealth(domain string, err error) {
-	if err != m.health[domain] {
-		m.health[domain] = err
-		m.store.StoreNodeHealth(m.health)
-	}
+	m.siteHealth[domain] = err
 }
 
 // GetDHParams returns the PEM-encoded DH parameters and their date
@@ -478,4 +478,15 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 	}
 
 	return encKey, nil
+}
+
+// SetNodeHealth stores the node status object
+func (m *Manager) SetNodeHealth(health *utils.NodeStatus) error {
+	m.nodeHealth = health
+	return m.store.StoreNodeHealth(health)
+}
+
+// GetNodeHealth gets the node status object
+func (m *Manager) GetNodeHealth() *utils.NodeStatus {
+	return m.nodeHealth
 }

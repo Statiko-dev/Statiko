@@ -45,10 +45,11 @@ func StatusHandler(c *gin.Context) {
 	forceQs := c.Query("force")
 	if forceQs == "1" || forceQs == "true" || forceQs == "t" || forceQs == "y" || forceQs == "yes" {
 		statuscheck.ResetHealthCache()
+		statuscheck.UpdateStoredNodeHealth()
 	}
 
 	// Response object
-	res := statuscheck.GetNodeHealth()
+	res := state.Instance.GetNodeHealth()
 
 	// Response status code
 	statusCode := http.StatusOK

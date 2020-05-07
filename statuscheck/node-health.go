@@ -24,6 +24,7 @@ import (
 	"github.com/statiko-dev/statiko/webserver"
 )
 
+// GetNodeHealth returns the health of the node, including the health of nginx, the store connection, etc
 func GetNodeHealth() *utils.NodeStatus {
 	// Health object
 	health := &utils.NodeStatus{}
@@ -60,4 +61,10 @@ func GetNodeHealth() *utils.NodeStatus {
 	health.Health = GetHealthCache()
 
 	return health
+}
+
+// UpdateStoredNodeHealth updates the node health object stored in the state manager
+func UpdateStoredNodeHealth() error {
+	health := GetNodeHealth()
+	return state.Instance.SetNodeHealth(health)
 }

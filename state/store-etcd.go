@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // Maximum lock duration, in seconds
@@ -449,7 +450,7 @@ func (s *StateStoreEtcd) ClusterHealth() (map[string]NodeHealth, error) {
 }
 
 // StoreNodeHealth stores the health of this node in etcd
-func (s *StateStoreEtcd) StoreNodeHealth(health SiteHealth) error {
+func (s *StateStoreEtcd) StoreNodeHealth(health *utils.NodeStatus) error {
 	// Get a lease if we don't have it already
 	if s.clusterMemberLease == 0 {
 		ctx, cancel := s.GetContext()
@@ -468,8 +469,15 @@ func (s *StateStoreEtcd) StoreNodeHealth(health SiteHealth) error {
 		s.clusterMemberLease = lease.ID
 	}
 
+	// If the health object is nil, store the node name at least
+	if health == nil {
+		health = &utils.NodeStatus{
+			NodeName: appconfig.Config.GetString("nodeName"),
+		}
+	}
+
 	// Serialize the health
-	serialized, err := s.serializeNodeHealth(health)
+	serialized, err := json.Marshal(health)
 	if err != nil {
 		return err
 	}
@@ -621,18 +629,4 @@ func (s *StateStoreEtcd) setIfDifferent(key string, value string, opts ...client
 	}
 
 	return resp, nil
-}
-
-// Serialize the health of the node in the cluster
-func (s *StateStoreEtcd) serializeNodeHealth(health SiteHealth) ([]byte, error) {
-	message := &NodeHealth{
-		NodeName: appconfig.Config.GetString("nodeName"),
-		Sites:    make(map[string]string),
-	}
-	for k, v := range health {
-		if v != nil {
-			message.Sites[k] = v.Error()
-		}
-	}
-	return json.Marshal(message)
 }

@@ -101,5 +101,5 @@ type StateStore interface {
 	Healthy() (bool, error)
 	OnStateUpdate(func())
 	ClusterHealth() (map[string]NodeHealth, error)
-	StoreNodeHealth(health SiteHealth) error
+	StoreNodeHealth(health *utils.NodeStatus) error
 }

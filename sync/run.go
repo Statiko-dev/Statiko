@@ -143,6 +143,12 @@ func runner() error {
 
 	logger.Println("Sync completed")
 
+	// Trigger a refresh of the node health after 5 seconds
+	go func() {
+		time.Sleep(5 * time.Second)
+		state.Instance.RefreshHealth <- 1
+	}()
+
 	return nil
 }
 

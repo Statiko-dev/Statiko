@@ -28,7 +28,7 @@ import (
 
 // Package-wide properties
 var (
-	// Interval (in seconds) between tests
+	// Minimum interval (in seconds) before the cache is refreshed
 	StatusCheckInterval int = 300
 
 	// Last time the state was updated

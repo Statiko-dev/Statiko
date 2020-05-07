@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/statuscheck"
 )
 
@@ -57,6 +58,11 @@ func startHealthWorker(ctx context.Context) {
 				if err != nil {
 					healthLogger.Println("Worker error:", err)
 				}
+			case <-state.Instance.RefreshHealth:
+				err := healthWorker()
+				if err != nil {
+					healthLogger.Println("Worker error:", err)
+				}
 			case <-ctx.Done():
 				healthLogger.Println("Worker's context canceled")
 				return
@@ -68,7 +74,5 @@ func startHealthWorker(ctx context.Context) {
 // Update the health cache
 func healthWorker() error {
 	healthLogger.Println("Refreshing health cache")
-	_ = statuscheck.GetHealthCache()
-
-	return nil
+	return statuscheck.UpdateStoredNodeHealth()
 }
