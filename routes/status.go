@@ -22,12 +22,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/statuscheck"
-	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/utils"
-	"github.com/statiko-dev/statiko/webserver"
 )
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
@@ -44,48 +41,17 @@ func StatusHandler(c *gin.Context) {
 		return
 	}
 
-	// Response object
-	res := &utils.NodeStatus{}
-
-	// Node name
-	res.NodeName = appconfig.Config.GetString("nodeName")
-
-	// Nginx server status
-	// Ignore errors in this command
-	nginxStatus, _ := webserver.Instance.Status()
-	res.Nginx = utils.NginxStatus{
-		Running: nginxStatus,
-	}
-
-	// Sync status
-	syncError := sync.SyncError()
-	syncErrorStr := ""
-	if syncError != nil {
-		syncErrorStr = syncError.Error()
-	}
-	res.Sync = utils.NodeSync{
-		Running:   sync.IsRunning(),
-		LastSync:  sync.LastSync(),
-		SyncError: syncErrorStr,
-	}
-
-	// Store status
-	storeHealth, _ := state.Instance.StoreHealth()
-	res.Store = utils.NodeStore{
-		Healthy: storeHealth,
-	}
-
 	// Check if we need to force a refresh
 	forceQs := c.Query("force")
 	if forceQs == "1" || forceQs == "true" || forceQs == "t" || forceQs == "y" || forceQs == "yes" {
 		statuscheck.ResetHealthCache()
 	}
 
+	// Response object
+	res := statuscheck.GetNodeHealth()
+
 	// Response status code
 	statusCode := http.StatusOK
-
-	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
-	healthCache := statuscheck.GetHealthCache()
 
 	// If we're requesting a domain only, filter the results
 	if domain := c.Param("domain"); len(domain) > 0 {
@@ -99,7 +65,7 @@ func StatusHandler(c *gin.Context) {
 			var domainHealth utils.SiteHealth
 			found := false
 			appError := false
-			for _, el := range healthCache {
+			for _, el := range res.Health {
 				if el.Domain == domain {
 					domainHealth = el
 					found = true
@@ -137,10 +103,10 @@ func StatusHandler(c *gin.Context) {
 	} else {
 		// We've requested all sites; return an error status code if they're all failing
 		errorCount := 0
-		total := len(healthCache)
+		total := len(res.Health)
 		if total > 0 {
-			res.Health = make([]utils.SiteHealth, total)
-			for i, el := range healthCache {
+			obj := make([]utils.SiteHealth, total)
+			for i, el := range res.Health {
 				if !el.IsHealthy() {
 					errorCount++
 				} else if el.App == nil {
@@ -159,8 +125,9 @@ func StatusHandler(c *gin.Context) {
 						el.Error = "<hidden error>"
 					}
 				}
-				res.Health[i] = el
+				obj[i] = el
 			}
+			res.Health = obj
 		}
 		if total > 0 && errorCount == total {
 			// All are failing, return a 503 status
@@ -169,7 +136,7 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	// If Nginx isn't working, status code is always 503
-	if !nginxStatus {
+	if !res.Nginx.Running {
 		statusCode = http.StatusServiceUnavailable
 	}
 
