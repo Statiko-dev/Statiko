@@ -539,8 +539,8 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 				Key         string
 			}{
 				Enabled:     appconfig.Config.GetBool("tls.node.enabled"),
-				Certificate: appconfig.Config.GetString("tls.node.certificate"),
-				Key:         appconfig.Config.GetString("tls.node.key"),
+				Certificate: appRoot + "misc/node.cert.pem",
+				Key:         appRoot + "misc/node.key.pem",
 			},
 		},
 	}
