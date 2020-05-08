@@ -33,7 +33,6 @@ type infoResponse struct {
 	AzureAD     *azureADInfoResponse `json:"azureAD,omitempty"`
 	Version     string               `json:"version"`
 	Hostname    string               `json:"hostname"`
-	Cluster     []string             `json:"cluster"`
 }
 
 // azureADInfoResponse is part of the infoResponse struct

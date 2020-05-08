@@ -60,10 +60,19 @@ func (m *Manager) Init() (err error) {
 		return
 	}
 	err = m.store.Init()
+	if err != nil {
+		return err
+	}
 
 	// Init variables
 	m.siteHealth = make(SiteHealth)
 	m.RefreshHealth = make(chan int)
+
+	// Init node health object
+	err = m.SetNodeHealth(nil)
+	if err != nil {
+		return err
+	}
 
 	return
 }
@@ -104,7 +113,7 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 
 	// Ensure that if TLS certs are not imported, their name and version isn't included
 	for _, s := range state.Sites {
-		if s.TLS.Type != TLSCertificateImported {
+		if s.TLS != nil && s.TLS.Type != TLSCertificateImported {
 			s.TLS.Certificate = nil
 			s.TLS.Version = nil
 		}
@@ -482,6 +491,22 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 
 // SetNodeHealth stores the node status object
 func (m *Manager) SetNodeHealth(health *utils.NodeStatus) error {
+	if health == nil {
+		logger.Println("Received nil node health object")
+		// Create a default object
+		health = &utils.NodeStatus{
+			Nginx: utils.NginxStatus{
+				Running: true,
+			},
+			Sync: utils.NodeSync{},
+			Store: utils.NodeStore{
+				Healthy: true,
+			},
+			Health: []utils.SiteHealth{},
+		}
+	} else {
+		logger.Println("Received node health object")
+	}
 	m.nodeHealth = health
 	return m.store.StoreNodeHealth(health)
 }

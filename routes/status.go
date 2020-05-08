@@ -104,7 +104,10 @@ func StatusHandler(c *gin.Context) {
 	} else {
 		// We've requested all sites; return an error status code if they're all failing
 		errorCount := 0
-		total := len(res.Health)
+		var total int = 0
+		if res.Health != nil {
+			total = len(res.Health)
+		}
 		if total > 0 {
 			obj := make([]utils.SiteHealth, total)
 			for i, el := range res.Health {

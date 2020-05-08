@@ -99,6 +99,15 @@ func runner() error {
 	now := time.Now()
 	lastSync = &now
 
+	// Set the sync running flag in the node health
+	health := state.Instance.GetNodeHealth()
+	health.Sync.Running = true
+	health.Sync.LastSync = &now
+	err := state.Instance.SetNodeHealth(health)
+	if err != nil {
+		return err
+	}
+
 	// Boolean flag for the need to restart the webserver
 	restartRequired := false
 
