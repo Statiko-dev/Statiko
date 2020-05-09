@@ -29,10 +29,19 @@ import (
 	"github.com/statiko-dev/statiko/utils"
 )
 
+const (
+	StoreTypeFile = "file"
+	StoreTypeEtcd = "etcd"
+)
+
 // Manager is the state manager class
 type Manager struct {
-	updated *time.Time
-	store   stateStore
+	RefreshHealth chan int
+	updated       *time.Time
+	store         StateStore
+	storeType     string
+	siteHealth    SiteHealth
+	nodeHealth    *utils.NodeStatus
 }
 
 // Init loads the state from the store
@@ -41,25 +50,51 @@ func (m *Manager) Init() (err error) {
 	typ := appconfig.Config.GetString("state.store")
 	switch typ {
 	case "file":
-		m.store = &stateStoreFile{}
+		m.store = &StateStoreFile{}
+		m.storeType = StoreTypeFile
 	case "etcd":
-		m.store = &stateStoreEtcd{}
+		m.store = &StateStoreEtcd{}
+		m.storeType = StoreTypeEtcd
 	default:
 		err = errors.New("invalid value for configuration `state.store`; valid options are `file` or `etcd`")
 		return
 	}
 	err = m.store.Init()
+	if err != nil {
+		return err
+	}
+
+	// Init variables
+	m.siteHealth = make(SiteHealth)
+	m.RefreshHealth = make(chan int)
+
+	// Init node health object
+	err = m.SetNodeHealth(nil)
+	if err != nil {
+		return err
+	}
+
 	return
 }
 
-// AcquireSyncLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
-func (m *Manager) AcquireSyncLock() (interface{}, error) {
-	return m.store.AcquireSyncLock()
+// GetStoreType returns the type of the store in use
+func (m *Manager) GetStoreType() string {
+	return m.storeType
+}
+
+// GetStore returns the instance of the store in use
+func (m *Manager) GetStore() StateStore {
+	return m.store
+}
+
+// AcquireLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
+func (m *Manager) AcquireLock(name string, timeout bool) (interface{}, error) {
+	return m.store.AcquireLock(name, timeout)
 }
 
 // ReleaseSyncLock releases the lock on the sync semaphore
-func (m *Manager) ReleaseSyncLock(leaseID interface{}) error {
-	return m.store.ReleaseSyncLock(leaseID)
+func (m *Manager) ReleaseLock(leaseID interface{}) error {
+	return m.store.ReleaseLock(leaseID)
 }
 
 // DumpState exports the entire state
@@ -76,26 +111,20 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 		return err
 	}
 
-	// Ensure that errors aren't included, and that if TLS certs are self-signed, their name and version isn't either
+	// Ensure that if TLS certs are not imported, their name and version isn't included
 	for _, s := range state.Sites {
-		if s.Error != nil {
-			s.Error = nil
-		}
-		if s.ErrorStr != nil {
-			s.ErrorStr = nil
-		}
-		if s.TLSCertificateSelfSigned {
-			s.TLSCertificate = nil
-			s.TLSCertificateVersion = nil
+		if s.TLS != nil && s.TLS.Type != TLSCertificateImported {
+			s.TLS.Certificate = nil
+			s.TLS.Version = nil
 		}
 	}
 
 	// Lock
-	leaseID, err := m.store.AcquireStateLock()
+	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
 		return err
 	}
-	defer m.store.ReleaseStateLock(leaseID)
+	defer m.store.ReleaseLock(leaseID)
 
 	// Replace the state
 	if err := m.store.SetState(state); err != nil {
@@ -153,16 +182,12 @@ func (m *Manager) AddSite(site *SiteState) error {
 		return err
 	}
 
-	// Reset the error in the site object
-	site.Error = nil
-	site.ErrorStr = nil
-
 	// Lock
-	leaseID, err := m.store.AcquireStateLock()
+	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
 		return err
 	}
-	defer m.store.ReleaseStateLock(leaseID)
+	defer m.store.ReleaseLock(leaseID)
 
 	// Add the site
 	state := m.store.GetState()
@@ -186,20 +211,12 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 		return err
 	}
 
-	// Sync ErrorStr with Error
-	if site.Error != nil {
-		errorStr := site.Error.Error()
-		site.ErrorStr = &errorStr
-	} else {
-		site.ErrorStr = nil
-	}
-
 	// Lock
-	leaseID, err := m.store.AcquireStateLock()
+	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
 		return err
 	}
-	defer m.store.ReleaseStateLock(leaseID)
+	defer m.store.ReleaseLock(leaseID)
 
 	// Replace in the memory state
 	found := false
@@ -241,11 +258,11 @@ func (m *Manager) DeleteSite(domain string) error {
 	}
 
 	// Lock
-	leaseID, err := m.store.AcquireStateLock()
+	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
 		return err
 	}
-	defer m.store.ReleaseStateLock(leaseID)
+	defer m.store.ReleaseLock(leaseID)
 
 	// Update the state
 	found := false
@@ -285,9 +302,29 @@ func (m *Manager) OnStateUpdate(callback func()) {
 	m.store.OnStateUpdate(callback)
 }
 
-// ClusterMembers returns the list of members in the cluster
-func (m *Manager) ClusterMembers() (map[string]string, error) {
-	return m.store.ClusterMembers()
+// ClusterHealth returns the health of all members in the cluster
+func (m *Manager) ClusterHealth() (map[string]*utils.NodeStatus, error) {
+	return m.store.ClusterHealth()
+}
+
+// GetSiteHealth returns the health of a site
+func (m *Manager) GetSiteHealth(domain string) error {
+	return m.siteHealth[domain]
+}
+
+// GetAllSiteHealth returns the health of all objects
+func (m *Manager) GetAllSiteHealth() SiteHealth {
+	// Deep-clone the object
+	r := make(SiteHealth)
+	for k, v := range m.siteHealth {
+		r[k] = v
+	}
+	return r
+}
+
+// SetSiteHealth sets the health of a site
+func (m *Manager) SetSiteHealth(domain string, err error) {
+	m.siteHealth[domain] = err
 }
 
 // GetDHParams returns the PEM-encoded DH parameters and their date
@@ -309,11 +346,11 @@ func (m *Manager) SetDHParams(val string) error {
 	}
 
 	// Lock
-	leaseID, err := m.store.AcquireStateLock()
+	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
 		return err
 	}
-	defer m.store.ReleaseStateLock(leaseID)
+	defer m.store.ReleaseLock(leaseID)
 
 	// Store the value
 	state := m.store.GetState()
@@ -385,11 +422,11 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	encValue := aesgcm.Seal(nil, nonce, value, nil)
 
 	// Lock
-	leaseID, err := m.store.AcquireStateLock()
+	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
 		return err
 	}
-	defer m.store.ReleaseStateLock(leaseID)
+	defer m.store.ReleaseLock(leaseID)
 
 	// Store the value
 	state := m.store.GetState()
@@ -450,4 +487,31 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 	}
 
 	return encKey, nil
+}
+
+// SetNodeHealth stores the node status object
+func (m *Manager) SetNodeHealth(health *utils.NodeStatus) error {
+	if health == nil {
+		logger.Println("Received nil node health object")
+		// Create a default object
+		health = &utils.NodeStatus{
+			Nginx: utils.NginxStatus{
+				Running: true,
+			},
+			Sync: utils.NodeSync{},
+			Store: utils.NodeStore{
+				Healthy: true,
+			},
+			Health: []utils.SiteHealth{},
+		}
+	} else {
+		logger.Println("Received node health object")
+	}
+	m.nodeHealth = health
+	return m.store.StoreNodeHealth(health)
+}
+
+// GetNodeHealth gets the node status object
+func (m *Manager) GetNodeHealth() *utils.NodeStatus {
+	return m.nodeHealth
 }

@@ -14,30 +14,21 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package state
+package routes
 
 import (
-	"log"
-	"os"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/statiko-dev/statiko/sync"
 )
 
-// Instance is a singleton for Manager
-var Instance *Manager
+// SyncHandler is the handler for POST /sync, which forces a new sync
+func SyncHandler(c *gin.Context) {
+	// Queue a new run
+	sync.QueueRun()
 
-// Worker is a singleton for the WorkerController
-var Worker WorkerController
-
-// Logger
-var logger *log.Logger
-
-// Init the singleton
-func init() {
-	// Initialize the logger
-	logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
-
-	// Initialize the singleton
-	Instance = &Manager{}
-	if err := Instance.Init(); err != nil {
-		panic(err)
-	}
+	// Return
+	c.Status(http.StatusNoContent)
 }

@@ -14,28 +14,20 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package middlewares
 
 import (
 	"log"
-	"net/http"
 	"os"
-	"time"
 )
 
 // Package-wide properties
 var (
-	logger     *log.Logger
-	httpClient *http.Client
+	logger *log.Logger
 )
 
 // Init method for the package
 func init() {
 	// Initialize the logger
-	logger = log.New(os.Stdout, "routes: ", log.Ldate|log.Ltime|log.LUTC)
-
-	// Initialize the HTTP Client
-	httpClient = &http.Client{
-		Timeout: 10 * time.Second,
-	}
+	logger = log.New(os.Stdout, "api/middlewares: ", log.Ldate|log.Ltime|log.LUTC)
 }

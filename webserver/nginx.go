@@ -101,7 +101,7 @@ func (n *NginxConfig) DesiredConfiguration(sites []state.SiteState) (config Conf
 	// Configuration for each site
 	for _, s := range sites {
 		// If the site/app failed to deploy, skip this
-		if s.Error != nil {
+		if state.Instance.GetSiteHealth(s.Domain) != nil {
 			n.logger.Println("Skipping site with error (in DesiredConfiguration)", s.Domain)
 			continue
 		}
@@ -168,7 +168,7 @@ func (n *NginxConfig) ExistingConfiguration(sites []state.SiteState) (ConfigData
 	existing["conf.d/_default.conf"] = nil
 	for _, s := range sites {
 		// If the site/app failed to deploy, skip this
-		if s.Error != nil {
+		if state.Instance.GetSiteHealth(s.Domain) != nil {
 			n.logger.Println("Skipping site with error (in ExistingConfiguration)", s.Domain)
 			continue
 		}
@@ -282,8 +282,7 @@ func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 				// Add an error to the site's object
 				for _, v := range sites {
 					if v.Domain == site {
-						v.Error = errors.New("invalid nginx configuration - check manifest")
-						state.Instance.UpdateSite(&v, true)
+						state.Instance.SetSiteHealth(v.Domain, errors.New("invalid nginx configuration - check manifest"))
 						break
 					}
 				}
@@ -540,8 +539,8 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 				Key         string
 			}{
 				Enabled:     appconfig.Config.GetBool("tls.node.enabled"),
-				Certificate: appconfig.Config.GetString("tls.node.certificate"),
-				Key:         appconfig.Config.GetString("tls.node.key"),
+				Certificate: appRoot + "misc/node.cert.pem",
+				Key:         appRoot + "misc/node.key.pem",
 			},
 		},
 	}

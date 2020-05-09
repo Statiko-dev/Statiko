@@ -26,7 +26,6 @@ const yaml = require('js-yaml')
 
 const utils = require('./utils')
 const appData = require('./app-data')
-const tlsData = require('./tls-data')
 
 // Auth header
 const auth = 'hello world'
@@ -72,7 +71,7 @@ async function checkStatus(sites) {
         .set('Authorization', auth)
         .expect('Content-Type', /json/)
         .expect(200)
-    assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'nginx', 'store', 'sync'])
+    assert.deepStrictEqual(Object.keys(response.body).sort(), ['health', 'name', 'nginx', 'store', 'sync'])
 
     // Check the sync object
     assert(Object.keys(response.body.sync).length == 2)
@@ -88,6 +87,9 @@ async function checkStatus(sites) {
 
     // Check the store object
     assert.deepStrictEqual(response.body.store, {healthy: true})
+
+    // Check the name
+    assert.deepStrictEqual(response.body.name, 'e2e-test')
 
     // Function that returns the object for a given site
     const findSite = (domain) => {
@@ -358,25 +360,6 @@ async function checkNginxSite(site, appDeployed) {
 
 // Checks that the cache directory has the correct data
 async function checkCacheDirectory(sites, apps) {
-    // TLS Certificates in cache
-    if (sites) {
-        for (const k in sites) {
-            if (!Object.prototype.hasOwnProperty.call(sites, k)) {
-                continue
-            }
-
-            const certificate = sites[k].tlsCertificate
-            if (!certificate) {
-                continue
-            }
-
-            const filename = certificate + '-' + tlsData[certificate]
-
-            await utils.fileExists('/data/cache/' + filename + '.cert.pem')
-            await utils.fileExists('/data/cache/' + filename + '.key.pem')
-        }
-    }
-
     // Cached apps' bundles
     if (apps) {
         for (const k in apps) {
@@ -550,7 +533,7 @@ const tests = {
         return function() {
             // This operation can take some time
             this.timeout(30 * 1000)
-            this.slow(10 * 1000)
+            this.slow(20 * 1000)
 
             return waitForSync()
         }

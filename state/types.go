@@ -22,30 +22,37 @@ import (
 	"github.com/statiko-dev/statiko/utils"
 )
 
+const (
+	TLSCertificateImported    = "imported"
+	TLSCertificateSelfSigned  = "selfsigned"
+	TLSCertificateLetsEncrypt = "letsencrypt"
+)
+
 // NodeState represents the global state of the node
 type NodeState struct {
 	Sites    []SiteState       `json:"sites"`
-	Secrets  map[string][]byte `json:"secrets"`
+	Secrets  map[string][]byte `json:"secrets,omitempty"`
 	DHParams *NodeDHParams     `json:"dhparams,omitempty"`
 }
 
 // SiteState represents the state of a single site
 type SiteState struct {
-	// Configuration
-	TLSCertificateSelfSigned bool    `json:"tlsCertificateSelfSigned"`
-	TLSCertificate           *string `json:"tlsCertificate"`
-	TLSCertificateVersion    *string `json:"tlsCertificateVersion"`
-
 	// Domains: primary and aliases
 	Domain  string   `json:"domain" binding:"required,ne=_default"`
 	Aliases []string `json:"aliases" binding:"dive,ne=_default"`
 
-	// Deployment error
-	Error    error   `json:"-"`
-	ErrorStr *string `json:"error" binding:"-"` // Not allowed as input
+	// TLS configuration
+	TLS *SiteTLS `json:"tls"`
 
 	// App
 	App *SiteApp `json:"app"`
+}
+
+// SiteTLS represents the TLS configuration for the site
+type SiteTLS struct {
+	Type        string  `json:"type"`
+	Certificate *string `json:"cert,omitempty"`
+	Version     *string `json:"ver,omitempty"`
 }
 
 // SiteApp represents the state of an app deployed or being deployed
@@ -64,20 +71,29 @@ type NodeDHParams struct {
 	PEM  string     `json:"pem"`
 }
 
-// Internal use
+// SiteHealth represents the health of each site in the node
+type SiteHealth map[string]error
 
-// Interface for the state stores
-type stateStore interface {
+// WorkerController is the interface for the controller
+type WorkerController interface {
+	Init(store StateStore)
+	IsLeader() bool
+	AddJob(job utils.JobData) (string, error)
+	CompleteJob(jobID string) error
+	WaitForJob(jobID string, ch chan error)
+}
+
+// StateStore is the interface for the state stores
+type StateStore interface {
 	Init() error
-	AcquireStateLock() (interface{}, error)
-	ReleaseStateLock(interface{}) error
-	AcquireSyncLock() (interface{}, error)
-	ReleaseSyncLock(interface{}) error
+	AcquireLock(name string, timeout bool) (interface{}, error)
+	ReleaseLock(leaseID interface{}) error
 	GetState() *NodeState
 	SetState(*NodeState) error
 	WriteState() error
 	ReadState() error
 	Healthy() (bool, error)
 	OnStateUpdate(func())
-	ClusterMembers() (map[string]string, error)
+	ClusterHealth() (map[string]*utils.NodeStatus, error)
+	StoreNodeHealth(health *utils.NodeStatus) error
 }

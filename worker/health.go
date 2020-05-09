@@ -17,10 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package worker
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
 
+	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/statuscheck"
 )
 
@@ -28,27 +30,39 @@ import (
 var healthLogger *log.Logger
 
 // In background, periodically check the status of the sites
-func startHealthWorker() {
+func startHealthWorker(ctx context.Context) {
 	// Set variables
 	// This runs every minute, but the cache is refreshed only if it's older than N minutes (configured in the statuscheck module)
 	// So, the cache might be older than N minutes, and it's fine
 	healthInterval := time.Duration(statuscheck.StatusCheckInterval) * time.Second
 	healthLogger = log.New(os.Stdout, "worker/health: ", log.Ldate|log.Ltime|log.LUTC)
 
-	ticker := time.NewTicker(healthInterval)
 	go func() {
-		// Wait 30 seconds, then run right away
-		time.Sleep(30 * time.Second)
-		err := healthWorker()
-		if err != nil {
-			healthLogger.Println("Worker error:", err)
-		}
+		// Wait for startup
+		waitForStartup()
+
+		// Wait 15 seconds at node startup
+		// No need to run right away, as the sync module will make this code run
+		time.Sleep(15 * time.Second)
 
 		// Run on ticker
-		for range ticker.C {
-			err := healthWorker()
-			if err != nil {
-				healthLogger.Println("Worker error:", err)
+		ticker := time.NewTicker(healthInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				err := healthWorker()
+				if err != nil {
+					healthLogger.Println("Worker error:", err)
+				}
+			case <-state.Instance.RefreshHealth:
+				err := healthWorker()
+				if err != nil {
+					healthLogger.Println("Worker error:", err)
+				}
+			case <-ctx.Done():
+				healthLogger.Println("Worker's context canceled")
+				return
 			}
 		}
 	}()
@@ -57,7 +71,5 @@ func startHealthWorker() {
 // Update the health cache
 func healthWorker() error {
 	healthLogger.Println("Refreshing health cache")
-	_ = statuscheck.GetHealthCache()
-
-	return nil
+	return statuscheck.UpdateStoredNodeHealth()
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // Semaphore that allows only one operation at time
@@ -43,7 +44,7 @@ func ResetHealthCache() {
 // GetHealthCache returns the health of sites
 // Will return a cached response if available
 // Note that this function might block the current goroutine if there's another operation running, so plan accordingly
-func GetHealthCache() (result []SiteHealth) {
+func GetHealthCache() (result []utils.SiteHealth) {
 	semaphore <- 1
 
 	// If the state has changed, we need to invalidate the healthCache
@@ -81,7 +82,7 @@ func GetHealthCache() (result []SiteHealth) {
 }
 
 // RequestHealth makes a request to the app and checks its health (requests status code 2xx)
-func RequestHealth(domain string, app string, ch chan<- SiteHealth) {
+func RequestHealth(domain string, app string, ch chan<- utils.SiteHealth) {
 	var statusCode int
 	var responseSize int
 
@@ -99,13 +100,13 @@ func RequestHealth(domain string, app string, ch chan<- SiteHealth) {
 	resp, err := httpClient.Do(&req)
 	now := time.Now()
 	if err != nil {
-		ch <- SiteHealth{
+		ch <- utils.SiteHealth{
 			Domain:       domain,
 			App:          &app,
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        err,
+			Error:        err.Error(),
 		}
 		return
 	}
@@ -113,13 +114,13 @@ func RequestHealth(domain string, app string, ch chan<- SiteHealth) {
 	// Check if status code is 2xx
 	statusCode = resp.StatusCode
 	if statusCode < 200 || statusCode > 299 {
-		ch <- SiteHealth{
+		ch <- utils.SiteHealth{
 			Domain:       domain,
 			App:          &app,
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        fmt.Errorf("Invalid status code: %d", resp.StatusCode),
+			Error:        fmt.Errorf("Invalid status code: %d", resp.StatusCode).Error(),
 		}
 		return
 	}
@@ -127,37 +128,37 @@ func RequestHealth(domain string, app string, ch chan<- SiteHealth) {
 	// Read the response body to calculate the size
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		ch <- SiteHealth{
+		ch <- utils.SiteHealth{
 			Domain:       domain,
 			App:          &app,
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        err,
+			Error:        err.Error(),
 		}
 		return
 	}
 	responseSize = len(bodyBytes)
 	if responseSize < 1 {
-		ch <- SiteHealth{
+		ch <- utils.SiteHealth{
 			Domain:       domain,
 			App:          &app,
 			StatusCode:   &statusCode,
 			ResponseSize: &responseSize,
 			Time:         &now,
-			Error:        fmt.Errorf("Invalid response size: %d", responseSize),
+			Error:        fmt.Errorf("Invalid response size: %d", responseSize).Error(),
 		}
 		return
 	}
 
 	// Success!
-	ch <- SiteHealth{
+	ch <- utils.SiteHealth{
 		Domain:       domain,
 		App:          &app,
 		StatusCode:   &statusCode,
 		ResponseSize: &responseSize,
 		Time:         &now,
-		Error:        nil,
+		Error:        "",
 	}
 }
 
@@ -170,7 +171,7 @@ func updateHealthCache() (hasError bool) {
 
 	// Use a worker pool to limit concurrency to 3
 	jobs := make(chan healthcheckJob, 4)
-	res := make(chan SiteHealth, len(sites))
+	res := make(chan utils.SiteHealth, len(sites))
 
 	// Spin up 3 backround workers
 	for w := 1; w <= 3; w++ {
@@ -179,19 +180,19 @@ func updateHealthCache() (hasError bool) {
 
 	// Update the cached data
 	requested := 0
-	healthCache = make([]SiteHealth, 0)
+	healthCache = make([]utils.SiteHealth, 0)
 	for _, s := range sites {
 		// Skip sites that have deployment errors
-		if s.Error != nil {
+		if siteErr := state.Instance.GetSiteHealth(s.Domain); siteErr != nil {
 			var appStr *string
 			if s.App != nil {
 				str := s.App.Name + "-" + s.App.Version
 				appStr = &str
 			}
-			healthCache = append(healthCache, SiteHealth{
+			healthCache = append(healthCache, utils.SiteHealth{
 				Domain: s.Domain,
 				App:    appStr,
-				Error:  s.Error,
+				Error:  siteErr.Error(),
 			})
 			continue
 		}
@@ -213,7 +214,7 @@ func updateHealthCache() (hasError bool) {
 			requested++
 		} else {
 			// No app deployed, so show the site only
-			healthCache = append(healthCache, SiteHealth{
+			healthCache = append(healthCache, utils.SiteHealth{
 				Domain: s.Domain,
 				App:    nil,
 			})
@@ -224,7 +225,7 @@ func updateHealthCache() (hasError bool) {
 	// Read responses
 	for i := 0; i < requested; i++ {
 		health := <-res
-		if health.Error != nil {
+		if health.Error != "" {
 			hasError = true
 			errStr := fmt.Sprintf("Status check failed for domain %v: %v", health.Domain, health.Error)
 			logger.Println(errStr)
@@ -251,10 +252,16 @@ func updateHealthCache() (hasError bool) {
 }
 
 // Background worker for the updateHealthCache function
-func updateHealthCacheWorker(id int, jobs <-chan healthcheckJob, res chan<- SiteHealth) {
+func updateHealthCacheWorker(id int, jobs <-chan healthcheckJob, res chan<- utils.SiteHealth) {
 	for j := range jobs {
 		//logger.Println("Worker", id, "started requesting health for", j.domain)
 		RequestHealth(j.domain, j.bundle, res)
 		//logger.Println("Worker", id, "finished requesting health for", j.domain)
 	}
+}
+
+// Result for health check jobs
+type healthcheckJob struct {
+	domain string
+	bundle string
 }

@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package worker
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -28,8 +29,8 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/certificates"
 	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -44,7 +45,7 @@ var certMonitorNotifications map[string]int
 var certMonitorChecks []int
 
 // In background, periodically check for expired certificates
-func startCertMonitorWorker() {
+func startCertMonitorWorker(ctx context.Context) {
 	// Set variables
 	certMonitorInterval := time.Duration(24 * time.Hour) // Run every 24 hours
 	certMonitorLogger = log.New(os.Stdout, "worker/cert-monitor: ", log.Ldate|log.Ltime|log.LUTC)
@@ -53,8 +54,10 @@ func startCertMonitorWorker() {
 	// Notification days
 	certMonitorChecks = []int{-2, -1, 0, 1, 2, 3, 7, 14, 30}
 
-	ticker := time.NewTicker(certMonitorInterval)
 	go func() {
+		// Wait for startup
+		waitForStartup()
+
 		// Run right away
 		err := certMonitorWorker()
 		if err != nil {
@@ -62,10 +65,18 @@ func startCertMonitorWorker() {
 		}
 
 		// Run on ticker
-		for range ticker.C {
-			err := certMonitorWorker()
-			if err != nil {
-				certMonitorLogger.Println("Worker error:", err)
+		ticker := time.NewTicker(certMonitorInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				err := certMonitorWorker()
+				if err != nil {
+					certMonitorLogger.Println("Worker error:", err)
+				}
+			case <-ctx.Done():
+				certMonitorLogger.Println("Worker's context canceled")
+				return
 			}
 		}
 	}()
@@ -116,7 +127,7 @@ func certMonitorWorker() error {
 
 		// Is this certificate self-signed?
 		selfSigned := false
-		if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer {
+		if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == utils.SelfSignedCertificateIssuer {
 			selfSigned = true
 		}
 
@@ -130,8 +141,28 @@ func certMonitorWorker() error {
 		exp := cert.NotAfter
 		if selfSigned {
 			// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than 7 days left
-			if exp.Before(now.Add(time.Duration(7 * 24 * time.Hour))) {
-				certMonitorLogger.Println("Certificate for site", site, "is expiring in less than 7 days; queueing a sync to regenerate it")
+			if exp.Before(now.Add(time.Duration(time.Duration(utils.SelfSignedMinDays*24) * time.Hour))) {
+				certMonitorLogger.Println("Certificate for site", site, "is expiring in less than 7 days; regenerating it")
+
+				// Queue a job
+				job := utils.JobData{
+					Type: utils.JobTypeTLSCertificate,
+					Data: strings.Join(cert.DNSNames, ","),
+				}
+				jobID, err := state.Worker.AddJob(job)
+				if err != nil {
+					return err
+				}
+
+				// Wait for the job
+				ch := make(chan error, 1)
+				go state.Worker.WaitForJob(jobID, ch)
+				err = <-ch
+				close(ch)
+				if err != nil {
+					return err
+				}
+
 				// We'll queue a sync
 				needsSync = true
 			}

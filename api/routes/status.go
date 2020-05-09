@@ -24,8 +24,7 @@ import (
 
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/statuscheck"
-	"github.com/statiko-dev/statiko/sync"
-	"github.com/statiko-dev/statiko/webserver"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
@@ -42,45 +41,18 @@ func StatusHandler(c *gin.Context) {
 		return
 	}
 
-	// Response object
-	res := &statuscheck.NodeStatus{}
-
-	// Nginx server status
-	// Ignore errors in this command
-	nginxStatus, _ := webserver.Instance.Status()
-	res.Nginx = statuscheck.NginxStatus{
-		Running: nginxStatus,
-	}
-
-	// Sync status
-	syncError := sync.SyncError()
-	syncErrorStr := ""
-	if syncError != nil {
-		syncErrorStr = syncError.Error()
-	}
-	res.Sync = statuscheck.NodeSync{
-		Running:   sync.IsRunning(),
-		LastSync:  sync.LastSync(),
-		SyncError: syncErrorStr,
-	}
-
-	// Store status
-	storeHealth, _ := state.Instance.StoreHealth()
-	res.Store = statuscheck.NodeStore{
-		Healthy: storeHealth,
-	}
-
 	// Check if we need to force a refresh
 	forceQs := c.Query("force")
 	if forceQs == "1" || forceQs == "true" || forceQs == "t" || forceQs == "y" || forceQs == "yes" {
 		statuscheck.ResetHealthCache()
+		statuscheck.UpdateStoredNodeHealth()
 	}
+
+	// Response object
+	res := state.Instance.GetNodeHealth()
 
 	// Response status code
 	statusCode := http.StatusOK
-
-	// Test if the actual apps are responding (just to be sure), but only every 5 minutes
-	healthCache := statuscheck.GetHealthCache()
 
 	// If we're requesting a domain only, filter the results
 	if domain := c.Param("domain"); len(domain) > 0 {
@@ -91,10 +63,10 @@ func StatusHandler(c *gin.Context) {
 			domain = siteObj.Domain
 
 			// Check if we have the health object for this site, and if it has any deployment error
-			var domainHealth statuscheck.SiteHealth
+			var domainHealth utils.SiteHealth
 			found := false
 			appError := false
-			for _, el := range healthCache {
+			for _, el := range res.Health {
 				if el.Domain == domain {
 					domainHealth = el
 					found = true
@@ -106,14 +78,19 @@ func StatusHandler(c *gin.Context) {
 			}
 
 			if found {
-				// If we're not authenticated, do not display the app name
+				// If we're not authenticated, do not display the app name, nor the full error
 				// In this case, the user requested a domain only, so they know the domain anyways
-				if !isAuthenticated && domainHealth.App != nil {
-					app := "<hidden>"
-					domainHealth.App = &app
+				if !isAuthenticated {
+					if domainHealth.App != nil {
+						app := "<hidden>"
+						domainHealth.App = &app
+					}
+					if domainHealth.Error != "" {
+						domainHealth.Error = "<hidden error>"
+					}
 				}
 
-				res.Health = []statuscheck.SiteHealth{domainHealth}
+				res.Health = []utils.SiteHealth{domainHealth}
 			}
 
 			// If there's a deployment error for the app, and we're requesting a domain only, return a 503 response
@@ -127,10 +104,13 @@ func StatusHandler(c *gin.Context) {
 	} else {
 		// We've requested all sites; return an error status code if they're all failing
 		errorCount := 0
-		total := len(healthCache)
+		var total int = 0
+		if res.Health != nil {
+			total = len(res.Health)
+		}
 		if total > 0 {
-			res.Health = make([]statuscheck.SiteHealth, total)
-			for i, el := range healthCache {
+			obj := make([]utils.SiteHealth, total)
+			for i, el := range res.Health {
 				if !el.IsHealthy() {
 					errorCount++
 				} else if el.App == nil {
@@ -145,9 +125,13 @@ func StatusHandler(c *gin.Context) {
 						el.App = &app
 					}
 					el.Domain = "Domain " + strconv.Itoa(i+1)
+					if el.Error != "" {
+						el.Error = "<hidden error>"
+					}
 				}
-				res.Health[i] = el
+				obj[i] = el
 			}
+			res.Health = obj
 		}
 		if total > 0 && errorCount == total {
 			// All are failing, return a 503 status
@@ -156,7 +140,7 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	// If Nginx isn't working, status code is always 503
-	if !nginxStatus {
+	if !res.Nginx.Running {
 		statusCode = http.StatusServiceUnavailable
 	}
 

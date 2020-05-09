@@ -22,9 +22,11 @@ const appData = require('./app-data')
 const sitesData = {
     site1: {
         domain: 'site1.local',
-        tlsCertificate: 'site1',
-        tlsCertificateSelfSigned: false,
-        tlsCertificateVersion: '7f9f2c93860e4c54bc4eea5bb5973ad6',
+        tls: {
+            type: 'imported',
+            cert: 'site1',
+            ver: '7f9f2c93860e4c54bc4eea5bb5973ad6',
+        },
         aliases: [
             'site1-alias.local',
             'mysite.local'
@@ -32,28 +34,38 @@ const sitesData = {
     },
     site2: {
         domain: 'site2.local',
-        tlsCertificate: 'site2',
-        tlsCertificateSelfSigned: false,
+        tls: {
+            type: 'imported',
+            cert: 'site2'
+        },
         aliases: [
             'site2-alias.local'
         ]
     },
     site3: {
         domain: 'site3.local',
-        tlsCertificate: 'site3',
-        tlsCertificateSelfSigned: false,
+        tls: {
+            type: 'imported',
+            cert: 'site3'
+        },
         aliases: []
     },
 
     // Erroring
     exists1: {
         domain: 'site3.local',
-        tlsCertificate: 'site3',
+        tls: {
+            type: 'imported',
+            cert: 'site3'
+        },
         aliases: ['not-existing.com']
     },
     exists2: {
         domain: 'not-existing.com',
-        tlsCertificate: 'site3',
+        tls: {
+            type: 'imported',
+            cert: 'site3'
+        },
         aliases: ['site3.local']
     }
 }
@@ -80,8 +92,10 @@ sitesData.site1patch2 = {
     aliases: []
 }
 sitesData.site1patch3 = {
-    tlsCertificate: 'site3',
-    tlsCertificateVersion: 'dcdc4a65bbc34da981d4949f300e8076'
+    tls: {
+        cert: 'site3',
+        ver: 'dcdc4a65bbc34da981d4949f300e8076'
+    }
 }
 
 module.exports = sitesData

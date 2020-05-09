@@ -10,10 +10,9 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.8.3
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
-	github.com/Luzifer/go-dhparam v1.0.0
-	github.com/coreos/etcd v3.3.20+incompatible // indirect
+	github.com/Luzifer/go-dhparam v1.1.0
+	github.com/coreos/etcd v3.3.20+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/etcd-io/etcd v3.3.20+incompatible
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.2
 	github.com/gobuffalo/packd v1.0.0

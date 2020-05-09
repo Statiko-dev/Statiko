@@ -22,18 +22,20 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // Package-wide properties
 var (
-	// Interval (in seconds) between tests
+	// Minimum interval (in seconds) before the cache is refreshed
 	StatusCheckInterval int = 300
 
 	// Last time the state was updated
 	stateUpdatedTime *time.Time
 
 	// Cached health data
-	healthCache []SiteHealth
+	healthCache []utils.SiteHealth
 
 	// Last time the health checks were run
 	appTestedTime time.Time

@@ -117,7 +117,10 @@ func (c *appConfig) setDefaults() {
 	viper.SetDefault("tls.node.certificate", "/etc/statiko/node-public.crt")
 	viper.SetDefault("tls.node.key", "/etc/statiko/node-private.key")
 	viper.SetDefault("tls.dhparams.maxAge", 120)
+	viper.SetDefault("tls.dhparams.bits", 4096)
 	viper.SetDefault("manifestFile", "_statiko.yaml")
+	viper.SetDefault("disallowUnsignedApps", false)
+	viper.SetDefault("disallowLeadership", false)
 	viper.SetDefault("notifications.webhook.payloadKey", "value1")
 }
 
@@ -152,7 +155,9 @@ func (c *appConfig) bindEnvVars() {
 	viper.BindEnv("azure.storage.key", "AZURE_STORAGE_KEY")
 	viper.BindEnv("azure.storage.appsContainer", "AZURE_STORAGE_APPS_CONTAINER")
 	viper.BindEnv("nodeName", "NODE_NAME")
+	viper.BindEnv("disallowLeadership", "DISALLOW_LEADERSHIP")
 	viper.BindEnv("tls.dhparams.maxAge", "TLS_DHPARAMS_MAX_AGE")
+	viper.BindEnv("tls.dhparams.bits", "TLS_DHPARAMS_BITS")
 	viper.BindEnv("notifications.method", "NOTIFICATIONS_METHOD")
 	viper.BindEnv("notifications.webhook.url", "NOTIFICATIONS_WEBHOOK_URL")
 	viper.BindEnv("notifications.webhook.payloadKey", "NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY")

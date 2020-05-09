@@ -14,30 +14,28 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package state
+package routes
 
 import (
 	"log"
+	"net/http"
 	"os"
+	"time"
 )
 
-// Instance is a singleton for Manager
-var Instance *Manager
+// Package-wide properties
+var (
+	logger     *log.Logger
+	httpClient *http.Client
+)
 
-// Worker is a singleton for the WorkerController
-var Worker WorkerController
-
-// Logger
-var logger *log.Logger
-
-// Init the singleton
+// Init method for the package
 func init() {
 	// Initialize the logger
-	logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(os.Stdout, "api/routes: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Initialize the singleton
-	Instance = &Manager{}
-	if err := Instance.Init(); err != nil {
-		panic(err)
+	// Initialize the HTTP Client
+	httpClient = &http.Client{
+		Timeout: 10 * time.Second,
 	}
 }

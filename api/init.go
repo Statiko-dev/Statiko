@@ -14,20 +14,30 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package middlewares
+package api
 
 import (
 	"log"
 	"os"
+
+	"github.com/statiko-dev/statiko/sync"
 )
 
 // Package-wide properties
 var (
 	logger *log.Logger
+	Server *APIServer
 )
 
 // Init method for the package
 func init() {
 	// Initialize the logger
-	logger = log.New(os.Stdout, "middlewares: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(os.Stdout, "api: ", log.Ldate|log.Ltime|log.LUTC)
+
+	// Initialize the API server
+	Server = &APIServer{}
+	Server.Init()
+
+	// Set the ServerRestartFunc in the sync module, to avoid import cycles
+	sync.ServerRestartFunc = Server.Restart
 }

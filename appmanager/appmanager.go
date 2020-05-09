@@ -17,11 +17,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package appmanager
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -107,7 +107,7 @@ func (m *Manager) Init() error {
 }
 
 // SyncState ensures that the state of the filesystem matches the desired one
-func (m *Manager) SyncState(sites []state.SiteState) (updated bool, err error) {
+func (m *Manager) SyncState(sites []state.SiteState) (updated bool, restartServer bool, err error) {
 	updated = false
 
 	// To start, ensure the basic folders exist
@@ -123,14 +123,8 @@ func (m *Manager) SyncState(sites []state.SiteState) (updated bool, err error) {
 	}
 
 	// Misc files
-	u, err := m.SyncMiscFiles()
-	if err != nil {
-		return
-	}
-	updated = updated || u
-
-	// Sync self-signed certificates
-	u, err = certificates.SyncCertificates(sites)
+	var u bool
+	u, restartServer, err = m.SyncMiscFiles()
 	if err != nil {
 		return
 	}
@@ -196,8 +190,8 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	expectFolders[0] = "_default"
 	for _, s := range sites {
 		// If the app failed to deploy, skip this
-		if s.Error != nil {
-			m.log.Println("Skipping because of errors:", s.Domain)
+		if state.Instance.GetSiteHealth(s.Domain) != nil {
+			m.log.Println("Skipping because of unhealthy site:", s.Domain)
 			continue
 		}
 
@@ -205,84 +199,34 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
 		if err != nil {
 			m.log.Println("Error while creating folder for site:", s.Domain, err)
-			s.Error = err
-			state.Instance.UpdateSite(&s, true)
+			state.Instance.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
 
 		// /approot/sites/{site}/tls
-		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain + "/tls")
+		pathTLS := m.appRoot + "sites/" + s.Domain + "/tls"
+		u, err = ensureFolderWithUpdated(pathTLS)
 		if err != nil {
 			m.log.Println("Error while creating tls folder for site:", s.Domain, err)
-			s.Error = err
-			state.Instance.UpdateSite(&s, true)
+			state.Instance.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
 
-		// Check if we are dealing with self-signed TLS certificates
-		if s.TLSCertificateSelfSigned {
-			domains := append([]string{s.Domain}, s.Aliases...)
-			err := m.SelfSignedTLSCertificate(domains...)
-			if err != nil {
-				m.log.Println("Error while getting self-signed TLS certificate for site:", s.Domain, err)
-				s.Error = err
-				state.Instance.UpdateSite(&s, true)
-				continue
-			}
-
-			// Ensure the TLSCertificate options are empty
-			if s.TLSCertificate != nil || s.TLSCertificateVersion != nil {
-				s.TLSCertificate = nil
-				s.TLSCertificateVersion = nil
-				state.Instance.UpdateSite(&s, false)
-
-				updated = true
-			}
-
-			// Update the TLS certificate link if necessary
-			u, err = m.LinkTLSCertificate(s.Domain, s.Domain+".selfsigned")
-			if err != nil {
-				m.log.Println("Error while linking tls certificate for site:", s.Domain, err)
-				s.Error = err
-				state.Instance.UpdateSite(&s, true)
-				continue
-			}
-			updated = updated || u
-		} else if s.TLSCertificate != nil && *s.TLSCertificate != "" {
-			// Check if the TLS certs are in place, if needed
-			certVersion := ""
-			if s.TLSCertificateVersion != nil {
-				certVersion = *s.TLSCertificateVersion
-			}
-
-			// Call GetTLSCertificate to ensure that the certificate exists in the cache
-			version, err := m.GetTLSCertificate(s.Domain, *s.TLSCertificate, certVersion)
-			if err != nil {
-				m.log.Println("Error while getting TLS certificate for site:", s.Domain, err)
-				s.Error = err
-				state.Instance.UpdateSite(&s, true)
-				continue
-			}
-			if certVersion != version {
-				certVersion = version
-				s.TLSCertificateVersion = &version
-				state.Instance.UpdateSite(&s, false)
-
-				updated = true
-			}
-
-			// Update the TLS certificate link if necessary
-			u, err = m.LinkTLSCertificate(s.Domain, *s.TLSCertificate+"-"+certVersion)
-			if err != nil {
-				m.log.Println("Error while linking tls certificate for site:", s.Domain, err)
-				s.Error = err
-				state.Instance.UpdateSite(&s, true)
-				continue
-			}
-			updated = updated || u
+		// Get the TLS certificate
+		pathKey := pathTLS + "/key.pem"
+		pathCert := pathTLS + "/certificate.pem"
+		keyPEM, certPEM, err := certificates.GetCertificate(&s)
+		if err != nil {
+			m.log.Println("Error while getting TLS certificate for site:", s.Domain, err)
+			state.Instance.SetSiteHealth(s.Domain, err)
+			continue
 		}
+		u, err = m.writeFileIfChanged(pathKey, keyPEM)
+		updated = updated || u
+		u, err = m.writeFileIfChanged(pathCert, certPEM)
+		updated = updated || u
 
 		// Deploy the app; do this every time, regardless, since it doesn't disrupt the running server
 		// /approot/sites/{site}/www
@@ -293,8 +237,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		}
 		if err := m.ActivateApp(bundle, s.Domain); err != nil {
 			m.log.Println("Error while activating app for site:", s.Domain, err)
-			s.Error = err
-			state.Instance.UpdateSite(&s, true)
+			state.Instance.SetSiteHealth(s.Domain, err)
 			continue
 		}
 
@@ -353,10 +296,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	fetchAppsList := make(map[string]int)
 	for i, s := range sites {
 		// Reset the error
-		if s.Error != nil {
-			s.Error = nil
-			state.Instance.UpdateSite(&s, true)
-		}
+		state.Instance.SetSiteHealth(s.Domain, nil)
 
 		// Check if the jobs channel is full
 		for len(jobs) == cap(jobs) {
@@ -532,24 +472,107 @@ func (m *Manager) WriteDefaultApp() error {
 }
 
 // SyncMiscFiles synchronizes the misc folder
-// This contains the DH parameters
-func (m *Manager) SyncMiscFiles() (bool, error) {
-	// Get the latest DH parameters
-	pem, _ := state.Instance.GetDHParams()
+// This contains the DH parameters and the node manager's TLS
+func (m *Manager) SyncMiscFiles() (bool, bool, error) {
+	updated := false
+	restartServer := false
 
-	// Read the existing file and compare it
-	dhparamsPath := m.appRoot + "misc/dhparams.pem"
-	read, err := ioutil.ReadFile(dhparamsPath)
+	// Get the latest DH parameters and compare them with the ones on disk
+	pem, _ := state.Instance.GetDHParams()
+	u, err := m.writeFileIfChanged(m.appRoot+"misc/dhparams.pem", []byte(pem))
+	if err != nil {
+		return false, false, err
+	}
+	updated = updated || u
+
+	// The TLS certificate for the node manager
+	if appconfig.Config.GetBool("tls.node.enabled") {
+		var (
+			err               error
+			certData, keyData []byte
+		)
+
+		// Check if we have a TLS certificate
+		cert := appconfig.Config.GetString("tls.node.certificate")
+		key := appconfig.Config.GetString("tls.node.key")
+		for {
+			if cert == "" || key == "" {
+				break
+			}
+			certData, err = ioutil.ReadFile(cert)
+			if err != nil {
+				if os.IsNotExist(err) {
+					certData = nil
+					keyData = nil
+					err = nil
+					break
+				} else {
+					return false, false, err
+				}
+			}
+			keyData, err = ioutil.ReadFile(key)
+			if err != nil {
+				if os.IsNotExist(err) {
+					certData = nil
+					keyData = nil
+					err = nil
+					break
+				} else {
+					return false, false, err
+				}
+			}
+
+			break
+		}
+
+		// If we don't have a TLS certificate, generate a self-signed one
+		if certData == nil || keyData == nil {
+			s := state.SiteState{
+				Domain:  appconfig.Config.GetString("nodeName"),
+				Aliases: []string{},
+				TLS: &state.SiteTLS{
+					Type: state.TLSCertificateSelfSigned,
+				},
+			}
+			keyData, certData, err = certificates.GetCertificate(&s)
+			if err != nil {
+				return false, false, fmt.Errorf("error while generating self-signed certificate for node manager: %v", err)
+			}
+		}
+
+		// Write the certificate and key if they're different
+		u, err = m.writeFileIfChanged(m.appRoot+"misc/node.cert.pem", certData)
+		if err != nil {
+			return false, false, err
+		}
+		restartServer = restartServer || u
+		updated = updated || u
+		u, err = m.writeFileIfChanged(m.appRoot+"misc/node.key.pem", keyData)
+		if err != nil {
+			return false, false, err
+		}
+		restartServer = restartServer || u
+		updated = updated || u
+	}
+
+	return updated, restartServer, nil
+}
+
+// Writes a file on disk if its content differ from val
+// Returns true if the file has been updated
+func (m *Manager) writeFileIfChanged(filename string, val []byte) (bool, error) {
+	// Read the existing file
+	read, err := ioutil.ReadFile(filename)
 	if err != nil && !os.IsNotExist(err) {
 		return false, err
 	}
-	if len(read) > 0 && string(read) == pem {
+	if len(read) > 0 && bytes.Compare(read, val) == 0 {
 		// Nothing to do here
 		return false, nil
 	}
 
 	// Write the updated file
-	err = ioutil.WriteFile(dhparamsPath, []byte(pem), 0644)
+	err = ioutil.WriteFile(filename, val, 0644)
 	if err != nil {
 		return false, err
 	}
@@ -645,9 +668,8 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 		if err != nil {
 			m.log.Println("Error staging app "+j.App.Name+"-"+j.App.Version+":", err)
 
-			// Store it in the site object
-			j.Error = err
-			state.Instance.UpdateSite(&j, true)
+			// Store the error
+			state.Instance.SetSiteHealth(j.Domain, err)
 		}
 		res <- 1
 	}
@@ -783,123 +805,4 @@ func createLinkIfNeeded(src string, dst string) (updated bool, err error) {
 	}
 
 	return
-}
-
-// LinkTLSCertificate creates a symlink to the certificate for the domain
-func (m *Manager) LinkTLSCertificate(domain string, certName string) (updated bool, err error) {
-	err = nil
-	updated = false
-
-	// Destinations
-	pathCert := m.appRoot + "sites/" + domain + "/tls/certificate.pem"
-	pathKey := m.appRoot + "sites/" + domain + "/tls/key.pem"
-
-	// Cached file location
-	cachePathCert := m.appRoot + "cache/" + certName + ".cert.pem"
-	cachePathKey := m.appRoot + "cache/" + certName + ".key.pem"
-
-	// For both the certificate and key, check if the link is correct, otherwise fix it
-	var u bool
-
-	u, err = createLinkIfNeeded(cachePathCert, pathCert)
-	if err != nil {
-		return
-	}
-	updated = updated || u
-
-	u, err = createLinkIfNeeded(cachePathKey, pathKey)
-	if err != nil {
-		return
-	}
-	updated = updated || u
-
-	if updated {
-		m.log.Println("Updated symlink for certificate and key: " + domain)
-	}
-
-	return
-}
-
-// SelfSignedTLSCertificate checks if we have self-signed TLS certificates for the domain(s)
-func (m *Manager) SelfSignedTLSCertificate(domains ...string) error {
-	// We should have the certificates in cache already
-	cachePathCert := m.appRoot + "cache/" + domains[0] + ".selfsigned.cert.pem"
-	cachePathKey := m.appRoot + "cache/" + domains[0] + ".selfsigned.key.pem"
-	found, err := utils.CertificateExists(cachePathCert, cachePathKey)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return errors.New("self-signed certificate for " + domains[0] + " not found in cache")
-	}
-
-	return nil
-}
-
-// GetTLSCertificate requests a TLS certificate
-func (m *Manager) GetTLSCertificate(domain string, tlsCertificate string, tlsCertificateVersion string) (string, error) {
-	var err error
-
-	// Check if we have the files in cache
-	exists := false
-	if len(tlsCertificateVersion) > 0 {
-		cachePathCert := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".cert.pem"
-		cachePathKey := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".key.pem"
-
-		// Check if all the files exist already
-		exists, err = utils.CertificateExists(cachePathCert, cachePathKey)
-		if err != nil {
-			return tlsCertificateVersion, err
-		}
-	}
-
-	// Certificate is not in cache, need to request it
-	if !exists {
-		// Fetch the certificate and key as PEM
-		m.log.Println("Request TLS certificate from key vault: " + tlsCertificate)
-		var cert []byte
-		var key []byte
-		var certObj *x509.Certificate
-		tlsCertificateVersion, cert, key, certObj, err = azurekeyvault.GetInstance().GetCertificate(tlsCertificate, tlsCertificateVersion)
-		if err != nil {
-			return tlsCertificateVersion, err
-		}
-
-		cachePathCert := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".cert.pem"
-		cachePathKey := m.appRoot + "cache/" + tlsCertificate + "-" + tlsCertificateVersion + ".key.pem"
-
-		// Write to cache
-		if err := utils.WriteData(cert, cachePathCert); err != nil {
-			return tlsCertificateVersion, err
-		}
-		if err := utils.WriteData(key, cachePathKey); err != nil {
-			return tlsCertificateVersion, err
-		}
-
-		// Check the certificate's details
-		if m.InspectCertificate(tlsCertificate, certObj); err != nil {
-			return tlsCertificateVersion, err
-		}
-	}
-
-	return tlsCertificateVersion, nil
-}
-
-// InspectCertificate loads a X.509 certificate and checks its details, such as expiration
-func (m *Manager) InspectCertificate(name string, cert *x509.Certificate) error {
-	now := time.Now()
-
-	// Check "NotBefore"
-	if !cert.NotBefore.Before(now) {
-		// Print a warning
-		m.log.Println("[Warn] Certificate's NotBefore is in the future:", name, cert.NotBefore)
-	}
-
-	// Check "NotAfter"
-	if cert.NotAfter.Before(now) {
-		// Print a warning
-		m.log.Println("[Warn] Certificate has expired:", name, cert.NotAfter)
-	}
-
-	return nil
 }

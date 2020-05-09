@@ -40,13 +40,13 @@ import (
 
 // uploadAuthRequest is the request body for the POST /uploadauth route
 type uploadAuthRequest struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name    string `json:"name" form:"name"`
+	Version string `json:"version" form:"version"`
 }
 
 // uploadAuthResponse is the response from the POST /uploadauth route
 type uploadAuthResponse struct {
-	ArchiveURL string `json:"archiveUrl"`
+	ArchiveURL string `json:"archiveUrl" form:"archiveUrl"`
 }
 
 // UploadAuthHandler is the handler for POST /uploadauth, which returns the SAS token to authorize uploads to Azure Blob Storage

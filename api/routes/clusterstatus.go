@@ -14,30 +14,24 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package state
+package routes
 
 import (
-	"log"
-	"os"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/statiko-dev/statiko/state"
 )
 
-// Instance is a singleton for Manager
-var Instance *Manager
-
-// Worker is a singleton for the WorkerController
-var Worker WorkerController
-
-// Logger
-var logger *log.Logger
-
-// Init the singleton
-func init() {
-	// Initialize the logger
-	logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
-
-	// Initialize the singleton
-	Instance = &Manager{}
-	if err := Instance.Init(); err != nil {
-		panic(err)
+// ClusterStatusHandler is the handler for GET /clusterstatus, which returns the status of the entire cluster
+func ClusterStatusHandler(c *gin.Context) {
+	// Get cluster status
+	health, err := state.Instance.ClusterHealth()
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
+
+	c.JSON(http.StatusOK, health)
 }

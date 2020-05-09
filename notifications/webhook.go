@@ -45,7 +45,7 @@ func (n *NotificationWebhook) Init() error {
 
 	// HTTP Client
 	n.httpClient = &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 15 * time.Second,
 	}
 
 	return nil

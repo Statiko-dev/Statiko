@@ -28,6 +28,15 @@ import (
 // Semaphore that allows only one operation at time
 var semaphore = make(chan int, 1)
 
+// Semaphore that indicates if there's already one sync waiting
+var isWaiting = make(chan int, 1)
+
+// Boolean notifying if the first sync has completed
+var StartupComplete = false
+
+// Function that restarts the API server
+var ServerRestartFunc func()
+
 // Last time the sync was started
 var lastSync *time.Time
 
@@ -36,10 +45,19 @@ var syncError error
 
 // QueueRun is a thread-safe version of Run that ensures that only one sync can happen at a time
 func QueueRun() {
+	// No need to trigger multiple sync in a row: if there's already one waiting, then don't queue a second one, since they would pick the same state
+	select {
+	case isWaiting <- 1:
+		break
+	default:
+		return
+	}
 	semaphore <- 1
+	<-isWaiting
 	syncError = nil
 	go func() {
 		syncError = runner()
+		StartupComplete = true
 		if syncError != nil {
 			logger.Println("Error returned by async run", syncError)
 			sendErrorNotification("Unrecoverable error running state synchronization: " + syncError.Error())
@@ -53,6 +71,7 @@ func QueueRun() {
 func Run() error {
 	semaphore <- 1
 	syncError = runner()
+	StartupComplete = true
 	<-semaphore
 	if syncError != nil {
 		sendErrorNotification("Unrecoverable error running state synchronization: " + syncError.Error())
@@ -79,18 +98,18 @@ func SyncError() error {
 func runner() error {
 	logger.Println("Starting sync")
 
-	// Acquire a sync lock to ensure that only one node in the cluster can be running a sync at the same time
-	// This is to solve various issues, including nodes each generating self-signed TLS certs, and to ensure that not all nodes are requesting the same resources from upstream
-	// This does limit the scalability of the platform as it essentially makes every node doing sync sequentially, so we might revisit this choice in the future
-	lock, err := state.Instance.AcquireSyncLock()
-	if err != nil {
-		logger.Println("Error while acquiring sync lock", err)
-		return err
-	}
-
 	// Set the time
 	now := time.Now()
 	lastSync = &now
+
+	// Set the sync running flag in the node health
+	health := state.Instance.GetNodeHealth()
+	health.Sync.Running = true
+	health.Sync.LastSync = &now
+	err := state.Instance.SetNodeHealth(health)
+	if err != nil {
+		return err
+	}
 
 	// Boolean flag for the need to restart the webserver
 	restartRequired := false
@@ -99,15 +118,9 @@ func runner() error {
 	sites := state.Instance.GetSites()
 
 	// First, sync apps
-	res, err := appmanager.Instance.SyncState(sites)
+	res, restartServer, err := appmanager.Instance.SyncState(sites)
 	if err != nil {
 		logger.Println("Unrecoverable error while syncing apps:", err)
-
-		// Release the sync lock
-		syncErr := state.Instance.ReleaseSyncLock(lock)
-		if syncErr != nil {
-			logger.Println("Error while releasing sync lock", syncErr)
-		}
 
 		return err
 	}
@@ -118,27 +131,14 @@ func runner() error {
 	if err != nil {
 		logger.Println("Error while syncing Nginx configuration:", err)
 
-		// Release the sync lock
-		syncErr := state.Instance.ReleaseSyncLock(lock)
-		if syncErr != nil {
-			logger.Println("Error while releasing sync lock", syncErr)
-		}
-
 		return err
 	}
 	restartRequired = restartRequired || res
 
-	// Release the sync lock
-	err = state.Instance.ReleaseSyncLock(lock)
-	if err != nil {
-		logger.Println("Error while releasing sync lock", err)
-		return err
-	}
-
 	// Check if any site has an error
 	for _, s := range sites {
-		if s.Error != nil {
-			sendErrorNotification("Site " + s.Domain + " has an error: " + s.Error.Error())
+		if siteErr := state.Instance.GetSiteHealth(s.Domain); siteErr != nil {
+			sendErrorNotification("Site " + s.Domain + " has an error: " + siteErr.Error())
 		}
 	}
 
@@ -153,7 +153,18 @@ func runner() error {
 		time.Sleep(150 * time.Millisecond)
 	}
 
+	// Restarting the API server if needed
+	if restartServer {
+		ServerRestartFunc()
+	}
+
 	logger.Println("Sync completed")
+
+	// Trigger a refresh of the node health after 5 seconds
+	go func() {
+		time.Sleep(5 * time.Second)
+		state.Instance.RefreshHealth <- 1
+	}()
 
 	return nil
 }

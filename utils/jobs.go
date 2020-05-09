@@ -14,30 +14,29 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package state
+package utils
 
-import (
-	"log"
-	"os"
+import "github.com/google/uuid"
+
+// JobData is the struct of the
+type JobData struct {
+	Type string
+	Data string
+}
+
+// Job type identifiers
+const (
+	JobTypeTLSCertificate = "tlscert"
 )
 
-// Instance is a singleton for Manager
-var Instance *Manager
-
-// Worker is a singleton for the WorkerController
-var Worker WorkerController
-
-// Logger
-var logger *log.Logger
-
-// Init the singleton
-func init() {
-	// Initialize the logger
-	logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
-
-	// Initialize the singleton
-	Instance = &Manager{}
-	if err := Instance.Init(); err != nil {
-		panic(err)
+// Build job ID
+func CreateJobID(job JobData) (jobID string) {
+	switch job.Type {
+	case JobTypeTLSCertificate:
+		jobID = JobTypeTLSCertificate + "/" + SHA256String(job.Data)[:10]
+	default:
+		// Random
+		jobID = job.Type + "/" + uuid.New().String()
 	}
+	return
 }

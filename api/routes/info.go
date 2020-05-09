@@ -25,7 +25,6 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/buildinfo"
-	"github.com/statiko-dev/statiko/state"
 )
 
 // infoResponse is the response for the /info route
@@ -34,7 +33,6 @@ type infoResponse struct {
 	AzureAD     *azureADInfoResponse `json:"azureAD,omitempty"`
 	Version     string               `json:"version"`
 	Hostname    string               `json:"hostname"`
-	Cluster     []string             `json:"cluster"`
 }
 
 // azureADInfoResponse is part of the infoResponse struct
@@ -69,26 +67,12 @@ func InfoHandler(c *gin.Context) {
 	// Version string
 	version := fmt.Sprintf("%s (%s; %s) %s", buildinfo.BuildID, buildinfo.CommitHash, buildinfo.BuildTime, runtime.Version())
 
-	// Cluster members
-	clusterKV, err := state.Instance.ClusterMembers()
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	cluster := make([]string, len(clusterKV))
-	i := 0
-	for _, v := range clusterKV {
-		cluster[i] = v
-		i++
-	}
-
 	// Response
 	info := infoResponse{
 		AuthMethods: authMethods,
 		AzureAD:     azureADInfo,
 		Version:     version,
 		Hostname:    appconfig.Config.GetString("nodeName"),
-		Cluster:     cluster,
 	}
 
 	c.JSON(http.StatusOK, info)

@@ -26,54 +26,42 @@ import (
 	"github.com/statiko-dev/statiko/utils"
 )
 
-type stateStoreFile struct {
+type StateStoreFile struct {
 	state *NodeState
 }
 
 // Init initializes the object
-func (s *stateStoreFile) Init() (err error) {
+func (s *StateStoreFile) Init() (err error) {
 	// Read the state from disk
 	err = s.ReadState()
 	return
 }
 
-// AcquireStateLock acquires a lock on the state before making changes, across all nodes in the cluster
-func (s *stateStoreFile) AcquireStateLock() (interface{}, error) {
+// AcquireLock acquires a lock, with an optional timeout
+func (s *StateStoreFile) AcquireLock(name string, timeout bool) (interface{}, error) {
 	// When storing state in a file, we're operating in single-node mode
 	return nil, nil
 }
 
-// ReleaseStateLock releases the lock on the state
-func (s *stateStoreFile) ReleaseStateLock(leaseID interface{}) error {
-	// When storing state in a file, we're operating in single-node mode
-	return nil
-}
-
-// AcquireSyncLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
-func (s *stateStoreFile) AcquireSyncLock() (interface{}, error) {
-	// When storing state in a file, we're operating in single-node mode
-	return nil, nil
-}
-
-// ReleaseSyncLock releases the lock on the sync semaphore
-func (s *stateStoreFile) ReleaseSyncLock(leaseID interface{}) error {
+// ReleaseLock releases a lock
+func (s *StateStoreFile) ReleaseLock(leaseID interface{}) error {
 	// When storing state in a file, we're operating in single-node mode
 	return nil
 }
 
 // GetState returns the full state
-func (s *stateStoreFile) GetState() *NodeState {
+func (s *StateStoreFile) GetState() *NodeState {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *stateStoreFile) SetState(state *NodeState) (err error) {
+func (s *StateStoreFile) SetState(state *NodeState) (err error) {
 	s.state = state
 	return
 }
 
 // WriteState stores the state on disk
-func (s *stateStoreFile) WriteState() (err error) {
+func (s *StateStoreFile) WriteState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Writing state to disk", path)
 
@@ -90,7 +78,7 @@ func (s *stateStoreFile) WriteState() (err error) {
 }
 
 // ReadState reads the state from disk
-func (s *stateStoreFile) ReadState() (err error) {
+func (s *StateStoreFile) ReadState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
 	logger.Println("Reading state from disk", path)
 
@@ -125,23 +113,31 @@ func (s *stateStoreFile) ReadState() (err error) {
 }
 
 // Healthy returns always true
-func (s *stateStoreFile) Healthy() (bool, error) {
+func (s *StateStoreFile) Healthy() (bool, error) {
 	return true, nil
 }
 
 // OnStateUpdate isn't used with this store
-func (s *stateStoreFile) OnStateUpdate(callback func()) {
+func (s *StateStoreFile) OnStateUpdate(callback func()) {
 	// NOOP
 }
 
-// ClusterMembers returns a list with one element only
-func (s *stateStoreFile) ClusterMembers() (map[string]string, error) {
-	res := make(map[string]string, 1)
-	res["0"] = appconfig.Config.GetString("nodeName")
+// ClusterHealth returns the health of all members in the cluster
+func (s *StateStoreFile) ClusterHealth() (map[string]*utils.NodeStatus, error) {
+	// There's only one node in this cluster
+	res := make(map[string]*utils.NodeStatus, 1)
+	res["00000000-0000-0000-0000-000000000000"] = Instance.GetNodeHealth()
+
 	return res, nil
 }
 
-func (s *stateStoreFile) createStateFile(path string) (err error) {
+// StoreNodeHealth isn't used with this store
+func (s *StateStoreFile) StoreNodeHealth(health *utils.NodeStatus) error {
+	return nil
+}
+
+// Create a new state file
+func (s *StateStoreFile) createStateFile(path string) (err error) {
 	logger.Println("Will create new state file", path)
 
 	// File doesn't exist, so load an empty state

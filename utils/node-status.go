@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package statuscheck
+package utils
 
 import (
 	"encoding/json"
@@ -27,14 +27,14 @@ type SiteHealth struct {
 	App          *string    `json:"app"`
 	StatusCode   *int       `json:"-"`
 	ResponseSize *int       `json:"-"`
-	Error        error      `json:"-"`
+	Error        string     `json:"error,omitempty"`
 	Time         *time.Time `json:"time,omitempty"`
 }
 
 // IsHealthy returns true if the site is in a healthy state
 func (h *SiteHealth) IsHealthy() bool {
 	// If there's an error, it's unhealthy by default
-	if h.Error != nil {
+	if h.Error != "" {
 		return false
 	}
 
@@ -55,22 +55,14 @@ func (h *SiteHealth) IsHealthy() bool {
 
 // MarshalJSON implements a custom JSON serializer for the SiteHealth object
 func (h *SiteHealth) MarshalJSON() ([]byte, error) {
-	// Error string - if any
-	errorStr := ""
-	if h.Error != nil {
-		errorStr = h.Error.Error()
-	}
-
 	// Marshal the JSON object
 	type Alias SiteHealth
 	return json.Marshal(&struct {
-		Healthy  bool   `json:"healthy"`
-		ErrorStr string `json:"error,omitempty"`
 		*Alias
+		Healthy bool `json:"healthy"`
 	}{
-		Healthy:  h.IsHealthy(),
-		ErrorStr: errorStr,
-		Alias:    (*Alias)(h),
+		Alias:   (*Alias)(h),
+		Healthy: h.IsHealthy(),
 	})
 }
 
@@ -94,13 +86,9 @@ type NodeStore struct {
 
 // NodeStatus contains the current status of the node
 type NodeStatus struct {
-	Nginx  NginxStatus  `json:"nginx"`
-	Sync   NodeSync     `json:"sync"`
-	Store  NodeStore    `json:"store"`
-	Health []SiteHealth `json:"health"`
-}
-
-type healthcheckJob struct {
-	domain string
-	bundle string
+	NodeName string       `json:"name"`
+	Nginx    NginxStatus  `json:"nginx"`
+	Sync     NodeSync     `json:"sync"`
+	Store    NodeStore    `json:"store"`
+	Health   []SiteHealth `json:"health"`
 }

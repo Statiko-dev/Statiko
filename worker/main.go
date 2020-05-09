@@ -16,9 +16,52 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package worker
 
+import (
+	"context"
+	"time"
+
+	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/sync"
+)
+
 // StartWorker starts all the background workers
 func StartWorker() {
-	startCertMonitorWorker()
-	startDHParamsWorker()
-	startHealthWorker()
+	startController()
+	startSharedWorkers()
+}
+
+// Start the controller that manages the workers that only run in the cluster's leader node
+func startController() {
+	// Get the store
+	store := state.Instance.GetStore()
+	switch state.Instance.GetStoreType() {
+	case state.StoreTypeFile:
+		state.Worker = &ControllerFile{}
+		state.Worker.Init(store.(*state.StateStoreFile))
+	case state.StoreTypeEtcd:
+		state.Worker = &ControllerEtcd{}
+		state.Worker.Init(store.(*state.StateStoreEtcd))
+	}
+}
+
+// Start the workers that run on the leader only
+// This is invoked by the controller
+func startLeaderWorkers(ctx context.Context) {
+	startDHParamsWorker(ctx)
+	startCertMonitorWorker(ctx)
+}
+
+// Start the workers that run on all nodes
+func startSharedWorkers() {
+	// These workers don't need to be stopped
+	ctx := context.Background()
+	startHealthWorker(ctx)
+	startNodeCertMonitorWorker(ctx)
+}
+
+// Waits for first sync to complete
+func waitForStartup() {
+	for !sync.StartupComplete {
+		time.Sleep(2 * time.Second)
+	}
 }
