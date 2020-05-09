@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"log"
@@ -27,6 +27,7 @@ import (
 var (
 	logger     *log.Logger
 	httpClient *http.Client
+	Server     *APIServer
 )
 
 // Init method for the package
@@ -38,4 +39,8 @@ func init() {
 	httpClient = &http.Client{
 		Timeout: 10 * time.Second,
 	}
+
+	// Initialize the API server
+	Server = &APIServer{}
+	Server.Init()
 }

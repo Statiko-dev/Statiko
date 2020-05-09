@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"net/http"
@@ -25,40 +25,46 @@ import (
 	"github.com/statiko-dev/statiko/sync"
 )
 
-// GetStateHandler is the handler for GET /state, which dumps the state
-func GetStateHandler(c *gin.Context) {
-	obj, err := state.Instance.DumpState()
-	if err != nil {
+// DeploySiteHandler is the handler for POST/PUT /site/{domain}/app, which deploys an app
+func DeploySiteHandler(c *gin.Context) {
+	// Get the site to update (domain name)
+	domain := c.Param("domain")
+	if len(domain) == 0 {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "Invalid parameter 'domain'",
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, obj)
-}
+	// Get the site from the state object
+	site := state.Instance.GetSite(domain)
+	if site == nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+			"error": "Domain name not found",
+		})
+		return
+	}
 
-// PutStateHandler is the handler for PUT /state (and POST /state), which replaces the state with the input
-func PutStateHandler(c *gin.Context) {
-	// Get updated state from the body
-	var st state.NodeState
-	if err := c.Bind(&st); err != nil {
+	// Get the app to deploy from the body
+	var app state.SiteApp
+	if err := c.Bind(&app); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body: " + err.Error(),
 		})
 		return
 	}
 
-	// Replace the state
-	if err := state.Instance.ReplaceState(&st); err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+	site.App = &app
+
+	// Update the app
+	if err := state.Instance.UpdateSite(site, true); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
 	// Queue a sync
 	sync.QueueRun()
 
+	// Respond with "No content"
 	c.Status(http.StatusNoContent)
 }
