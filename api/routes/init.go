@@ -14,24 +14,28 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package api
+package routes
 
 import (
+	"log"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
-
-	"github.com/statiko-dev/statiko/state"
+	"os"
+	"time"
 )
 
-// ClusterStatusHandler is the handler for GET /clusterstatus, which returns the status of the entire cluster
-func ClusterStatusHandler(c *gin.Context) {
-	// Get cluster status
-	health, err := state.Instance.ClusterHealth()
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
+// Package-wide properties
+var (
+	logger     *log.Logger
+	httpClient *http.Client
+)
 
-	c.JSON(http.StatusOK, health)
+// Init method for the package
+func init() {
+	// Initialize the logger
+	logger = log.New(os.Stdout, "api/routes: ", log.Ldate|log.Ltime|log.LUTC)
+
+	// Initialize the HTTP Client
+	httpClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
 }

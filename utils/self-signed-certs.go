@@ -31,6 +31,9 @@ import (
 // SelfSignedCertificateIssuer is the organization that issues self-signed certificates
 const SelfSignedCertificateIssuer = "statiko self-signed"
 
+// SelfSignedMinDays controls how many days from the expiration self-signed certificates are renewed
+const SelfSignedMinDays = 7
+
 // GenerateTLSCert generates a new self-signed TLS certificate (with a RSA 4096-bit key) and returns the private key and public certificate encoded as PEM
 // The first domain is the primary one, used as value for the "Common Name" value too
 // Each certificate is valid for 1 year
@@ -56,7 +59,7 @@ func GenerateTLSCert(domains ...string) (keyPEM []byte, certPEM []byte, err erro
 	tpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 	tpl.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageDataEncipherment
 	tpl.IsCA = false
-	tpl.NotAfter = now.Add(43800 * time.Hour) // 5 year
+	tpl.NotAfter = now.Add(8760 * time.Hour) // 1 year
 	tpl.NotBefore = now
 	tpl.SerialNumber = big.NewInt(1)
 	tpl.SignatureAlgorithm = x509.SHA256WithRSA

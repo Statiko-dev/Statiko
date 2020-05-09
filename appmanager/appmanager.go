@@ -107,7 +107,7 @@ func (m *Manager) Init() error {
 }
 
 // SyncState ensures that the state of the filesystem matches the desired one
-func (m *Manager) SyncState(sites []state.SiteState) (updated bool, err error) {
+func (m *Manager) SyncState(sites []state.SiteState) (updated bool, restartServer bool, err error) {
 	updated = false
 
 	// To start, ensure the basic folders exist
@@ -123,7 +123,8 @@ func (m *Manager) SyncState(sites []state.SiteState) (updated bool, err error) {
 	}
 
 	// Misc files
-	u, err := m.SyncMiscFiles()
+	var u bool
+	u, restartServer, err = m.SyncMiscFiles()
 	if err != nil {
 		return
 	}
@@ -472,14 +473,15 @@ func (m *Manager) WriteDefaultApp() error {
 
 // SyncMiscFiles synchronizes the misc folder
 // This contains the DH parameters and the node manager's TLS
-func (m *Manager) SyncMiscFiles() (bool, error) {
+func (m *Manager) SyncMiscFiles() (bool, bool, error) {
 	updated := false
+	restartServer := false
 
 	// Get the latest DH parameters and compare them with the ones on disk
 	pem, _ := state.Instance.GetDHParams()
 	u, err := m.writeFileIfChanged(m.appRoot+"misc/dhparams.pem", []byte(pem))
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	updated = updated || u
 
@@ -505,7 +507,7 @@ func (m *Manager) SyncMiscFiles() (bool, error) {
 					err = nil
 					break
 				} else {
-					return false, err
+					return false, false, err
 				}
 			}
 			keyData, err = ioutil.ReadFile(key)
@@ -516,7 +518,7 @@ func (m *Manager) SyncMiscFiles() (bool, error) {
 					err = nil
 					break
 				} else {
-					return false, err
+					return false, false, err
 				}
 			}
 
@@ -534,24 +536,26 @@ func (m *Manager) SyncMiscFiles() (bool, error) {
 			}
 			keyData, certData, err = certificates.GetCertificate(&s)
 			if err != nil {
-				return false, fmt.Errorf("error while generating self-signed certificate for node manager: %v", err)
+				return false, false, fmt.Errorf("error while generating self-signed certificate for node manager: %v", err)
 			}
 		}
 
 		// Write the certificate and key if they're different
 		u, err = m.writeFileIfChanged(m.appRoot+"misc/node.cert.pem", certData)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
+		restartServer = restartServer || u
 		updated = updated || u
 		u, err = m.writeFileIfChanged(m.appRoot+"misc/node.key.pem", keyData)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
+		restartServer = restartServer || u
 		updated = updated || u
 	}
 
-	return updated, nil
+	return updated, restartServer, nil
 }
 
 // Writes a file on disk if its content differ from val

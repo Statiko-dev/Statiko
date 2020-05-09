@@ -34,6 +34,9 @@ var isWaiting = make(chan int, 1)
 // Boolean notifying if the first sync has completed
 var StartupComplete = false
 
+// Function that restarts the API server
+var ServerRestartFunc func()
+
 // Last time the sync was started
 var lastSync *time.Time
 
@@ -115,7 +118,7 @@ func runner() error {
 	sites := state.Instance.GetSites()
 
 	// First, sync apps
-	res, err := appmanager.Instance.SyncState(sites)
+	res, restartServer, err := appmanager.Instance.SyncState(sites)
 	if err != nil {
 		logger.Println("Unrecoverable error while syncing apps:", err)
 
@@ -148,6 +151,11 @@ func runner() error {
 
 		// Sleep for 0.15 seconds waiting for the server to restart
 		time.Sleep(150 * time.Millisecond)
+	}
+
+	// Restarting the API server if needed
+	if restartServer {
+		ServerRestartFunc()
 	}
 
 	logger.Println("Sync completed")

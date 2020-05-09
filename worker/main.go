@@ -56,6 +56,7 @@ func startSharedWorkers() {
 	// These workers don't need to be stopped
 	ctx := context.Background()
 	startHealthWorker(ctx)
+	startNodeCertMonitorWorker(ctx)
 }
 
 // Waits for first sync to complete

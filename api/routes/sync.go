@@ -14,30 +14,21 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package api
+package routes
 
 import (
-	"log"
-	"os"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/statiko-dev/statiko/sync"
 )
 
-// Package-wide properties
-var (
-	logger *log.Logger
-	Server *APIServer
-)
+// SyncHandler is the handler for POST /sync, which forces a new sync
+func SyncHandler(c *gin.Context) {
+	// Queue a new run
+	sync.QueueRun()
 
-// Init method for the package
-func init() {
-	// Initialize the logger
-	logger = log.New(os.Stdout, "api: ", log.Ldate|log.Ltime|log.LUTC)
-
-	// Initialize the API server
-	Server = &APIServer{}
-	Server.Init()
-
-	// Set the ServerRestartFunc in the sync module, to avoid import cycles
-	sync.ServerRestartFunc = Server.Restart
+	// Return
+	c.Status(http.StatusNoContent)
 }

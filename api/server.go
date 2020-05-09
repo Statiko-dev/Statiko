@@ -30,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/statiko-dev/statiko/api/middlewares"
+	"github.com/statiko-dev/statiko/api/routes"
 	"github.com/statiko-dev/statiko/appconfig"
 )
 
@@ -38,9 +39,12 @@ type APIServer struct {
 	router    *gin.Engine
 	srv       *http.Server
 	restartCh chan int
+	running   bool
 }
 
 func (s *APIServer) Init() {
+	s.running = false
+
 	// Channel used to restart the server
 	s.restartCh = make(chan int)
 
@@ -58,6 +62,11 @@ func (s *APIServer) Init() {
 
 	// Add routes and middlewares
 	s.setupRoutes()
+}
+
+// IsRunning returns true if the API server is running
+func (s *APIServer) IsRunning() bool {
+	return s.running
 }
 
 // Start the API server
@@ -86,6 +95,8 @@ func (s *APIServer) Start() {
 				WriteTimeout:   10 * time.Second,
 				MaxHeaderBytes: 1 << 20,
 			}
+
+			s.running = true
 
 			if appconfig.Config.GetBool("tls.node.enabled") {
 				logger.Printf("Starting server on https://%s\n", s.srv.Addr)
@@ -116,6 +127,7 @@ func (s *APIServer) Start() {
 			if err := s.srv.Shutdown(ctx); err != nil {
 				logger.Printf("HTTP server shutdown error: %v\n", err)
 			}
+			s.running = false
 			return
 		case <-s.restartCh:
 			// We received a signal to restart the server
@@ -132,7 +144,9 @@ func (s *APIServer) Start() {
 
 // Restart the server
 func (s *APIServer) Restart() {
-	s.restartCh <- 1
+	if s.running {
+		s.restartCh <- 1
+	}
 }
 
 // Enable CORS in the router
@@ -159,34 +173,34 @@ func (s *APIServer) setupRoutes() {
 		group := s.router.Group("/")
 		group.Use(middlewares.Auth(false))
 
-		group.GET("/status", StatusHandler)
-		group.GET("/status/:domain", StatusHandler)
-		group.GET("/info", InfoHandler)
+		group.GET("/status", routes.StatusHandler)
+		group.GET("/status/:domain", routes.StatusHandler)
+		group.GET("/info", routes.InfoHandler)
 	}
 
 	// Routes that require authorization
 	{
 		group := s.router.Group("/")
 		group.Use(middlewares.Auth(true))
-		group.POST("/site", CreateSiteHandler)
-		group.GET("/site", ListSiteHandler)
-		group.GET("/site/:domain", ShowSiteHandler)
-		group.DELETE("/site/:domain", DeleteSiteHandler)
-		group.PATCH("/site/:domain", PatchSiteHandler)
+		group.POST("/site", routes.CreateSiteHandler)
+		group.GET("/site", routes.ListSiteHandler)
+		group.GET("/site/:domain", routes.ShowSiteHandler)
+		group.DELETE("/site/:domain", routes.DeleteSiteHandler)
+		group.PATCH("/site/:domain", routes.PatchSiteHandler)
 
-		group.POST("/site/:domain/app", DeploySiteHandler)
-		group.PUT("/site/:domain/app", DeploySiteHandler) // Alias
+		group.POST("/site/:domain/app", routes.DeploySiteHandler)
+		group.PUT("/site/:domain/app", routes.DeploySiteHandler) // Alias
 
-		group.GET("/clusterstatus", ClusterStatusHandler)
+		group.GET("/clusterstatus", routes.ClusterStatusHandler)
 
-		group.GET("/state", GetStateHandler)
-		group.POST("/state", PutStateHandler)
-		group.PUT("/state", PutStateHandler) // Alias
+		group.GET("/state", routes.GetStateHandler)
+		group.POST("/state", routes.PutStateHandler)
+		group.PUT("/state", routes.PutStateHandler) // Alias
 
-		group.POST("/uploadauth", UploadAuthHandler)
-		group.GET("/keyvaultinfo", KeyVaultInfoHandler)
+		group.POST("/uploadauth", routes.UploadAuthHandler)
+		group.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
 
-		group.POST("/sync", SyncHandler)
-		group.POST("/dhparams", DHParamsHandler)
+		group.POST("/sync", routes.SyncHandler)
+		group.POST("/dhparams", routes.DHParamsHandler)
 	}
 }

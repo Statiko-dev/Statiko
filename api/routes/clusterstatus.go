@@ -14,21 +14,24 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package api
+package routes
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/state"
 )
 
-// SyncHandler is the handler for POST /sync, which forces a new sync
-func SyncHandler(c *gin.Context) {
-	// Queue a new run
-	sync.QueueRun()
+// ClusterStatusHandler is the handler for GET /clusterstatus, which returns the status of the entire cluster
+func ClusterStatusHandler(c *gin.Context) {
+	// Get cluster status
+	health, err := state.Instance.ClusterHealth()
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
 
-	// Return
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, health)
 }

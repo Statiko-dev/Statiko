@@ -48,8 +48,8 @@ func processJobTLSCert(data string) error {
 	}
 
 	// Store the certificate
-	storePathKey := "cert/" + domains[0] + ".key.pem"
-	storePathCert := "cert/" + domains[0] + ".cert.pem"
+	storePathKey := "cert/selfsigned/" + domains[0] + ".key.pem"
+	storePathCert := "cert/selfsigned/" + domains[0] + ".cert.pem"
 	err = state.Instance.SetSecret(storePathKey, key)
 	if err != nil {
 		return err

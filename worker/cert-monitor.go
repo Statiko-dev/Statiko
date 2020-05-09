@@ -141,7 +141,7 @@ func certMonitorWorker() error {
 		exp := cert.NotAfter
 		if selfSigned {
 			// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than 7 days left
-			if exp.Before(now.Add(time.Duration(7 * 24 * time.Hour))) {
+			if exp.Before(now.Add(time.Duration(time.Duration(utils.SelfSignedMinDays*24) * time.Hour))) {
 				certMonitorLogger.Println("Certificate for site", site, "is expiring in less than 7 days; regenerating it")
 
 				// Queue a job
