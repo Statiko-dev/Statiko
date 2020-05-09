@@ -152,6 +152,7 @@ func nodeCertMonitorWorker() (bool, error) {
 		// Check if it has already expired
 		if exp.Before(now) {
 			// Since the expired certificate was imported, nothing we can do here besides sending a notification, then exiting
+			nodeCertMonitorLogger.Println("Imported certificate for node has expired; sending notification")
 			go notifications.SendNotification("TLS certificate has expired for node " + appconfig.Config.GetString("nodeName"))
 			stop = true
 		} else {
