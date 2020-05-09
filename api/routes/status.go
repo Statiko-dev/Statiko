@@ -48,8 +48,17 @@ func StatusHandler(c *gin.Context) {
 		statuscheck.UpdateStoredNodeHealth()
 	}
 
+	// Get node health
+	health := state.Instance.GetNodeHealth()
+
 	// Response object
-	res := state.Instance.GetNodeHealth()
+	// Copy properties to avoid modifying the object in the state
+	res := &utils.NodeStatus{
+		NodeName: health.NodeName,
+		Nginx:    health.Nginx,
+		Sync:     health.Sync,
+		Store:    health.Store,
+	}
 
 	// Response status code
 	statusCode := http.StatusOK
@@ -66,7 +75,7 @@ func StatusHandler(c *gin.Context) {
 			var domainHealth utils.SiteHealth
 			found := false
 			appError := false
-			for _, el := range res.Health {
+			for _, el := range health.Health {
 				if el.Domain == domain {
 					domainHealth = el
 					found = true
@@ -91,6 +100,8 @@ func StatusHandler(c *gin.Context) {
 				}
 
 				res.Health = []utils.SiteHealth{domainHealth}
+			} else {
+				res.Health = []utils.SiteHealth{}
 			}
 
 			// If there's a deployment error for the app, and we're requesting a domain only, return a 503 response
@@ -99,18 +110,19 @@ func StatusHandler(c *gin.Context) {
 			}
 		} else {
 			// Site not found, so return a 404
-			statusCode = http.StatusNotFound
+			c.AbortWithStatus(http.StatusNotFound)
+			return
 		}
 	} else {
 		// We've requested all sites; return an error status code if they're all failing
 		errorCount := 0
 		var total int = 0
-		if res.Health != nil {
-			total = len(res.Health)
+		if health.Health != nil {
+			total = len(health.Health)
 		}
 		if total > 0 {
 			obj := make([]utils.SiteHealth, total)
-			for i, el := range res.Health {
+			for i, el := range health.Health {
 				if !el.IsHealthy() {
 					errorCount++
 				} else if el.App == nil {

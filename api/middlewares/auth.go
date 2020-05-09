@@ -77,20 +77,7 @@ func Auth(required bool) gin.HandlerFunc {
 
 			// Check if Azure AD authentication is allowed
 			if appconfig.Config.GetBool("auth.azureAD.enabled") {
-				token, err := jwt.Parse(auth, func(token *jwt.Token) (interface{}, error) {
-					// Azure AD tokens are signed with RS256 method
-					if token.Method.Alg() != "RS256" {
-						return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
-					}
-
-					// Get the signing key
-					key, err := getTokenSigningKey(token.Header["kid"].(string))
-					if err != nil {
-						logger.Println("[Error] Error while requesting token signing key:", err)
-						return nil, err
-					}
-					return key, nil
-				})
+				token, err := jwt.Parse(auth, tokenKeyFunc)
 				if err == nil {
 					// Check claims
 					if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
@@ -117,6 +104,22 @@ func Auth(required bool) gin.HandlerFunc {
 		}
 		return
 	}
+}
+
+// Function used to return the key used to sign the tokens
+func tokenKeyFunc(token *jwt.Token) (interface{}, error) {
+	// Azure AD tokens are signed with RS256 method
+	if token.Method.Alg() != "RS256" {
+		return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
+	}
+
+	// Get the signing key
+	key, err := getTokenSigningKey(token.Header["kid"].(string))
+	if err != nil {
+		logger.Println("[Error] Error while requesting token signing key:", err)
+		return nil, err
+	}
+	return key, nil
 }
 
 // Get the token signing keys
