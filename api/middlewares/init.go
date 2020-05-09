@@ -29,5 +29,5 @@ var (
 // Init method for the package
 func init() {
 	// Initialize the logger
-	logger = log.New(os.Stdout, "middlewares: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(os.Stdout, "api/middlewares: ", log.Ldate|log.Ltime|log.LUTC)
 }

@@ -33,7 +33,7 @@ var (
 // Init method for the package
 func init() {
 	// Initialize the logger
-	logger = log.New(os.Stdout, "routes: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(os.Stdout, "api: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Initialize the HTTP Client
 	httpClient = &http.Client{

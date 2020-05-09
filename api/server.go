@@ -19,7 +19,6 @@ package api
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,11 +34,15 @@ import (
 
 // APIServer is the API server
 type APIServer struct {
-	router *gin.Engine
-	srv    *http.Server
+	router    *gin.Engine
+	srv       *http.Server
+	restartCh chan int
 }
 
 func (s *APIServer) Init() {
+	// Channel used to restart the server
+	s.restartCh = make(chan int)
+
 	// Create the router object
 	// If we're in production mode, set Gin to "release" mode
 	if appconfig.ENV == "production" {
@@ -54,56 +57,76 @@ func (s *APIServer) Init() {
 
 	// Add routes and middlewares
 	s.setupRoutes()
-
-	// Create the server object
-	// HTTP Server
-	s.srv = &http.Server{
-		Addr:           "0.0.0.0:" + appconfig.Config.GetString("port"),
-		Handler:        s.router,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
 }
 
 // Start the API server
 func (s *APIServer) Start() {
-	// Handle graceful shutdown on SIGINT
-	idleConnsClosed := make(chan struct{})
-	go func() {
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-		<-ch
+	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 
-		// We received an interrupt signal, shut down.
-		if err := s.srv.Shutdown(context.Background()); err != nil {
-			// Error from closing listeners, or context timeout:
-			fmt.Printf("HTTP server shutdown error: %v\n", err)
-		}
-		close(idleConnsClosed)
-	}()
+	for {
+		// Start the server in background
+		go func() {
+			// HTTP Server
+			s.srv = &http.Server{
+				Addr:           "0.0.0.0:" + appconfig.Config.GetString("port"),
+				Handler:        s.router,
+				ReadTimeout:    10 * time.Second,
+				WriteTimeout:   10 * time.Second,
+				MaxHeaderBytes: 1 << 20,
+			}
 
-	// Start the server
-	if appconfig.Config.GetBool("tls.node.enabled") {
-		fmt.Printf("Starting server on https://%s\n", s.srv.Addr)
-		tlsCertFile := appconfig.Config.GetString("appRoot") + "/misc/node.cert.pem"
-		tlsKeyFile := appconfig.Config.GetString("appRoot") + "/misc/node.key.pem"
-		tlsConfig := &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		}
-		s.srv.TLSConfig = tlsConfig
-		if err := s.srv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != http.ErrServerClosed {
-			panic(err)
-		}
-	} else {
-		s.srv.TLSConfig = nil
-		fmt.Printf("Starting server on http://%s\n", s.srv.Addr)
-		if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
-			panic(err)
+			if appconfig.Config.GetBool("tls.node.enabled") {
+				logger.Printf("Starting server on https://%s\n", s.srv.Addr)
+				tlsCertFile := appconfig.Config.GetString("appRoot") + "/misc/node.cert.pem"
+				tlsKeyFile := appconfig.Config.GetString("appRoot") + "/misc/node.key.pem"
+				tlsConfig := &tls.Config{
+					MinVersion: tls.VersionTLS12,
+				}
+				s.srv.TLSConfig = tlsConfig
+				if err := s.srv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != http.ErrServerClosed {
+					panic(err)
+				}
+			} else {
+				s.srv.TLSConfig = nil
+				logger.Printf("Starting server on http://%s\n", s.srv.Addr)
+				if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
+					panic(err)
+				}
+			}
+		}()
+
+		select {
+		case <-sigCh:
+			// We received an interrupt signal, shut down for good
+			logger.Println("Received signal to terminate the app; shutting down the API server")
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := s.srv.Shutdown(ctx); err != nil {
+				logger.Printf("HTTP server shutdown error: %v\n", err)
+			}
+			return
+		case <-s.restartCh:
+			// We received a signal to restart the server
+			logger.Println("Restarting the API server")
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			if err := s.srv.Shutdown(ctx); err != nil {
+				panic(err)
+			}
+			// Do not return, let the for loop repeat
 		}
 	}
+}
 
-	<-idleConnsClosed
+// Restart the server
+func (s *APIServer) Restart() {
+	s.restartCh <- 1
 }
 
 // Enable CORS in the router

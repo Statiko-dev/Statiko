@@ -19,8 +19,6 @@ package sync
 import (
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/statiko-dev/statiko/state"
 )
@@ -39,23 +37,4 @@ func init() {
 	state.Instance.OnStateUpdate(func() {
 		go QueueRun()
 	})
-
-	// Force a sync every time we receive a SIGHUP signal
-	sigc := make(chan os.Signal, 2)
-	signal.Notify(sigc, syscall.SIGUSR1)
-	go func() {
-		for {
-			s := <-handleSIGUSR1()
-			if s == syscall.SIGUSR1 {
-				logger.Println("Received SIGUSR1, trigger a sync")
-				go QueueRun()
-			}
-		}
-	}()
-}
-
-func handleSIGUSR1() chan os.Signal {
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGUSR1)
-	return sig
 }
