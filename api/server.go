@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -69,6 +70,11 @@ func (s *APIServer) Start() {
 		syscall.SIGQUIT,
 	)
 
+	appRoot := appconfig.Config.GetString("appRoot")
+	if !strings.HasSuffix(appRoot, "/") {
+		appRoot += "/"
+	}
+
 	for {
 		// Start the server in background
 		go func() {
@@ -83,8 +89,8 @@ func (s *APIServer) Start() {
 
 			if appconfig.Config.GetBool("tls.node.enabled") {
 				logger.Printf("Starting server on https://%s\n", s.srv.Addr)
-				tlsCertFile := appconfig.Config.GetString("appRoot") + "/misc/node.cert.pem"
-				tlsKeyFile := appconfig.Config.GetString("appRoot") + "/misc/node.key.pem"
+				tlsCertFile := appRoot + "/misc/node.cert.pem"
+				tlsKeyFile := appRoot + "/misc/node.key.pem"
 				tlsConfig := &tls.Config{
 					MinVersion: tls.VersionTLS12,
 				}

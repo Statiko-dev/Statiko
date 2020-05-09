@@ -36,8 +36,8 @@ func GetSelfSignedCertificate(site *state.SiteState) (key []byte, cert []byte, e
 	domains := append([]string{site.Domain}, site.Aliases...)
 
 	// Keys
-	storePathKey := "cert/" + site.Domain + ".key.pem"
-	storePathCert := "cert/" + site.Domain + ".cert.pem"
+	storePathKey := "cert/selfsigned/" + site.Domain + ".key.pem"
+	storePathCert := "cert/selfsigned/" + site.Domain + ".cert.pem"
 
 requestcert:
 	// Check if we have certificates generated already in the state store
