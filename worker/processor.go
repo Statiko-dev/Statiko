@@ -29,6 +29,8 @@ func ProcessJob(job utils.JobData) error {
 	switch job.Type {
 	case utils.JobTypeTLSCertificate:
 		return processJobTLSCert(job.Data)
+	case utils.JobTypeACME:
+		return processJobACME(job.Data)
 	}
 	return errors.New("invalid job type")
 }

@@ -50,7 +50,7 @@ requestcert:
 		return nil, nil, err
 	}
 
-	// Check if the certificate is not empty and if it's still valid
+	// Check if the certificate is not empty
 	if key == nil || len(key) == 0 || cert == nil || len(cert) == 0 {
 		logger.Println("Generating missing certificate for site", site.Domain)
 		goto newcert

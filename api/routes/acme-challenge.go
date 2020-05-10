@@ -14,30 +14,31 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package utils
+package routes
 
-import "github.com/google/uuid"
+import (
+	"net/http"
 
-// JobData is the struct of the
-type JobData struct {
-	Type string
-	Data string
-}
+	"github.com/gin-gonic/gin"
 
-// Job type identifiers
-const (
-	JobTypeTLSCertificate = "tlscert"
-	JobTypeACME           = "acme"
+	"github.com/statiko-dev/statiko/state"
 )
 
-// Build job ID
-func CreateJobID(job JobData) (jobID string) {
-	switch job.Type {
-	case JobTypeTLSCertificate, JobTypeACME:
-		jobID = job.Type + "/" + SHA256String(job.Data)[:10]
-	default:
-		// Random
-		jobID = job.Type + "/" + uuid.New().String()
+// ACMEChallengeHandler is the handler for GET /.well-known/acme-challenge/:token, which is used by the ACME challenge
+func ACMEChallengeHandler(c *gin.Context) {
+	token := c.Param("token")
+	if len(token) < 1 {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
-	return
+
+	// Get the response from the secret store
+	keyAuth, err := state.Instance.GetSecret("acme/challenges/" + token)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	// Respond
+	c.Data(http.StatusOK, "text/plain", keyAuth)
 }

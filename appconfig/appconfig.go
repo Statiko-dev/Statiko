@@ -158,6 +158,7 @@ func (c *appConfig) bindEnvVars() {
 	viper.BindEnv("disallowLeadership", "DISALLOW_LEADERSHIP")
 	viper.BindEnv("tls.dhparams.maxAge", "TLS_DHPARAMS_MAX_AGE")
 	viper.BindEnv("tls.dhparams.bits", "TLS_DHPARAMS_BITS")
+	viper.BindEnv("acme.email", "ACME_EMAIL")
 	viper.BindEnv("notifications.method", "NOTIFICATIONS_METHOD")
 	viper.BindEnv("notifications.webhook.url", "NOTIFICATIONS_WEBHOOK_URL")
 	viper.BindEnv("notifications.webhook.payloadKey", "NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY")

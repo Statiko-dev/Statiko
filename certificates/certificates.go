@@ -49,8 +49,8 @@ func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) 
 	case state.TLSCertificateSelfSigned:
 		key, cert, err = GetSelfSignedCertificate(site)
 		return
-	case state.TLSCertificateLetsEncrypt:
-		err = errors.New("Let's Encrypt support has not been implemented yet")
+	case state.TLSCertificateACME:
+		key, cert, err = GetACMECertificate(site)
 		return
 	default:
 		err = errors.New("invalid TLS certificate type")

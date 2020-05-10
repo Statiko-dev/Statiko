@@ -448,6 +448,34 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	return nil
 }
 
+// DeleteSecret deletes a secret
+func (m *Manager) DeleteSecret(key string, value []byte) error {
+	// Lock
+	leaseID, err := m.store.AcquireLock("state", true)
+	if err != nil {
+		return err
+	}
+	defer m.store.ReleaseLock(leaseID)
+
+	// Store the value
+	state := m.store.GetState()
+	if state == nil {
+		return errors.New("state not loaded")
+	}
+	if state.Secrets != nil {
+		delete(state.Secrets, key)
+	}
+
+	m.setUpdated()
+
+	// Commit the state to the store
+	if err := m.store.WriteState(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Returns a cipher for AES-GCM-128 initialized
 func (m *Manager) getSecretsCipher() (cipher.AEAD, error) {
 	// Get the symmetric encryption key

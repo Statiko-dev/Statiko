@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	TLSCertificateImported    = "imported"
-	TLSCertificateSelfSigned  = "selfsigned"
-	TLSCertificateLetsEncrypt = "letsencrypt"
+	TLSCertificateImported   = "imported"
+	TLSCertificateSelfSigned = "selfsigned"
+	TLSCertificateACME       = "acme"
 )
 
 // NodeState represents the global state of the node
