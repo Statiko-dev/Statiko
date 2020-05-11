@@ -525,18 +525,24 @@ func (m *Manager) SyncMiscFiles() (bool, bool, error) {
 			break
 		}
 
-		// If we don't have a TLS certificate, generate a self-signed one
+		// If we don't have a TLS certificate, generate a self-signed one or request one from an ACME provider
+		// If we're using ACME and a certificate hasn't been requested yet, it will be requested later
 		if certData == nil || keyData == nil {
+			// Type
+			typ := state.TLSCertificateSelfSigned
+			if appconfig.Config.GetBool("tls.node.acme") {
+				typ = state.TLSCertificateACME
+			}
+
+			// Request the certificate
 			s := state.SiteState{
-				Domain:  appconfig.Config.GetString("nodeName"),
+				Domain:  utils.NodeAddress(),
 				Aliases: []string{},
-				TLS: &state.SiteTLS{
-					Type: state.TLSCertificateSelfSigned,
-				},
+				TLS:     &state.SiteTLS{Type: typ},
 			}
 			keyData, certData, err = certificates.GetCertificate(&s)
 			if err != nil {
-				return false, false, fmt.Errorf("error while generating self-signed certificate for node manager: %v", err)
+				return false, false, fmt.Errorf("error while obtaining certificate for node manager (type %s): %v", typ, err)
 			}
 		}
 

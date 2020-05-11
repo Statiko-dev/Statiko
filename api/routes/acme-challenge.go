@@ -42,13 +42,6 @@ func ACMEChallengeHandler(c *gin.Context) {
 		return
 	}
 
-	// Get the site that matches the host header
-	site := state.Instance.GetSite(host)
-	if site == nil {
-		c.AbortWithError(http.StatusForbidden, fmt.Errorf("request contained a Host header for a domain or alias that does not exist: %s", host))
-		return
-	}
-
 	// Get token
 	token := c.Param("token")
 	if len(token) < 1 {
@@ -64,10 +57,26 @@ func ACMEChallengeHandler(c *gin.Context) {
 	}
 	parts := strings.SplitN(string(message), "|", 2)
 
-	// Check the host
-	if site.Domain != parts[0] && !utils.StringInSlice(site.Aliases, parts[0]) {
-		c.AbortWithError(http.StatusForbidden, fmt.Errorf("requested token was for a different host: %s (requested: %s)", parts[0], host))
-		return
+	// Check if requesting the certificate for the node itself
+	nodeAddress := utils.NodeAddress()
+	if host == nodeAddress {
+		if host != parts[0] {
+			c.AbortWithError(http.StatusForbidden, fmt.Errorf("requested token was for a different host: %s (requested: %s)", parts[0], host))
+			return
+		}
+	} else {
+		// Get the site that matches the host header
+		site := state.Instance.GetSite(host)
+		if site == nil {
+			c.AbortWithError(http.StatusForbidden, fmt.Errorf("request contained a Host header for a domain or alias that does not exist: %s", host))
+			return
+		}
+
+		// Check the host
+		if site.Domain != parts[0] && !utils.StringInSlice(site.Aliases, parts[0]) {
+			c.AbortWithError(http.StatusForbidden, fmt.Errorf("requested token was for a different host: %s (requested: %s)", parts[0], host))
+			return
+		}
 	}
 
 	// Respond
