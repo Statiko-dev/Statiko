@@ -17,7 +17,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package routes
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -26,6 +28,19 @@ import (
 
 // ACMEChallengeHandler is the handler for GET /.well-known/acme-challenge/:token, which is used by the ACME challenge
 func ACMEChallengeHandler(c *gin.Context) {
+	// Host header
+	// Check X-Forwarded-Host first, then Host
+	host := ""
+	if h := c.GetHeader("X-Forwarded-Host"); h != "" {
+		host = h
+	} else if h := c.GetHeader("Host"); h != "" {
+		host = h
+	} else {
+		c.AbortWithError(http.StatusBadRequest, errors.New("could not find Host (or X-Forwarded-Host) header"))
+		return
+	}
+
+	// Get token
 	token := c.Param("token")
 	if len(token) < 1 {
 		c.AbortWithStatus(http.StatusBadRequest)
@@ -33,12 +48,19 @@ func ACMEChallengeHandler(c *gin.Context) {
 	}
 
 	// Get the response from the secret store
-	keyAuth, err := state.Instance.GetSecret("acme/challenges/" + token)
+	message, err := state.Instance.GetSecret("acme/challenges/" + token)
 	if err != nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
+	parts := strings.SplitN(string(message), "|", 2)
+
+	// Check the host
+	if host != parts[0] {
+		c.AbortWithError(http.StatusForbidden, errors.New("Host header mismatch"))
+		return
+	}
 
 	// Respond
-	c.Data(http.StatusOK, "text/plain", keyAuth)
+	c.Data(http.StatusOK, "text/plain", []byte(parts[1]))
 }

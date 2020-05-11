@@ -261,8 +261,11 @@ type StatikoProvider struct {
 
 // Present makes the token available
 func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
+	// Message
+	message := domain + "|" + keyAuth
+
 	// Set the token as a secret
-	err := state.Instance.SetSecret("acme/challenges/"+token, []byte(keyAuth))
+	err := state.Instance.SetSecret("acme/challenges/"+token, []byte(message))
 	if err != nil {
 		return err
 	}
