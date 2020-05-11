@@ -22,6 +22,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -57,7 +58,7 @@ func processJobACME(data string) error {
 	}
 
 	// Get the private key, or generate one if doesn't exist
-	privateKey, err := lePrivateKey(email)
+	privateKey, err := acmePrivateKey(email)
 	if err != nil {
 		return err
 	}
@@ -68,7 +69,7 @@ func processJobACME(data string) error {
 		key:   privateKey,
 	}
 	config := lego.NewConfig(&user)
-	config.Certificate.KeyType = certcrypto.RSA2048
+	config.Certificate.KeyType = certcrypto.RSA4096
 	config.CADirURL = "https://localhost:14000/dir"
 	config.HTTPClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 
@@ -78,22 +79,21 @@ func processJobACME(data string) error {
 		return err
 	}
 
+	// New users will need to register
+	reg, err := acmeRegistration(email, client)
+	if err != nil {
+		return err
+	}
+	user.Registration = reg
+
 	// Enable the HTTP-01 challenge
 	err = client.Challenge.SetHTTP01Provider(&StatikoProvider{})
 	if err != nil {
 		return err
 	}
 
-	// New users will need to register
-	reg, err := client.Registration.Register(registration.RegisterOptions{
-		TermsOfServiceAgreed: true,
-	})
-	if err != nil {
-		return err
-	}
-	user.Registration = reg
-
 	// Request the certificate
+	// This always generates a new key, even if we're renewing the certificate
 	request := certificate.ObtainRequest{
 		Domains: domains,
 		Bundle:  true,
@@ -125,8 +125,8 @@ func processJobACME(data string) error {
 	return nil
 }
 
-// Return the private key for Let's Encrypt
-func lePrivateKey(email string) (*ecdsa.PrivateKey, error) {
+// Returns the private key for ACME
+func acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	// Check if we have a key stored
 	storePath := "acme/keys/" + utils.SHA256String(email)[:10] + ".pem"
 	data, err := state.Instance.GetSecret(storePath)
@@ -153,6 +153,58 @@ func lePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
+// Returns the registration object for ACME
+func acmeRegistration(email string, client *lego.Client) (*registration.Resource, error) {
+	// Check if the user has registered already
+	storePath := "acme/registrations/" + utils.SHA256String(email)[:10] + ".pem"
+	data, err := state.Instance.GetSecret(storePath)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil || len(data) == 0 {
+		// No data, register a new user
+		return acmeNewRegistration(email, client)
+	}
+
+	// Decode JSON
+	reg := &registration.Resource{}
+	err = json.Unmarshal(data, reg)
+	if err != nil {
+		return nil, err
+	}
+
+	if reg == nil || reg.URI == "" || !reg.Body.TermsOfServiceAgreed {
+		// Register a new user
+		return acmeNewRegistration(email, client)
+	}
+
+	return reg, nil
+}
+
+// Registers a new user for ACME
+func acmeNewRegistration(email string, client *lego.Client) (*registration.Resource, error) {
+	// Register the user
+	reg, err := client.Registration.Register(registration.RegisterOptions{
+		TermsOfServiceAgreed: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Store the registration object
+	data, err := json.Marshal(reg)
+	if err != nil {
+		return nil, err
+	}
+	storePath := "acme/registrations/" + utils.SHA256String(email)[:10] + ".pem"
+	err = state.Instance.SetSecret(storePath, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return reg, nil
+}
+
 // ACMEUser implements registration.User
 type ACMEUser struct {
 	Email        string
@@ -163,7 +215,7 @@ type ACMEUser struct {
 func (u *ACMEUser) GetEmail() string {
 	return u.Email
 }
-func (u ACMEUser) GetRegistration() *registration.Resource {
+func (u *ACMEUser) GetRegistration() *registration.Resource {
 	return u.Registration
 }
 func (u *ACMEUser) GetPrivateKey() crypto.PrivateKey {
