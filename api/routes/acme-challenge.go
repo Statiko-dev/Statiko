@@ -18,12 +18,14 @@ package routes
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // ACMEChallengeHandler is the handler for GET /.well-known/acme-challenge/:token, which is used by the ACME challenge
@@ -37,6 +39,13 @@ func ACMEChallengeHandler(c *gin.Context) {
 		host = h
 	} else {
 		c.AbortWithError(http.StatusBadRequest, errors.New("could not find Host (or X-Forwarded-Host) header"))
+		return
+	}
+
+	// Get the site that matches the host header
+	site := state.Instance.GetSite(host)
+	if site == nil {
+		c.AbortWithError(http.StatusForbidden, fmt.Errorf("request contained a Host header for a domain or alias that does not exist: %s", host))
 		return
 	}
 
@@ -56,8 +65,8 @@ func ACMEChallengeHandler(c *gin.Context) {
 	parts := strings.SplitN(string(message), "|", 2)
 
 	// Check the host
-	if host != parts[0] {
-		c.AbortWithError(http.StatusForbidden, errors.New("Host header mismatch"))
+	if site.Domain != parts[0] && !utils.StringInSlice(site.Aliases, parts[0]) {
+		c.AbortWithError(http.StatusForbidden, fmt.Errorf("requested token was for a different host: %s (requested: %s)", parts[0], host))
 		return
 	}
 

@@ -27,6 +27,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-acme/lego/v3/certcrypto"
@@ -112,10 +113,11 @@ func GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, 
 	}
 	config := lego.NewConfig(&user)
 	config.Certificate.KeyType = certcrypto.RSA4096
-
-	// TODO: DEV ONLY
-	config.CADirURL = "https://localhost:14000/dir"
-	config.HTTPClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	config.CADirURL = appconfig.Config.GetString("acme.endpoint")
+	// Disable TLS validation when connecting to the ACME endpoint with the "ACME_INSECURE_TLS" env var for development
+	if os.Getenv("ACME_INSECURE_TLS") != "" && appconfig.ENV != "production" {
+		config.HTTPClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	}
 
 	// Client
 	client, err := lego.NewClient(config)
