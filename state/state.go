@@ -37,6 +37,7 @@ const (
 // Manager is the state manager class
 type Manager struct {
 	RefreshHealth chan int
+	RefreshCerts  chan int
 	updated       *time.Time
 	store         StateStore
 	storeType     string
@@ -66,7 +67,8 @@ func (m *Manager) Init() (err error) {
 
 	// Init variables
 	m.siteHealth = make(SiteHealth)
-	m.RefreshHealth = make(chan int)
+	m.RefreshHealth = make(chan int, 1)
+	m.RefreshCerts = make(chan int, 1)
 
 	// Init node health object
 	err = m.SetNodeHealth(nil)
@@ -542,4 +544,26 @@ func (m *Manager) SetNodeHealth(health *utils.NodeStatus) error {
 // GetNodeHealth gets the node status object
 func (m *Manager) GetNodeHealth() *utils.NodeStatus {
 	return m.nodeHealth
+}
+
+// TriggerRefreshHealth triggers a background job that re-checks the health of all websites
+func (m *Manager) TriggerRefreshHealth() {
+	select {
+	case m.RefreshHealth <- 1:
+		return
+	default:
+		// If the buffer is full, it means there's already one message in the queue, so all good
+		return
+	}
+}
+
+// TriggerRefreshCerts triggers a background job that re-checks all certificates and refreshes them
+func (m *Manager) TriggerRefreshCerts() {
+	select {
+	case m.RefreshCerts <- 1:
+		return
+	default:
+		// If the buffer is full, it means there's already one message in the queue, so all good
+		return
+	}
 }

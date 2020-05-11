@@ -81,7 +81,7 @@ func Run() error {
 
 // IsRunning returns true if the sync is running in background
 func IsRunning() bool {
-	return len(semaphore) == 1
+	return len(semaphore) > 0
 }
 
 // LastSync returns the time when the last sync started
@@ -163,7 +163,7 @@ func runner() error {
 	// Trigger a refresh of the node health after 5 seconds
 	go func() {
 		time.Sleep(5 * time.Second)
-		state.Instance.RefreshHealth <- 1
+		state.Instance.TriggerRefreshHealth()
 	}()
 
 	return nil

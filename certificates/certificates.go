@@ -56,8 +56,6 @@ func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) 
 		err = errors.New("invalid TLS certificate type")
 		return
 	}
-
-	return
 }
 
 // GetImportedCertificate returns a certificate from Azure Key Vault

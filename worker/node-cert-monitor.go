@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/certificates"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
@@ -112,7 +113,7 @@ func nodeCertMonitorWorker() (bool, error) {
 
 	// Is this certificate self-signed?
 	selfSigned := false
-	if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == utils.SelfSignedCertificateIssuer {
+	if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer {
 		selfSigned = true
 	}
 
@@ -120,9 +121,9 @@ func nodeCertMonitorWorker() (bool, error) {
 	stop := false
 	exp := cert.NotAfter
 	if selfSigned {
-		// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than 7 days left
-		if exp.Before(now.Add(time.Duration(utils.SelfSignedMinDays*24) * time.Hour)) {
-			nodeCertMonitorLogger.Printf("Self-signed certificate for node is expiring in less than %d days; regenerating it\n", utils.SelfSignedMinDays)
+		// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than N days left
+		if exp.Before(now.Add(time.Duration(certificates.SelfSignedMinDays*24) * time.Hour)) {
+			nodeCertMonitorLogger.Printf("Self-signed certificate for node is expiring in less than %d days; regenerating it\n", certificates.SelfSignedMinDays)
 
 			// Queue a job
 			job := utils.JobData{

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/statiko-dev/statiko/certificates"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -28,30 +29,42 @@ import (
 func ProcessJob(job utils.JobData) error {
 	switch job.Type {
 	case utils.JobTypeTLSCertificate:
-		return processJobTLSCert(job.Data)
+		return processCertJobs("tlscert", job.Data)
 	case utils.JobTypeACME:
-		return processJobACME(job.Data)
+		return processCertJobs("acme", job.Data)
 	}
 	return errors.New("invalid job type")
 }
 
-// Processes the "tlscert" job
-func processJobTLSCert(data string) error {
+// Processes the "tlscert" and "acme" jobs
+func processCertJobs(jobType string, data string) error {
 	// List of domains
 	domains := strings.Split(data, ",")
 	if len(domains) < 1 {
 		return errors.New("empty domain list")
 	}
 
+	// Specialize for the job
+	var genFunc func(...string) ([]byte, []byte, error)
+	var keyType string
+	switch jobType {
+	case "tlscert":
+		genFunc = certificates.GenerateTLSCert
+		keyType = "selfsigned"
+	case "acme":
+		genFunc = certificates.GenerateACMECertificate
+		keyType = "acme"
+	}
+
 	// Generate the TLS certificate
-	key, cert, err := utils.GenerateTLSCert(domains...)
+	key, cert, err := genFunc(domains...)
 	if err != nil {
 		return err
 	}
 
 	// Store the certificate
-	storePathKey := "cert/selfsigned/" + domains[0] + ".key.pem"
-	storePathCert := "cert/selfsigned/" + domains[0] + ".cert.pem"
+	storePathKey := "cert/" + keyType + "/" + domains[0] + ".key.pem"
+	storePathCert := "cert/" + keyType + "/" + domains[0] + ".cert.pem"
 	err = state.Instance.SetSecret(storePathKey, key)
 	if err != nil {
 		return err
