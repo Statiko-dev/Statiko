@@ -34,7 +34,7 @@ const (
 func CreateJobID(job JobData) (jobID string) {
 	switch job.Type {
 	case JobTypeTLSCertificate, JobTypeACME:
-		jobID = job.Type + "/" + SHA256String(job.Data)[:10]
+		jobID = job.Type + "/" + SHA256String(job.Data)[:15]
 	default:
 		// Random
 		jobID = job.Type + "/" + uuid.New().String()

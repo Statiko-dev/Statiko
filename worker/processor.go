@@ -46,14 +46,14 @@ func processCertJobs(jobType string, data string) error {
 
 	// Specialize for the job
 	var genFunc func(...string) ([]byte, []byte, error)
-	var keyType string
+	var certType string
 	switch jobType {
 	case "tlscert":
 		genFunc = certificates.GenerateTLSCert
-		keyType = "selfsigned"
+		certType = "selfsigned"
 	case "acme":
 		genFunc = certificates.GenerateACMECertificate
-		keyType = "acme"
+		certType = "acme"
 	}
 
 	// Generate the TLS certificate
@@ -63,13 +63,7 @@ func processCertJobs(jobType string, data string) error {
 	}
 
 	// Store the certificate
-	storePathKey := "cert/" + keyType + "/" + domains[0] + ".key.pem"
-	storePathCert := "cert/" + keyType + "/" + domains[0] + ".cert.pem"
-	err = state.Instance.SetSecret(storePathKey, key)
-	if err != nil {
-		return err
-	}
-	err = state.Instance.SetSecret(storePathCert, cert)
+	err = state.Instance.SetCertificate(certType, domains, key, cert)
 	if err != nil {
 		return err
 	}

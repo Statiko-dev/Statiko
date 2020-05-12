@@ -46,17 +46,9 @@ func GetSelfSignedCertificate(site *state.SiteState) (key []byte, cert []byte, e
 	// List of domains
 	domains := append([]string{site.Domain}, site.Aliases...)
 
-	// Keys
-	storePathKey := "cert/selfsigned/" + site.Domain + ".key.pem"
-	storePathCert := "cert/selfsigned/" + site.Domain + ".cert.pem"
-
 requestcert:
 	// Check if we have certificates generated already in the state store
-	key, err = state.Instance.GetSecret(storePathKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	cert, err = state.Instance.GetSecret(storePathCert)
+	key, cert, err = state.Instance.GetCertificate("selfsigned", domains)
 	if err != nil {
 		return nil, nil, err
 	}

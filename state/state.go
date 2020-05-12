@@ -17,12 +17,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
@@ -476,6 +479,55 @@ func (m *Manager) DeleteSecret(key string, value []byte) error {
 	}
 
 	return nil
+}
+
+// GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
+func (m *Manager) GetCertificate(typ string, domains []string) (key []byte, cert []byte, err error) {
+	// Key of the secret
+	domainKey := utils.SHA256String(strings.Join(domains, ","))[:15]
+	secretKey := "cert/" + typ + "/" + domainKey
+
+	// Retrieve the secret
+	serialized, err := m.GetSecret(secretKey)
+	if err != nil || serialized == nil || len(serialized) < 8 {
+		return nil, nil, err
+	}
+
+	// Un-serialize the secret
+	keyLen := binary.LittleEndian.Uint32(serialized[0:4])
+	certLen := binary.LittleEndian.Uint32(serialized[4:8])
+	if keyLen < 1 || certLen < 1 || len(serialized) != int(8+keyLen+certLen) {
+		return nil, nil, errors.New("invalid serialized data")
+	}
+
+	key = serialized[8:(keyLen + 8)]
+	cert = serialized[(keyLen + 8):]
+	err = nil
+	return
+}
+
+// SetCertificate stores a PEM-encoded certificate pair (key and certificate) as a secret
+func (m *Manager) SetCertificate(typ string, domains []string, key []byte, cert []byte) (err error) {
+	// Key of the secret
+	domainKey := utils.SHA256String(strings.Join(domains, ","))[:15]
+	secretKey := "cert/" + typ + "/" + domainKey
+
+	// Serialize the certificates
+	if len(key) > 204800 || len(cert) > 204800 {
+		return errors.New("key and/or certificate are too long")
+	}
+	keyLen := make([]byte, 4)
+	certLen := make([]byte, 4)
+	binary.LittleEndian.PutUint32(keyLen, uint32(len(key)))
+	binary.LittleEndian.PutUint32(certLen, uint32(len(cert)))
+	serialized := bytes.Buffer{}
+	serialized.Write(keyLen)
+	serialized.Write(certLen)
+	serialized.Write(key)
+	serialized.Write(cert)
+
+	// Store the secret
+	return m.SetSecret(secretKey, serialized.Bytes())
 }
 
 // Returns a cipher for AES-GCM-128 initialized

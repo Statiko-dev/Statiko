@@ -46,16 +46,11 @@ const ACMEMinDays = 21
 // GetACMECertificate returns a certificate issued by ACME (e.g. Let's Encrypt), with key and certificate PEM-encoded
 // If the ACME provider hasn't issued a certificate yet, this will return a self-signed TLS certificate, until the ACME one is available
 func GetACMECertificate(site *state.SiteState) (key []byte, cert []byte, err error) {
-	// Secret keys
-	storePathKey := "cert/acme/" + site.Domain + ".key.pem"
-	storePathCert := "cert/acme/" + site.Domain + ".cert.pem"
+	// List of domains
+	domains := append([]string{site.Domain}, site.Aliases...)
 
 	// Check if we have a certificate issued by the ACME provider already
-	key, err = state.Instance.GetSecret(storePathKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	cert, err = state.Instance.GetSecret(storePathCert)
+	key, cert, err = state.Instance.GetCertificate("acme", domains)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -163,7 +158,7 @@ func GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, 
 // Returns the private key for ACME
 func acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	// Check if we have a key stored
-	storePath := "acme/keys/" + utils.SHA256String(email)[:10] + ".pem"
+	storePath := "acme/keys/" + utils.SHA256String(email)[:15] + ".pem"
 	data, err := state.Instance.GetSecret(storePath)
 	if err != nil {
 		return nil, err
@@ -191,7 +186,7 @@ func acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 // Returns the registration object for ACME
 func acmeRegistration(email string, client *lego.Client) (*registration.Resource, error) {
 	// Check if the user has registered already
-	storePath := "acme/registrations/" + utils.SHA256String(email)[:10] + ".pem"
+	storePath := "acme/registrations/" + utils.SHA256String(email)[:15] + ".pem"
 	data, err := state.Instance.GetSecret(storePath)
 	if err != nil {
 		return nil, err
@@ -231,7 +226,7 @@ func acmeNewRegistration(email string, client *lego.Client) (*registration.Resou
 	if err != nil {
 		return nil, err
 	}
-	storePath := "acme/registrations/" + utils.SHA256String(email)[:10] + ".pem"
+	storePath := "acme/registrations/" + utils.SHA256String(email)[:15] + ".pem"
 	err = state.Instance.SetSecret(storePath, data)
 	if err != nil {
 		return nil, err
