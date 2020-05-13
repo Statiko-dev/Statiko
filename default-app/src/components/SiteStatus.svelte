@@ -1,5 +1,5 @@
 <div class="flex flex-wrap cursor-pointer p-3 m-2 leading-normal rounded shadow bg-white {site.healthy ? '' : 'border border-red-600'}" on:click={() => expanded = !expanded}>
-    <h2 class="block w-1/3 text-lg flex-grow {site.healthy ? '' : ' text-red-600'}">{site.domain}</h2>
+    <h2 class="block w-1/3 text-lg flex-grow {site.healthy ? '' : ' text-red-600'}">{@html domain}</h2>
     <p class="block w-1/3 text-gray-500 text-lg flex-grow">{!expanded && site.app || ''}</p>
     {#if !site.app}
         <p class="block text-lg text-yellow-600 flex-grow-0">
@@ -32,9 +32,15 @@
 </div>
 
 <script>
-import {FormatDate} from '../utils'
+import {FormatDate, EscapeHTML} from '../utils'
 
 // Props for the view
 export let expanded = false
 export let site = {}
+
+// Replace ** with nicer-looking •
+let domain = ''
+$: if (site && site.domain) {
+    domain = EscapeHTML(site.domain).replace(/\*\*/g, '<span class="text-gray-600">••</span>')
+}
 </script>

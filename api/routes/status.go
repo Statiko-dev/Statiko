@@ -18,7 +18,7 @@ package routes
 
 import (
 	"net/http"
-	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -136,7 +136,7 @@ func StatusHandler(c *gin.Context) {
 						app := "<hidden>"
 						el.App = &app
 					}
-					el.Domain = "Domain " + strconv.Itoa(i+1)
+					el.Domain = censorDomainName(el.Domain)
 					if el.Error != "" {
 						el.Error = "<hidden error>"
 					}
@@ -157,4 +157,27 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	c.JSON(statusCode, res)
+}
+
+// Censors most digits in the domain name. Maintains the first 2 digits of each sub-domain, plus the full TLD
+func censorDomainName(domain string) string {
+	// Get the various parts of the domain name
+	parts := strings.Split(domain, ".")
+
+	// Do the censorship
+	result := ""
+	l := len(parts)
+	for i := 0; i < l; i++ {
+		if len(result) > 0 {
+			result += "."
+		}
+		// If there's more than one part, then don't censor the TLD
+		if l > 1 && i == l-1 {
+			result += parts[i]
+		} else {
+			result += parts[i][0:2] + "**"
+		}
+	}
+
+	return result
 }
