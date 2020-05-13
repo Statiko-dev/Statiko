@@ -167,6 +167,9 @@ func (s *APIServer) setupRoutes() {
 	// Add middlewares
 	s.router.Use(middlewares.NodeName())
 
+	// ACME challenge
+	s.router.GET("/.well-known/acme-challenge/:token", routes.ACMEChallengeHandler)
+
 	// Add routes that don't require authentication
 	// The middleware still checks for authentication, but it's optional
 	{

@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/pkg/transport"
 	"github.com/google/uuid"
+	"go.etcd.io/etcd/v3/clientv3"
+	"go.etcd.io/etcd/v3/pkg/transport"
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/statiko-dev/statiko/appconfig"

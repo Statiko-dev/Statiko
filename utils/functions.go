@@ -17,16 +17,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package utils
 
 import (
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"net/http"
+
+	"github.com/statiko-dev/statiko/appconfig"
 )
 
 // RequestJSON fetches a JSON document from the web
@@ -103,4 +108,42 @@ func RandString(n int) string {
 func SHA256String(str string) string {
 	hash := sha256.Sum256([]byte(str))
 	return hex.EncodeToString(hash[:])
+}
+
+// SerializeECDSAKey serializes an ecdsa private key
+// Source https://stackoverflow.com/a/41315404/192024
+func SerializeECDSAKey(privateKey *ecdsa.PrivateKey) ([]byte, error) {
+	x509Encoded, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return nil, err
+	}
+	pemEncoded := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: x509Encoded})
+
+	return pemEncoded, nil
+}
+
+// UnserializeECDSAKey unserializes an ecdsa private key
+// Source https://stackoverflow.com/a/41315404/192024
+func UnserializeECDSAKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
+	// Private
+	block, _ := pem.Decode(pemEncoded)
+	if block == nil {
+		return nil, errors.New("invalid private key block")
+	}
+	privateKey, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+// NodeAddress returns the address of the node
+func NodeAddress() string {
+	// Address of the node; fallback to the node name if empty
+	address := appconfig.Config.GetString("tls.node.address")
+	if address == "" {
+		address = appconfig.Config.GetString("nodeName")
+	}
+	return address
 }

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/certificates"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
@@ -112,22 +113,54 @@ func nodeCertMonitorWorker() (bool, error) {
 
 	// Is this certificate self-signed?
 	selfSigned := false
-	if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == utils.SelfSignedCertificateIssuer {
+	if len(cert.Issuer.Organization) > 0 && cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer {
 		selfSigned = true
 	}
 
 	// Check if the certificate has expired
 	stop := false
 	exp := cert.NotAfter
-	if selfSigned {
-		// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than 7 days left
-		if exp.Before(now.Add(time.Duration(utils.SelfSignedMinDays*24) * time.Hour)) {
-			nodeCertMonitorLogger.Printf("Self-signed certificate for node is expiring in less than %d days; regenerating it\n", utils.SelfSignedMinDays)
+	if appconfig.Config.GetBool("tls.node.acme") {
+		// Certificate issued by an ACME provider (e.g. Let's Encrypt)
+		// We will need to request a new certificate if it's expiring
+		// Additionally, if the certificate currently on disk was self-signed, it was just temporary, so we need to request the certificate
+		expired := exp.Before(now.Add(time.Duration(certificates.ACMEMinDays*24) * time.Hour))
+		if expired || selfSigned {
+			nodeCertMonitorLogger.Println("Requesting a new certificate for node from ACME")
+
+			// Queue a job
+			job := utils.JobData{
+				Type: utils.JobTypeACME,
+				Data: utils.NodeAddress(),
+			}
+			jobID, err := state.Worker.AddJob(job)
+			if err != nil {
+				return false, err
+			}
+
+			// Wait for the job
+			ch := make(chan error, 1)
+			go state.Worker.WaitForJob(jobID, ch)
+			err = <-ch
+			close(ch)
+			if err != nil {
+				return false, err
+			}
+
+			// We'll queue a sync
+			sync.QueueRun()
+		} else {
+			nodeCertMonitorLogger.Println("Certificate for node is still valid")
+		}
+	} else if selfSigned {
+		// Certificate is self-signed, so let's just restart the server to have it regenerate if it's got less than N days left
+		if exp.Before(now.Add(time.Duration(certificates.SelfSignedMinDays*24) * time.Hour)) {
+			nodeCertMonitorLogger.Printf("Self-signed certificate for node is expiring in less than %d days; regenerating it\n", certificates.SelfSignedMinDays)
 
 			// Queue a job
 			job := utils.JobData{
 				Type: utils.JobTypeTLSCertificate,
-				Data: appconfig.Config.GetString("nodeName"),
+				Data: utils.NodeAddress(),
 			}
 			jobID, err := state.Worker.AddJob(job)
 			if err != nil {
@@ -149,6 +182,7 @@ func nodeCertMonitorWorker() (bool, error) {
 			nodeCertMonitorLogger.Println("Self-signed certificate for node is still valid")
 		}
 	} else {
+		// Imported certificate
 		// Check if it has already expired
 		if exp.Before(now) {
 			// Since the expired certificate was imported, nothing we can do here besides sending a notification, then exiting
@@ -156,7 +190,7 @@ func nodeCertMonitorWorker() (bool, error) {
 			go notifications.SendNotification("TLS certificate has expired for node " + appconfig.Config.GetString("nodeName"))
 			stop = true
 		} else {
-			nodeCertMonitorLogger.Println("Imported certificate for node is still valid")
+			nodeCertMonitorLogger.Println("Certificate for node is still valid")
 		}
 	}
 

@@ -27,13 +27,14 @@ type JobData struct {
 // Job type identifiers
 const (
 	JobTypeTLSCertificate = "tlscert"
+	JobTypeACME           = "acme"
 )
 
 // Build job ID
 func CreateJobID(job JobData) (jobID string) {
 	switch job.Type {
-	case JobTypeTLSCertificate:
-		jobID = JobTypeTLSCertificate + "/" + SHA256String(job.Data)[:10]
+	case JobTypeTLSCertificate, JobTypeACME:
+		jobID = job.Type + "/" + SHA256String(job.Data)[:15]
 	default:
 		// Random
 		jobID = job.Type + "/" + uuid.New().String()

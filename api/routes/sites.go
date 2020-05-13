@@ -53,21 +53,19 @@ func CreateSiteHandler(c *gin.Context) {
 	}
 
 	// Self-signed TLS certificates are default when no value is specified
-	// If the value is "letsencrypt", request a certificate from Let's Encrypt (not yet implemented)
+	// If the value is "acme", request a certificate from ACME
 	if site.TLS == nil || site.TLS.Type == "" || site.TLS.Type == state.TLSCertificateSelfSigned {
 		site.TLS = &state.SiteTLS{
 			Type:        state.TLSCertificateSelfSigned,
 			Certificate: nil,
 			Version:     nil,
 		}
-	} else if site.TLS.Type == state.TLSCertificateLetsEncrypt {
-		/*site.TLS.Type = state.TLSCertificateLetsEncrypt
-		site.TLS.Certificate = nil
-		site.TLS.Version = nil*/
-		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-			"error": "Support for Let's Encrypt not yet implemented",
-		})
-		return
+	} else if site.TLS.Type == state.TLSCertificateACME {
+		site.TLS = &state.SiteTLS{
+			Type:        state.TLSCertificateACME,
+			Certificate: nil,
+			Version:     nil,
+		}
 	} else if site.TLS.Type == state.TLSCertificateImported && site.TLS.Certificate != nil && *site.TLS.Certificate != "" {
 		site.TLS.Type = state.TLSCertificateImported
 
@@ -209,7 +207,7 @@ func PatchSiteHandler(c *gin.Context) {
 							if str == "" {
 								site.TLS.Type = state.TLSCertificateSelfSigned
 							} else {
-								if str != state.TLSCertificateLetsEncrypt && str != state.TLSCertificateSelfSigned && str != state.TLSCertificateImported {
+								if str != state.TLSCertificateACME && str != state.TLSCertificateSelfSigned && str != state.TLSCertificateImported {
 									c.AbortWithStatusJSON(http.StatusConflict, gin.H{
 										"error": "Invalid TLS certificate type",
 									})

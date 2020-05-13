@@ -20,6 +20,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/statiko-dev/statiko/certificates"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -28,35 +29,51 @@ import (
 func ProcessJob(job utils.JobData) error {
 	switch job.Type {
 	case utils.JobTypeTLSCertificate:
-		return processJobTLSCert(job.Data)
+		return processCertJobs("tlscert", job.Data)
+	case utils.JobTypeACME:
+		return processCertJobs("acme", job.Data)
 	}
 	return errors.New("invalid job type")
 }
 
-// Processes the "tlscert" job
-func processJobTLSCert(data string) error {
+// Processes the "tlscert" and "acme" jobs
+func processCertJobs(jobType string, data string) error {
 	// List of domains
 	domains := strings.Split(data, ",")
 	if len(domains) < 1 {
 		return errors.New("empty domain list")
 	}
 
+	// Specialize for the job
+	var genFunc func(...string) ([]byte, []byte, error)
+	var certType string
+	switch jobType {
+	case "tlscert":
+		genFunc = certificates.GenerateTLSCert
+		certType = "selfsigned"
+	case "acme":
+		genFunc = certificates.GenerateACMECertificate
+		certType = "acme"
+	}
+
 	// Generate the TLS certificate
-	key, cert, err := utils.GenerateTLSCert(domains...)
+	key, cert, err := genFunc(domains...)
 	if err != nil {
 		return err
 	}
 
 	// Store the certificate
-	storePathKey := "cert/selfsigned/" + domains[0] + ".key.pem"
-	storePathCert := "cert/selfsigned/" + domains[0] + ".cert.pem"
-	err = state.Instance.SetSecret(storePathKey, key)
+	err = state.Instance.SetCertificate(certType, domains, key, cert)
 	if err != nil {
 		return err
 	}
-	err = state.Instance.SetSecret(storePathCert, cert)
-	if err != nil {
-		return err
+
+	// If certificate is of type acme, delete the old self-signed certificate
+	if certType == "acme" {
+		err = state.Instance.DeleteSecret(state.Instance.CertificateSecretKey("selfsigned", domains))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
