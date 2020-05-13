@@ -276,7 +276,7 @@ func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
 // CleanUp removes the key created for the challenge
 func (w *StatikoProvider) CleanUp(domain, token, keyAuth string) error {
 	// Delete the secret
-	err := state.Instance.DeleteSecret("acme/challenges/"+token, []byte(keyAuth))
+	err := state.Instance.DeleteSecret("acme/challenges/" + token)
 	if err != nil {
 		return err
 	}

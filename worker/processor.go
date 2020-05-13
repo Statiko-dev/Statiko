@@ -68,5 +68,13 @@ func processCertJobs(jobType string, data string) error {
 		return err
 	}
 
+	// If certificate is of type acme, delete the old self-signed certificate
+	if certType == "acme" {
+		err = state.Instance.DeleteSecret(state.Instance.CertificateSecretKey("selfsigned", domains))
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

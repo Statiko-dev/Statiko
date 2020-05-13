@@ -454,7 +454,7 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 }
 
 // DeleteSecret deletes a secret
-func (m *Manager) DeleteSecret(key string, value []byte) error {
+func (m *Manager) DeleteSecret(key string) error {
 	// Lock
 	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
@@ -462,7 +462,7 @@ func (m *Manager) DeleteSecret(key string, value []byte) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Store the value
+	// Delete the key
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
@@ -484,8 +484,7 @@ func (m *Manager) DeleteSecret(key string, value []byte) error {
 // GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
 func (m *Manager) GetCertificate(typ string, domains []string) (key []byte, cert []byte, err error) {
 	// Key of the secret
-	domainKey := utils.SHA256String(strings.Join(domains, ","))[:15]
-	secretKey := "cert/" + typ + "/" + domainKey
+	secretKey := m.CertificateSecretKey(typ, domains)
 
 	// Retrieve the secret
 	serialized, err := m.GetSecret(secretKey)
@@ -509,8 +508,7 @@ func (m *Manager) GetCertificate(typ string, domains []string) (key []byte, cert
 // SetCertificate stores a PEM-encoded certificate pair (key and certificate) as a secret
 func (m *Manager) SetCertificate(typ string, domains []string, key []byte, cert []byte) (err error) {
 	// Key of the secret
-	domainKey := utils.SHA256String(strings.Join(domains, ","))[:15]
-	secretKey := "cert/" + typ + "/" + domainKey
+	secretKey := m.CertificateSecretKey(typ, domains)
 
 	// Serialize the certificates
 	if len(key) > 204800 || len(cert) > 204800 {
@@ -527,7 +525,19 @@ func (m *Manager) SetCertificate(typ string, domains []string, key []byte, cert 
 	serialized.Write(cert)
 
 	// Store the secret
-	return m.SetSecret(secretKey, serialized.Bytes())
+	err = m.SetSecret(secretKey, serialized.Bytes())
+	if err != nil {
+		return err
+	}
+
+	logger.Printf("Stored %s certificate for domains %v with key %s\n", typ, domains, secretKey)
+	return nil
+}
+
+// CertificateSecretKey returns the key of secret for the certificate
+func (m *Manager) CertificateSecretKey(typ string, domains []string) string {
+	domainKey := utils.SHA256String(strings.Join(domains, ","))[:15]
+	return "cert/" + typ + "/" + domainKey
 }
 
 // Returns a cipher for AES-GCM-128 initialized
