@@ -651,12 +651,17 @@ func (m *Manager) StageApp(app string, version string) error {
 	if err := utils.EnsureFolder(stagingPath); err != nil {
 		return err
 	}
-	reader, err := os.Open(archivePath)
-	defer reader.Close()
+	f, err := os.Open(archivePath)
+	defer f.Close()
 	if err != nil {
 		return err
 	}
-	if err := utils.UntarBZ2(stagingPath, reader); err != nil {
+	stat, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	err = utils.ExtractArchive(stagingPath, f, stat.Size(), utils.ArchiveTarBz2)
+	if err != nil {
 		return err
 	}
 
