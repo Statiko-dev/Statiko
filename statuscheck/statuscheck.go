@@ -186,8 +186,7 @@ func updateHealthCache() (hasError bool) {
 		if siteErr := state.Instance.GetSiteHealth(s.Domain); siteErr != nil {
 			var appStr *string
 			if s.App != nil {
-				str := s.App.Name + "-" + s.App.Version
-				appStr = &str
+				appStr = &s.App.Name
 			}
 			healthCache = append(healthCache, utils.SiteHealth{
 				Domain: s.Domain,
@@ -209,7 +208,7 @@ func updateHealthCache() (hasError bool) {
 			// Start the request in parallel
 			jobs <- healthcheckJob{
 				domain: s.Domain,
-				bundle: s.App.Name + "-" + s.App.Version,
+				bundle: s.App.Name,
 			}
 			requested++
 		} else {

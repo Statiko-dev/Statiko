@@ -59,9 +59,9 @@ func UploadAuthHandler(c *gin.Context) {
 		})
 		return
 	}
-	if app.Name == "" || app.Version == "" {
+	if app.Name == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "'name' and 'version' fields must not be empty",
+			"error": "'name' fields must not be empty",
 		})
 		return
 	}
@@ -83,8 +83,7 @@ func UploadAuthHandler(c *gin.Context) {
 	}
 
 	// Ensure that the blob doesn't exist already
-	archiveName := app.Name + "-" + app.Version + ".tar.bz2"
-	archiveURL := fmt.Sprintf("https://%s.blob.%s/%s/%s", azureStorageAccount, azureStorageSuffix, azureStorageContainer, archiveName)
+	archiveURL := fmt.Sprintf("https://%s.blob.%s/%s/%s", azureStorageAccount, azureStorageSuffix, azureStorageContainer, app.Name)
 	u, err := url.Parse(archiveURL)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -175,7 +174,7 @@ func UploadAuthHandler(c *gin.Context) {
 	// Generate the SAS URL
 	// Reference: https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas#construct-a-user-delegation-sas
 	// .NET Implementation: https://github.com/Azure/azure-sdk-for-net/blob/20985657349e7baab94fabba344120aa32483943/sdk/storage/Azure.Storage.Blobs/src/Sas/BlobSasBuilder.cs#L266
-	canonicalizedResource := fmt.Sprintf("/blob/%s/%s/%s", azureStorageAccount, azureStorageContainer, archiveName)
+	canonicalizedResource := fmt.Sprintf("/blob/%s/%s/%s", azureStorageAccount, azureStorageContainer, app.Name)
 	stringToSign := strings.Join([]string{
 		"rw",                   // signedPermissions: Read and Write
 		timeStart,              // signedStart
