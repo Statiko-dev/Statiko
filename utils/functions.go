@@ -30,6 +30,8 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/statiko-dev/statiko/appconfig"
 )
@@ -146,4 +148,21 @@ func NodeAddress() string {
 		address = appconfig.Config.GetString("nodeName")
 	}
 	return address
+}
+
+var appNameRegEx *regexp.Regexp
+
+// SanitizeAppName validates and sanitizes the name of an app's bundle
+// App bundles must be lowercase strings containing letters, numbers, dashes and dots. The first character must be a letter, and they must contain a supported extension
+func SanitizeAppName(name string) string {
+	if appNameRegEx == nil {
+		extensions := strings.ReplaceAll(strings.Join(ArchiveExtensions, "|"), ".", "\\.")
+		appNameRegEx = regexp.MustCompile("^([a-z][a-zA-Z0-9\\.\\-]*)(" + extensions + ")$")
+	}
+	name = strings.ToLower(name)
+	if !appNameRegEx.MatchString(name) {
+		name = ""
+	}
+
+	return name
 }

@@ -40,8 +40,7 @@ import (
 
 // uploadAuthRequest is the request body for the POST /uploadauth route
 type uploadAuthRequest struct {
-	Name    string `json:"name" form:"name"`
-	Version string `json:"version" form:"version"`
+	Name string `json:"name" form:"name"`
 }
 
 // uploadAuthResponse is the response from the POST /uploadauth route
@@ -62,6 +61,15 @@ func UploadAuthHandler(c *gin.Context) {
 	if app.Name == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "'name' fields must not be empty",
+		})
+		return
+	}
+
+	// Sanitize the app's name
+	app.Name = utils.SanitizeAppName(app.Name)
+	if app.Name == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "'name' field is empty",
 		})
 		return
 	}
@@ -230,29 +238,4 @@ func UploadAuthHandler(c *gin.Context) {
 		ArchiveURL: signedArchiveURL,
 	}
 	c.JSON(http.StatusOK, response)
-
-	/*// Generate a SAS token for the app's bundle
-	blobSASSigValues := azblob.BlobSASSignatureValues{
-		Protocol:      azblob.SASProtocolHTTPS,
-		ExpiryTime:    time.Now().UTC().Add(2 * time.Hour),
-		ContainerName: azureStorageContainer,
-		BlobName:      archiveName,
-
-		// Get a blob-level SAS token
-		Permissions: azblob.BlobSASPermissions{Read: true, Write: true}.String(),
-	}
-	archiveSasQueryParams, err := blobSASSigValues.NewSASQueryParameters(credential)
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	archiveQp := archiveSasQueryParams.Encode()
-	signedArchiveURL := archiveURL + "?" + archiveQp
-
-	// Reponse
-	response := uploadAuthResponse{
-		ArchiveURL: signedArchiveURL,
-	}
-	c.JSON(http.StatusOK, response)
-	*/
 }
