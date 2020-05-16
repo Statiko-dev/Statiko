@@ -121,7 +121,7 @@ async function checkStatus(sites) {
             if (s.app && s.app.name) {
                 assert(!el.error)
                 assert.deepStrictEqual(Object.keys(el).sort(), ['app', 'domain', 'healthy', 'time'])
-                assert(el.app === s.app.name + '-' + s.app.version)
+                assert(el.app === s.app.name)
                 assert(el.healthy)
                 assert(validator.isISO8601(el.time, {strict: true}))
             }
@@ -154,8 +154,8 @@ async function checkDataDirectory(sites) {
     if (sites) {
         sites.map((site) => {
             expectSites.push(site.domain)
-            if (site.app && site.app.name && site.app.version) {
-                expectApps.push(site.app.name + '-' + site.app.version)
+            if (site.app && site.app.name) {
+                expectApps.push(site.app.name)
             }
         })
     }
@@ -182,7 +182,7 @@ async function checkDataDirectory(sites) {
         // Iterate through the apps
         for (const key in appData) {
             if (Object.prototype.hasOwnProperty.call(appData, key)) {
-                const str = appData[key].app + '-' + appData[key].version
+                const str = appData[key].app
                 if (str == find) {
                     return appData[key].contents
                 }
@@ -367,7 +367,7 @@ async function checkCacheDirectory(sites, apps) {
                 continue
             }
 
-            await utils.fileExists('/data/cache/' + apps[k].app + '-' + apps[k].version + '.tar.bz2')
+            await utils.fileExists('/data/cache/' + apps[k].app + '.tar.bz2')
         }
     }
 }
@@ -396,46 +396,6 @@ async function waitForSync() {
             running = false
         }
     }
-}
-
-// Waits for an app to be deployed, with a timeout of ~20 seconds
-async function waitForDeployment(domain, appData) {
-    // Wait 20 seconds max (40 times, every 500ms)
-    let t = 40
-    while (t--) {
-        // Wait 0.5 seconds
-        await utils.waitPromise(500)
-
-        const response = await nodeRequest
-            .get('/status')
-            .set('Authorization', auth)
-            .expect('Content-Type', /json/)
-            .expect(200)
-        assert(response.body)
-        assert(response.body.apps)
-        assert(Array.isArray(response.body.apps))
-
-        // Check that the app matching site1 is deployed
-        let found = null
-        for (let i = 0; i < response.body.apps.length; i++) {
-            const app = response.body.apps[i]
-            if (app && app.domain && app.domain == domain) {
-                found = app
-                break
-            }
-        }
-
-        // We should have found one app
-        assert(found)
-
-        // Ensure app has been deployed, or keep waiting
-        if (found.appName == appData.app && found.appVersion == appData.version && found.updated) {
-            return
-        }
-    }
-
-    // If we're here, app didn't get deployed
-    throw Error('Timeout reached: app not deployed')
 }
 
 // Repeated tests
@@ -554,7 +514,6 @@ module.exports = {
     checkNginxSite,
     checkCacheDirectory,
     waitForSync,
-    waitForDeployment,
 
     tests
 }

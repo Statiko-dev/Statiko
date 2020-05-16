@@ -53,6 +53,12 @@ func DeploySiteHandler(c *gin.Context) {
 		})
 		return
 	}
+	if !app.Validate() {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid app name",
+		})
+		return
+	}
 
 	site.App = &app
 

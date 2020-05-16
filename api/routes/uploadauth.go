@@ -40,8 +40,7 @@ import (
 
 // uploadAuthRequest is the request body for the POST /uploadauth route
 type uploadAuthRequest struct {
-	Name    string `json:"name" form:"name"`
-	Version string `json:"version" form:"version"`
+	Name string `json:"name" form:"name"`
 }
 
 // uploadAuthResponse is the response from the POST /uploadauth route
@@ -59,9 +58,18 @@ func UploadAuthHandler(c *gin.Context) {
 		})
 		return
 	}
-	if app.Name == "" || app.Version == "" {
+	if app.Name == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "'name' and 'version' fields must not be empty",
+			"error": "'name' fields must not be empty",
+		})
+		return
+	}
+
+	// Sanitize the app's name
+	app.Name = utils.SanitizeAppName(app.Name)
+	if app.Name == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "'name' field is empty",
 		})
 		return
 	}
@@ -83,8 +91,7 @@ func UploadAuthHandler(c *gin.Context) {
 	}
 
 	// Ensure that the blob doesn't exist already
-	archiveName := app.Name + "-" + app.Version + ".tar.bz2"
-	archiveURL := fmt.Sprintf("https://%s.blob.%s/%s/%s", azureStorageAccount, azureStorageSuffix, azureStorageContainer, archiveName)
+	archiveURL := fmt.Sprintf("https://%s.blob.%s/%s/%s", azureStorageAccount, azureStorageSuffix, azureStorageContainer, app.Name)
 	u, err := url.Parse(archiveURL)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -175,7 +182,7 @@ func UploadAuthHandler(c *gin.Context) {
 	// Generate the SAS URL
 	// Reference: https://docs.microsoft.com/en-us/rest/api/storageservices/create-user-delegation-sas#construct-a-user-delegation-sas
 	// .NET Implementation: https://github.com/Azure/azure-sdk-for-net/blob/20985657349e7baab94fabba344120aa32483943/sdk/storage/Azure.Storage.Blobs/src/Sas/BlobSasBuilder.cs#L266
-	canonicalizedResource := fmt.Sprintf("/blob/%s/%s/%s", azureStorageAccount, azureStorageContainer, archiveName)
+	canonicalizedResource := fmt.Sprintf("/blob/%s/%s/%s", azureStorageAccount, azureStorageContainer, app.Name)
 	stringToSign := strings.Join([]string{
 		"rw",                   // signedPermissions: Read and Write
 		timeStart,              // signedStart
@@ -231,29 +238,4 @@ func UploadAuthHandler(c *gin.Context) {
 		ArchiveURL: signedArchiveURL,
 	}
 	c.JSON(http.StatusOK, response)
-
-	/*// Generate a SAS token for the app's bundle
-	blobSASSigValues := azblob.BlobSASSignatureValues{
-		Protocol:      azblob.SASProtocolHTTPS,
-		ExpiryTime:    time.Now().UTC().Add(2 * time.Hour),
-		ContainerName: azureStorageContainer,
-		BlobName:      archiveName,
-
-		// Get a blob-level SAS token
-		Permissions: azblob.BlobSASPermissions{Read: true, Write: true}.String(),
-	}
-	archiveSasQueryParams, err := blobSASSigValues.NewSASQueryParameters(credential)
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	archiveQp := archiveSasQueryParams.Encode()
-	signedArchiveURL := archiveURL + "?" + archiveQp
-
-	// Reponse
-	response := uploadAuthResponse{
-		ArchiveURL: signedArchiveURL,
-	}
-	c.JSON(http.StatusOK, response)
-	*/
 }

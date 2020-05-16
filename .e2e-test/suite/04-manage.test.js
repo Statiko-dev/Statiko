@@ -278,7 +278,6 @@ describe('Manage sites', function() {
         // Request
         const app = {
             name: appData.app1.app,
-            version: appData.app1.version,
         }
         const response = await shared.nodeRequest
             .put('/site/site1.local/app')

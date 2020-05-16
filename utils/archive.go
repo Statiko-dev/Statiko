@@ -41,9 +41,41 @@ const (
 	ArchiveRar
 )
 
+// Valid extensions
+var ArchiveExtensions = []string{".zip", ".tar", ".tar.bz2", ".tbz2", ".tar.gz", ".tgz", ".tar.lz4", ".tlz4", ".tar.sz", ".tsz", ".tar.xz", ".txz", ".rar"}
+
 // Used as interface
 type archiveHeader struct {
 	Name string
+}
+
+// ArchiveTypeByExtension returns the type of the archive by the file's extension
+// Note: this function assumes that the file was already validated to contain one of the valid extensions
+// Ensure to use the SiteApp.Validate() method first
+func ArchiveTypeByExtension(name string) int {
+	// Get the last 4 characters
+	// This is safe since we know the extension is one of those in the list
+	name = strings.ToLower(name)
+	switch name[len(name)-4:] {
+	case ".tar":
+		return ArchiveTar
+	case ".bz2", "tbz2":
+		return ArchiveTarBz2
+	case "r.gz", ".tgz":
+		return ArchiveTarGz
+	case ".lz4", "tlz4":
+		return ArchiveTarLz4
+	case "r.sz", ".tsz":
+		return ArchiveTarSz
+	case "r.xz", ".txz":
+		return ArchiveTarXz
+	case ".zip":
+		return ArchiveZip
+	case ".rar":
+		return ArchiveRar
+	}
+
+	return -1
 }
 
 // ExtractArchive extracts a compressed archive

@@ -233,7 +233,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		// www is always a symbolic link, and if there's no app deployed, it goes to the default one
 		bundle := "_default"
 		if s.App != nil {
-			bundle = s.App.Name + "-" + s.App.Version
+			bundle = s.App.Name
 		}
 		if err := m.ActivateApp(bundle, s.Domain); err != nil {
 			m.log.Println("Error while activating app for site:", s.Domain, err)
@@ -311,29 +311,28 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 		}
 
 		// Check if we have the app deployed
-		folderName := s.App.Name + "-" + s.App.Version
-		exists, err := utils.PathExists(m.appRoot + "apps/" + folderName)
+		exists, err := utils.PathExists(m.appRoot + "apps/" + s.App.Name)
 		if err != nil {
 			return err
 		}
 		if !exists {
-			m.log.Println("Need to fetch", folderName)
+			m.log.Println("Need to fetch", s.App.Name)
 
 			// Do not fetch this app if it's already being fetched
-			if _, ok := fetchAppsList[folderName]; ok {
-				m.log.Println("App", folderName, "is already being fetched")
+			if _, ok := fetchAppsList[s.App.Name]; ok {
+				m.log.Println("App", s.App.Name, "is already being fetched")
 			} else {
 				// We need to deploy the app
 				// Use the worker pool to handle concurrency
-				fetchAppsList[folderName] = 1
+				fetchAppsList[s.App.Name] = 1
 				jobs <- s
 				requested++
 			}
 		}
 
 		// Add app to expected list and the index to the dictionary
-		expectApps = append(expectApps, folderName)
-		appIndexes[folderName] = i
+		expectApps = append(expectApps, s.App.Name)
+		appIndexes[s.App.Name] = i
 	}
 
 	// No more jobs; close the channel
@@ -619,29 +618,29 @@ func (m *Manager) LoadSigningKey() error {
 }
 
 // StageApp stages an app after unpacking the bundle
-func (m *Manager) StageApp(app string, version string) error {
+func (m *Manager) StageApp(bundle string) error {
 	// Check if the app has been staged already
-	stagingPath := m.appRoot + "apps/" + app + "-" + version
+	stagingPath := m.appRoot + "apps/" + bundle
 	exists, err := utils.PathExists(stagingPath)
 	if err != nil {
 		return err
 	}
 	if exists {
 		// All done, we can just exit
-		m.log.Println("App already staged: " + app + "-" + version)
+		m.log.Println("App already staged: " + bundle)
 		return nil
 	}
 
 	// Check if we need to download the bundle
-	archivePath := m.appRoot + "cache/" + app + "-" + version + ".tar.bz2"
+	archivePath := m.appRoot + "cache/" + bundle
 	exists, err = utils.PathExists(archivePath)
 	if err != nil {
 		return err
 	}
 	if !exists {
 		// Bundle doesn't exist, so we need to download it
-		m.log.Println("Fetching bundle: " + app + "-" + version)
-		if err := m.FetchBundle(app, version); err != nil {
+		m.log.Println("Fetching bundle: " + bundle)
+		if err := m.FetchBundle(bundle); err != nil {
 			return err
 		}
 	}
@@ -660,9 +659,35 @@ func (m *Manager) StageApp(app string, version string) error {
 	if err != nil {
 		return err
 	}
-	err = utils.ExtractArchive(stagingPath, f, stat.Size(), utils.ArchiveTarBz2)
+	err = utils.ExtractArchive(stagingPath, f, stat.Size(), utils.ArchiveTypeByExtension(bundle))
 	if err != nil {
 		return err
+	}
+
+	// Check how many filles were extracted
+	contents, err := ioutil.ReadDir(stagingPath)
+	if err != nil {
+		return err
+	}
+	if len(contents) == 0 {
+		// If there's nothing in the extracted bundle, remove the folder and return an error
+		if err := os.Remove(stagingPath); err != nil {
+			return err
+		}
+		return errors.New("no files in the extracted folder")
+	} else if len(contents) == 1 && contents[0].IsDir() && false {
+		// If there's only one folder, move all files one directory up
+		// First, rename to a temporary folder (app bundles can't begin with an underscore)
+		// Then, delete the target folder and rename the extracted one
+		if err := os.Rename(stagingPath+"/"+contents[0].Name(), m.appRoot+"apps/__"+bundle); err != nil {
+			return err
+		}
+		if err := os.Remove(stagingPath); err != nil {
+			return err
+		}
+		if err := os.Rename(m.appRoot+"apps/__"+bundle, stagingPath); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -671,13 +696,13 @@ func (m *Manager) StageApp(app string, version string) error {
 // Background worker for the StageApp function
 func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<- int) {
 	for j := range jobs {
-		m.log.Println("Worker", id, "started staging app "+j.App.Name+"-"+j.App.Version)
-		err := m.StageApp(j.App.Name, j.App.Version)
-		m.log.Println("Worker", id, "finished staging app "+j.App.Name+"-"+j.App.Version)
+		m.log.Println("Worker", id, "started staging app "+j.App.Name)
+		err := m.StageApp(j.App.Name)
+		m.log.Println("Worker", id, "finished staging app "+j.App.Name)
 
 		// Handle errors
 		if err != nil {
-			m.log.Println("Error staging app "+j.App.Name+"-"+j.App.Version+":", err)
+			m.log.Println("Error staging app "+j.App.Name+":", err)
 
 			// Store the error
 			state.Instance.SetSiteHealth(j.Domain, err)
@@ -686,12 +711,10 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 	}
 }
 
-// FetchBundle downloads the application's tar.bz2 bundle for a specific version
-func (m *Manager) FetchBundle(bundle string, version string) error {
-	archiveName := bundle + "-" + version + ".tar.bz2"
-
+// FetchBundle downloads the application's bundle
+func (m *Manager) FetchBundle(bundle string) error {
 	// Get the archive
-	u, err := url.Parse(m.azureStorageURL + archiveName)
+	u, err := url.Parse(m.azureStorageURL + bundle)
 	if err != nil {
 		return err
 	}
@@ -699,9 +722,9 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	resp, err := blobURL.Download(context.TODO(), 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
-			err = fmt.Errorf("Network error while downloading the archive: %s", err.Error())
+			err = fmt.Errorf("Network error while downloading the bundle: %s", err.Error())
 		} else {
-			err = fmt.Errorf("Azure Storage error while downloading the archive: %s", stgErr.Response().Status)
+			err = fmt.Errorf("Azure Storage error while downloading the bundle: %s", stgErr.Response().Status)
 		}
 		return err
 	}
@@ -734,7 +757,7 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 	tee := io.TeeReader(body, h)
 
 	// Write to disk (this also makes the stream proceed so the hash is calculated)
-	out, err := os.Create(m.appRoot + "cache/" + archiveName)
+	out, err := os.Create(m.appRoot + "cache/" + bundle)
 	if err != nil {
 		return err
 	}
@@ -745,8 +768,8 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 		out.Close()
 
 		if *deleteFile {
-			m.log.Println("Deleting archive " + archiveName)
-			os.Remove(m.appRoot + "cache/" + archiveName)
+			m.log.Println("Deleting bundle " + bundle)
+			os.Remove(m.appRoot + "cache/" + bundle)
 		}
 	}(&deleteFile)
 
@@ -765,7 +788,7 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 		// (Need to grab the first 512 bytes from the signature only)
 		err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature[:512])
 		if err != nil {
-			m.log.Printf("Signature mismatch for bundle %s-%s\n", bundle, version)
+			m.log.Println("Signature mismatch for bundle", bundle)
 
 			// File needs to be deleted if signature is invalid
 			deleteFile = true
@@ -773,7 +796,7 @@ func (m *Manager) FetchBundle(bundle string, version string) error {
 			return err
 		}
 	} else {
-		m.log.Printf("WARN Bundle %s-%s did not contain a signature; skipping integrity and origin check\n", bundle, version)
+		m.log.Printf("WARN Bundle %s did not contain a signature; skipping integrity and origin check\n", bundle)
 	}
 
 	return nil
