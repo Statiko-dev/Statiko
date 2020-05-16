@@ -74,14 +74,12 @@ const sitesData = {
 sitesData.site2app2 = cloneObject(sitesData.site2)
 sitesData.site2app2.app = {
     name: appData.app2.app,
-    version: appData.app2.version
 }
 
 // site3 with app3 deployed
 sitesData.site3app3 = cloneObject(sitesData.site3)
 sitesData.site3app3.app = {
     name: appData.app3.app,
-    version: appData.app3.version
 }
 
 // Patch requests for site1
