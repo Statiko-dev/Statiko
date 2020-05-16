@@ -25,10 +25,25 @@ azure:
     account: "statikocistorage"
   keyVault:
     name: "statiko-ci-akv"
-    codesignKey:
-      name: "codesign"
 
 nodeName: "e2e-test"
+
+codesign:
+  required: true
+  publicKey: |-
+    -----BEGIN RSA PUBLIC KEY-----
+    MIICCgKCAgEArq01IOnu8nFHAy8W0YuDu2L/zJUuJXh9TbAT0I49vOwSzAZr+pb0
+    6wcilGvqWZPFqAjgF6pvB3ukytQnXoiYNUxtihbW2P0hBGcmhZY66csJaH7+sdWy
+    1zieqBjUSHO7dqLKPsESWwid1cPRKBph5cpMUcFI/9P+aWZxKQHkk7jp0qOHN9en
+    zQzyK7HtIim+LnsTlqpyStoeW5aNj424l/CQ3tfWROJcUXEJO69xt0mC5RvjQFN+
+    8shnaU0QkwtIb+NzfFPFtxqCZuZu3zN7RL6joCWupf7Ll2S+gkl9+Mv6SPp9wJ6+
+    YT/1DJ8Ir+nPtHIKgWYs4x2Xru79AxjevyFqO5hXvsorP1lqWQQM8wmkX/Nvsbw+
+    G/KDZWuYyHfd2uieSsXIanWATdla+E2zq8rfkd9UAKTJfQANYaNOzcyoQDSKvMsg
+    bcm3E+ruUnynTCoDaho/pnMZX5mPcr396viiXh6QjZAnx5PAKf0D79m9Acthes2p
+    nuj2AYUjbjoQNghr1QvcWetDYhnZtGyLSnGQDhpkfG2RD643BwKA8iRURARfHQ/K
+    xuTVCHYKOsFKqF3xEnXIgnksGB2Je8jwM84s5FoJlQn886fgnfza7ZlcfdqY/0p7
+    QeH1YGHHDOvPu/d7Uxiur5+8qFz1/wd/cGnps4OsL7kkl8TWYy0ANQECAwEAAQ==
+    -----END RSA PUBLIC KEY-----
 
 tls:
   dhparams:

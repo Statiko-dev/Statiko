@@ -22,7 +22,9 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -41,7 +43,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/azurekeyvault"
 	"github.com/statiko-dev/statiko/certificates"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
@@ -597,21 +598,54 @@ func (m *Manager) ActivateApp(app string, domain string) error {
 
 // LoadSigningKey loads the code signing public key
 func (m *Manager) LoadSigningKey() error {
-	keyName := appconfig.Config.GetString("azure.keyVault.codesignKey.name")
-	keyVersion := appconfig.Config.GetString("azure.keyVault.codesignKey.version")
+	pemKey := appconfig.Config.GetString("codesign.publicKey")
+	requireSign := appconfig.Config.GetBool("codesign.required")
 
-	// Request the key from Azure Key Vault
-	m.log.Printf("Requesting code signing key %s (%s)\n", keyName, keyVersion)
-	keyVersion, pubKey, err := azurekeyvault.GetInstance().GetPublicKey(keyName, keyVersion)
-	if err != nil {
-		return err
+	// Variables
+	var (
+		block *pem.Block
+		pub   interface{}
+		err   error
+		ok    bool
+	)
+
+	// Check if we have a key, then parse it
+	if pemKey == "" {
+		goto nokey
 	}
-	m.log.Println("Received code signing key with version", keyVersion)
-	m.codeSignKey = pubKey
+	block, _ = pem.Decode([]byte(pemKey))
+	if block == nil || len(block.Bytes) == 0 {
+		goto nokey
+	}
 
-	// Check if we have a new key version
-	if keyVersion != "" && keyVersion != "latest" {
-		appconfig.Config.Set("azure.keyVault.codesignKey.version", keyVersion)
+	switch block.Type {
+	case "RSA PUBLIC KEY":
+		// PKCS#1
+		m.codeSignKey, err = x509.ParsePKCS1PublicKey(block.Bytes)
+		if err != nil || m.codeSignKey == nil {
+			m.codeSignKey = nil
+			goto nokey
+		}
+	case "PUBLIC KEY":
+		// PKIX
+		pub, err = x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil || pub == nil {
+			goto nokey
+		}
+		m.codeSignKey, ok = pub.(*rsa.PublicKey)
+		if !ok {
+			m.codeSignKey = nil
+			goto nokey
+		}
+	default:
+		goto nokey
+	}
+
+	return nil
+
+nokey:
+	if requireSign {
+		return errors.New("codesign.required is true, but no valid key found in codesign.publicKey")
 	}
 
 	return nil
@@ -732,23 +766,26 @@ func (m *Manager) FetchBundle(bundle string) error {
 	defer body.Close()
 
 	// Get the signature from the blob's metadata, if any
+	// Skip if we don't have a codesign key
 	var signature []byte
-	metadata := resp.NewMetadata()
-	if metadata != nil {
-		signatureB64, ok := metadata["signature"]
-		if ok && signatureB64 != "" {
-			// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
-			signature = make([]byte, 513)
-			len, err := base64.StdEncoding.Decode(signature, []byte(signatureB64))
-			if err != nil {
-				return err
-			}
-			if len != 512 {
-				return errors.New("Invalid signature length")
+	if m.codeSignKey != nil {
+		metadata := resp.NewMetadata()
+		if metadata != nil {
+			signatureB64, ok := metadata["signature"]
+			if ok && signatureB64 != "" {
+				// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
+				signature = make([]byte, 513)
+				len, err := base64.StdEncoding.Decode(signature, []byte(signatureB64))
+				if err != nil {
+					return err
+				}
+				if len != 512 {
+					return errors.New("Invalid signature length")
+				}
 			}
 		}
 	}
-	if signature == nil && appconfig.Config.GetBool("disallowUnsignedApps") {
+	if signature == nil && appconfig.Config.GetBool("codesign.required") {
 		return errors.New("Bundle does not have a signature, but unsigned apps are not allowed by this node's configuration")
 	}
 
@@ -796,7 +833,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 			return err
 		}
 	} else {
-		m.log.Printf("WARN Bundle %s did not contain a signature; skipping integrity and origin check\n", bundle)
+		m.log.Printf("[Warn] Bundle %s did not contain a signature; skipping integrity and origin check\n", bundle)
 	}
 
 	return nil
