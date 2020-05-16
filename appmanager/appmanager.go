@@ -664,6 +664,32 @@ func (m *Manager) StageApp(bundle string) error {
 		return err
 	}
 
+	// Check how many filles were extracted
+	contents, err := ioutil.ReadDir(stagingPath)
+	if err != nil {
+		return err
+	}
+	if len(contents) == 0 {
+		// If there's nothing in the extracted bundle, remove the folder and return an error
+		if err := os.Remove(stagingPath); err != nil {
+			return err
+		}
+		return errors.New("no files in the extracted folder")
+	} else if len(contents) == 1 && contents[0].IsDir() && false {
+		// If there's only one folder, move all files one directory up
+		// First, rename to a temporary folder (app bundles can't begin with an underscore)
+		// Then, delete the target folder and rename the extracted one
+		if err := os.Rename(stagingPath+"/"+contents[0].Name(), m.appRoot+"apps/__"+bundle); err != nil {
+			return err
+		}
+		if err := os.Remove(stagingPath); err != nil {
+			return err
+		}
+		if err := os.Rename(m.appRoot+"apps/__"+bundle, stagingPath); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
