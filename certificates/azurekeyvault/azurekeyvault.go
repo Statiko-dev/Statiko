@@ -19,7 +19,6 @@ package azurekeyvault
 import (
 	"bytes"
 	"context"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -98,66 +97,6 @@ func (akv *Client) initKeyVaultClient() error {
 	akv.authenticated = true
 
 	return nil
-}
-
-// GetPublicKey returns the public portion of a key stored inside Azure Key Vault
-func (akv *Client) GetPublicKey(keyName string, keyVersion string) (string, *rsa.PublicKey, error) {
-	// If we don't have a version, get the latest
-	var err error
-	if keyVersion == "" || keyVersion == "latest" {
-		keyVersion, err = akv.getKeyLastVersion(keyName)
-		if err != nil {
-			return keyVersion, nil, err
-		}
-	}
-
-	// Get the public key
-	res, err := akv.KeyVault.GetKey(akv.ctx, akv.BaseURL(), keyName, keyVersion)
-	if err != nil {
-		return keyVersion, nil, err
-	}
-
-	// Check if the key is there
-	if res.Key == nil {
-		return keyVersion, nil, errors.New("Empty key")
-	}
-	key := res.Key
-	if key.Kty != keyvault.RSA && key.Kty != keyvault.RSAHSM {
-		return keyVersion, nil, errors.New("Returned key is not a RSA key")
-	}
-
-	// Check attributes
-	now := time.Now()
-	if res.Attributes == nil {
-		return keyVersion, nil, errors.New("Invalid key attributes")
-	}
-	if res.Attributes.Enabled == nil || !*res.Attributes.Enabled {
-		return keyVersion, nil, errors.New("Key is not enabled")
-	}
-	if res.Attributes.Expires != nil {
-		expires := time.Time(*res.Attributes.Expires)
-		if expires.Before(now) {
-			return keyVersion, nil, errors.New("Key has expired")
-		}
-	}
-	if res.Attributes.NotBefore != nil {
-		nbf := time.Time(*res.Attributes.NotBefore)
-		if now.Before(nbf) {
-			return keyVersion, nil, errors.New("Key's not-before date is in the future")
-		}
-	}
-
-	// Construct the RSA key from the JSONWebKey object
-	if key.N == nil || *key.N == "" || key.E == nil || *key.E == "" {
-		return keyVersion, nil, errors.New("Invalid key: missing N or E parameters")
-	}
-
-	pubKey, err := utils.ParseRSAPublicKey(*key.N, *key.E)
-	if err != nil {
-		return keyVersion, nil, err
-	}
-
-	return keyVersion, pubKey, nil
 }
 
 // Returns the last version of a key

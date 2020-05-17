@@ -110,8 +110,11 @@ describe('Manage sites', function() {
             const site = findSite(el.domain)
             assert(site)
             assert.deepStrictEqual(Object.keys(el).sort(), ['tls', 'domain', 'aliases', 'app'].sort())
+            
             assert(el.tls)
-            if (site.tls && site.tls.cert) {
+            assert.strictEqual(el.tls.type, site.tls.type)
+            if (site.tls.cert) {
+                assert.strictEqual(el.tls.cert, site.tls.cert)
                 if (site.tls.ver) {
                     assert.deepStrictEqual(Object.keys(el.tls).sort(), ['cert', 'type', 'ver'].sort())
                     assert.strictEqual(el.tls.ver, tlsData[el.tls.cert])
@@ -119,13 +122,11 @@ describe('Manage sites', function() {
                 else {
                     assert.deepStrictEqual(Object.keys(el.tls).sort(), ['cert', 'type'].sort())
                 }
-                assert.equal(el.tls.type, 'imported')
-                assert.strictEqual(el.tls.cert, site.tls.cert)
             }
             else {
-                assert.deepStrictEqual(Object.keys(el.tls).sort(), ['cert', 'type', 'ver'].sort())
-                assert.equal(el.tls.type, 'selfsigned')
+                assert.deepStrictEqual(Object.keys(el.tls).sort(), ['type'].sort())
             }
+
             assert.deepStrictEqual(el.aliases.sort(), site.aliases.sort())
 
             // Is there an app deployed?
@@ -152,8 +153,11 @@ describe('Manage sites', function() {
         site = findSite('site1.local')
         assert(response.body)
         assert.deepStrictEqual(Object.keys(response.body).sort(), ['tls', 'domain', 'aliases', 'app'].sort())
+        
         assert(response.body.tls)
-        if (site.tls && site.tls.cert) {
+        assert.strictEqual(response.body.tls.type, site.tls.type)
+        if (site.tls.cert) {
+            assert.strictEqual(response.body.tls.cert, site.tls.cert)
             if (site.tls.ver) {
                 assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type', 'ver'].sort())
                 assert.strictEqual(response.body.tls.ver, tlsData[response.body.tls.cert])
@@ -161,13 +165,11 @@ describe('Manage sites', function() {
             else {
                 assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type'].sort())
             }
-            assert.equal(response.body.tls.type, 'imported')
-            assert.strictEqual(response.body.tls.cert, site.tls.cert)
         }
         else {
-            assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type', 'ver'].sort())
-            assert.equal(response.body.tls.type, 'selfsigned')
+            assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['type'].sort())
         }
+
         assert.deepStrictEqual(response.body.aliases.sort(), site.aliases.sort())
         assert.deepStrictEqual(response.body.app, null)
 
@@ -182,8 +184,11 @@ describe('Manage sites', function() {
         site = findSite('site2.local')
         assert(response.body)
         assert.deepStrictEqual(Object.keys(response.body).sort(), ['tls', 'domain', 'aliases', 'app'].sort())
+        
         assert(response.body.tls)
-        if (site.tls && site.tls.cert) {
+        assert.strictEqual(response.body.tls.type, site.tls.type)
+        if (site.tls.cert) {
+            assert.strictEqual(response.body.tls.cert, site.tls.cert)
             if (site.tls.ver) {
                 assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type', 'ver'].sort())
                 assert.strictEqual(response.body.tls.ver, tlsData[response.body.tls.cert])
@@ -191,13 +196,11 @@ describe('Manage sites', function() {
             else {
                 assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type'].sort())
             }
-            assert.equal(response.body.tls.type, 'imported')
-            assert.strictEqual(response.body.tls.cert, site.tls.cert)
         }
         else {
-            assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type', 'ver'].sort())
-            assert.equal(response.body.tls.type, 'selfsigned')
+            assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['type'].sort())
         }
+
         assert.deepStrictEqual(response.body.aliases.sort(), site.aliases.sort())
         assert.deepStrictEqual(response.body.app, site.app)
 
@@ -237,8 +240,11 @@ describe('Manage sites', function() {
             // Tests
             assert(response.body)
             assert.deepStrictEqual(Object.keys(response.body).sort(), ['tls', 'domain', 'aliases', 'app'].sort())
+
             assert(response.body.tls)
-            if (site.tls && site.tls.cert) {
+            assert.strictEqual(response.body.tls.type, site.tls.type)
+            if (site.tls.cert) {
+                assert.strictEqual(response.body.tls.cert, site.tls.cert)
                 if (site.tls.ver) {
                     assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type', 'ver'].sort())
                     assert.strictEqual(response.body.tls.ver, tlsData[response.body.tls.cert])
@@ -246,13 +252,11 @@ describe('Manage sites', function() {
                 else {
                     assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type'].sort())
                 }
-                assert.equal(response.body.tls.type, 'imported')
-                assert.strictEqual(response.body.tls.cert, site.tls.cert)
             }
             else {
-                assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['cert', 'type', 'ver'].sort())
-                assert.equal(response.body.tls.type, 'selfsigned')
+                assert.deepStrictEqual(Object.keys(response.body.tls).sort(), ['type'].sort())
             }
+
             assert.deepStrictEqual(response.body.aliases.sort(), site.aliases.sort())
             assert.deepStrictEqual(response.body.app, null)
 

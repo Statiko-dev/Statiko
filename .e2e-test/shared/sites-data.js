@@ -23,7 +23,7 @@ const sitesData = {
     site1: {
         domain: 'site1.local',
         tls: {
-            type: 'imported',
+            type: 'akv',
             cert: 'site1',
             ver: '7f9f2c93860e4c54bc4eea5bb5973ad6',
         },
@@ -35,7 +35,7 @@ const sitesData = {
     site2: {
         domain: 'site2.local',
         tls: {
-            type: 'imported',
+            type: 'akv',
             cert: 'site2'
         },
         aliases: [
@@ -45,8 +45,7 @@ const sitesData = {
     site3: {
         domain: 'site3.local',
         tls: {
-            type: 'imported',
-            cert: 'site3'
+            type: 'selfsigned'
         },
         aliases: []
     },
@@ -55,7 +54,7 @@ const sitesData = {
     exists1: {
         domain: 'site3.local',
         tls: {
-            type: 'imported',
+            type: 'akv',
             cert: 'site3'
         },
         aliases: ['not-existing.com']
@@ -63,7 +62,7 @@ const sitesData = {
     exists2: {
         domain: 'not-existing.com',
         tls: {
-            type: 'imported',
+            type: 'akv',
             cert: 'site3'
         },
         aliases: ['site3.local']
@@ -91,6 +90,7 @@ sitesData.site1patch2 = {
 }
 sitesData.site1patch3 = {
     tls: {
+        type: 'akv',
         cert: 'site3',
         ver: 'dcdc4a65bbc34da981d4949f300e8076'
     }

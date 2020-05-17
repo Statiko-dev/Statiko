@@ -116,9 +116,9 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 		return err
 	}
 
-	// Ensure that if TLS certs are not imported, their name and version isn't included
+	// Ensure that if TLS certs are not imported or from Azure Key Vault, their name and version isn't included
 	for _, s := range state.Sites {
-		if s.TLS != nil && s.TLS.Type != TLSCertificateImported {
+		if s.TLS != nil && s.TLS.Type != TLSCertificateImported && s.TLS.Type != TLSCertificateAzureKeyVault {
 			s.TLS.Certificate = nil
 			s.TLS.Version = nil
 		}
@@ -482,9 +482,12 @@ func (m *Manager) DeleteSecret(key string) error {
 }
 
 // GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
-func (m *Manager) GetCertificate(typ string, domains []string) (key []byte, cert []byte, err error) {
+func (m *Manager) GetCertificate(typ string, nameOrDomains []string) (key []byte, cert []byte, err error) {
 	// Key of the secret
-	secretKey := m.CertificateSecretKey(typ, domains)
+	secretKey := m.certificateSecretKey(typ, nameOrDomains)
+	if secretKey == "" {
+		return nil, nil, errors.New("invalid name or domains")
+	}
 
 	// Retrieve the secret
 	serialized, err := m.GetSecret(secretKey)
@@ -506,9 +509,12 @@ func (m *Manager) GetCertificate(typ string, domains []string) (key []byte, cert
 }
 
 // SetCertificate stores a PEM-encoded certificate pair (key and certificate) as a secret
-func (m *Manager) SetCertificate(typ string, domains []string, key []byte, cert []byte) (err error) {
+func (m *Manager) SetCertificate(typ string, nameOrDomains []string, key []byte, cert []byte) (err error) {
 	// Key of the secret
-	secretKey := m.CertificateSecretKey(typ, domains)
+	secretKey := m.certificateSecretKey(typ, nameOrDomains)
+	if secretKey == "" {
+		return errors.New("invalid name or domains")
+	}
 
 	// Serialize the certificates
 	if len(key) > 204800 || len(cert) > 204800 {
@@ -530,14 +536,48 @@ func (m *Manager) SetCertificate(typ string, domains []string, key []byte, cert 
 		return err
 	}
 
-	logger.Printf("Stored %s certificate for domains %v with key %s\n", typ, domains, secretKey)
+	logger.Printf("Stored %s certificate for %v with key %s\n", typ, nameOrDomains, secretKey)
 	return nil
 }
 
-// CertificateSecretKey returns the key of secret for the certificate
-func (m *Manager) CertificateSecretKey(typ string, domains []string) string {
-	domainKey := utils.SHA256String(strings.Join(domains, ","))[:15]
-	return "cert/" + typ + "/" + domainKey
+// RemoveCertificate removes a certificate from the store
+func (m *Manager) RemoveCertificate(typ string, nameOrDomains []string) (err error) {
+	// Key of the secret
+	secretKey := m.certificateSecretKey(typ, nameOrDomains)
+	if secretKey == "" {
+		return errors.New("invalid name or domains")
+	}
+
+	return m.DeleteSecret(secretKey)
+}
+
+// ListImportedCertificates returns a list of the names of all imported certificates
+func (m *Manager) ListImportedCertificates() (res []string) {
+	res = make([]string, 0)
+	// Iterate through all secrets looking for those starting with "cert/imported/"
+	state := m.store.GetState()
+	for k := range state.Secrets {
+		if strings.HasPrefix(k, "cert/imported/") {
+			res = append(res, strings.TrimPrefix(k, "cert/imported/"))
+		}
+	}
+	return
+}
+
+// certificateSecretKey returns the key of secret for the certificate
+func (m *Manager) certificateSecretKey(typ string, nameOrDomains []string) string {
+	switch typ {
+	case TLSCertificateImported:
+		if len(nameOrDomains) != 1 || len(nameOrDomains[0]) == 0 {
+			return ""
+		}
+		return "cert/imported/" + nameOrDomains[0]
+	case TLSCertificateACME, TLSCertificateSelfSigned:
+		domainKey := utils.SHA256String(strings.Join(nameOrDomains, ","))[:15]
+		return "cert/" + typ + "/" + domainKey
+	default:
+		return ""
+	}
 }
 
 // Returns a cipher for AES-GCM-128 initialized

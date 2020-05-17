@@ -50,10 +50,10 @@ func processCertJobs(jobType string, data string) error {
 	switch jobType {
 	case "tlscert":
 		genFunc = certificates.GenerateTLSCert
-		certType = "selfsigned"
+		certType = state.TLSCertificateSelfSigned
 	case "acme":
 		genFunc = certificates.GenerateACMECertificate
-		certType = "acme"
+		certType = state.TLSCertificateACME
 	}
 
 	// Generate the TLS certificate
@@ -70,7 +70,7 @@ func processCertJobs(jobType string, data string) error {
 
 	// If certificate is of type acme, delete the old self-signed certificate
 	if certType == "acme" {
-		err = state.Instance.DeleteSecret(state.Instance.CertificateSecretKey("selfsigned", domains))
+		err = state.Instance.RemoveCertificate(state.TLSCertificateSelfSigned, domains)
 		if err != nil {
 			return err
 		}
