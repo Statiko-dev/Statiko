@@ -50,7 +50,7 @@ func GetACMECertificate(site *state.SiteState) (key []byte, cert []byte, err err
 	domains := append([]string{site.Domain}, site.Aliases...)
 
 	// Check if we have a certificate issued by the ACME provider already
-	key, cert, err = state.Instance.GetCertificate("acme", domains)
+	key, cert, err = state.Instance.GetCertificate(state.TLSCertificateACME, domains)
 	if err != nil {
 		return nil, nil, err
 	}

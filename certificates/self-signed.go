@@ -48,7 +48,7 @@ func GetSelfSignedCertificate(site *state.SiteState) (key []byte, cert []byte, e
 
 requestcert:
 	// Check if we have certificates generated already in the state store
-	key, cert, err = state.Instance.GetCertificate("selfsigned", domains)
+	key, cert, err = state.Instance.GetCertificate(state.TLSCertificateSelfSigned, domains)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -59,7 +59,7 @@ requestcert:
 		goto newcert
 	}
 
-	// Check if the certificate is not valid anymore
+	// Check if the certificate is still valid
 	block, _ = pem.Decode(cert)
 	if block == nil {
 		err = errors.New("invalid certificate PEM block")

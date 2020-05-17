@@ -172,7 +172,7 @@ func certMonitorWorker() error {
 				// We'll queue a sync
 				needsSync = true
 			}
-		case state.TLSCertificateImported:
+		case state.TLSCertificateImported, state.TLSCertificateAzureKeyVault:
 			// Imported certificate
 			for i := 0; i < len(certMonitorChecks); i++ {
 				// If the certificate has expired

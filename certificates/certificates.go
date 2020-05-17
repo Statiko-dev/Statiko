@@ -18,13 +18,14 @@ package certificates
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 	"time"
 
-	"github.com/statiko-dev/statiko/azurekeyvault"
+	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
 	"github.com/statiko-dev/statiko/state"
 )
 
@@ -34,6 +35,18 @@ func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) 
 
 	// Check the type of the TLS certificate
 	switch site.TLS.Type {
+	case state.TLSCertificateAzureKeyVault:
+		// Get the certificate
+		key, cert, certObj, err = GetAKVCertificate(site)
+		if err != nil {
+			return
+		}
+
+		// Inspect the certificate, but consider errors as warnings only
+		if insp := InspectCertificate(site, certObj); insp != nil {
+			logger.Printf("[Warn] %v\n", insp)
+		}
+		return
 	case state.TLSCertificateImported:
 		// Get the certificate
 		key, cert, certObj, err = GetImportedCertificate(site)
@@ -58,8 +71,30 @@ func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) 
 	}
 }
 
-// GetImportedCertificate returns a certificate from Azure Key Vault
+// GetImportedCertificate returns a certificate stored in the state store
 func GetImportedCertificate(site *state.SiteState) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
+	if site.TLS == nil || site.TLS.Certificate == nil || *site.TLS.Certificate == "" {
+		return nil, nil, nil, errors.New("empty TLS certificate name")
+	}
+
+	// Get the certificate from the store
+	key, cert, err = state.Instance.GetCertificate(state.TLSCertificateImported, []string{*site.TLS.Certificate})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Get the certificate's x509 object
+	block, _ := pem.Decode(cert)
+	if block == nil {
+		err = errors.New("invalid certificate PEM block")
+		return nil, nil, nil, err
+	}
+	certObj, err = x509.ParseCertificate(block.Bytes)
+	return
+}
+
+// GetAKVCertificate returns a certificate from Azure Key Vault
+func GetAKVCertificate(site *state.SiteState) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
 	var name, version string
 	if site.TLS.Certificate == nil || *site.TLS.Certificate == "" {
 		err = errors.New("certificate name is empty")
@@ -93,9 +128,9 @@ func InspectCertificate(site *state.SiteState, cert *x509.Certificate) error {
 		return fmt.Errorf("certificate's NotBefore is in the future: %v", cert.NotBefore)
 	}
 
-	// Check if the list of domains matches, but not for imported certificates
+	// Check if the list of domains matches, but not for certificates that are imported or from Azure Key Vault
 	// We're not checking this for imported certificates because they might have wildcards and be valid for more domains
-	if site.TLS.Type != state.TLSCertificateImported {
+	if site.TLS.Type != state.TLSCertificateImported && site.TLS.Type != state.TLSCertificateAzureKeyVault {
 		domains := append([]string{site.Domain}, site.Aliases...)
 		sort.Strings(domains)
 		certDomains := append(make([]string, 0), cert.DNSNames...)

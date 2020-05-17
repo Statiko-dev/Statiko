@@ -50,10 +50,10 @@ func processCertJobs(jobType string, data string) error {
 	switch jobType {
 	case "tlscert":
 		genFunc = certificates.GenerateTLSCert
-		certType = "selfsigned"
+		certType = state.TLSCertificateSelfSigned
 	case "acme":
 		genFunc = certificates.GenerateACMECertificate
-		certType = "acme"
+		certType = state.TLSCertificateACME
 	}
 
 	// Generate the TLS certificate
