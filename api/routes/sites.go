@@ -103,6 +103,11 @@ func CreateSiteHandler(c *gin.Context) {
 		return
 	}
 
+	// Ensure an empty version is stored as nil
+	if site.TLS != nil && site.TLS.Version != nil && *site.TLS.Version == "" {
+		site.TLS.Version = nil
+	}
+
 	// Add the website to the store
 	if err := state.Instance.AddSite(site); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
@@ -280,7 +285,7 @@ func PatchSiteHandler(c *gin.Context) {
 						return
 					}
 					site.TLS = &state.SiteTLS{
-						Type:        state.TLSCertificateImported,
+						Type:        state.TLSCertificateAzureKeyVault,
 						Certificate: &name,
 					}
 					if version != "" {

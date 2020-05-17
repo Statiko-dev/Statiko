@@ -203,7 +203,11 @@ func (s *APIServer) setupRoutes() {
 		group.POST("/uploadauth", routes.UploadAuthHandler)
 		group.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
 
-		group.POST("/sync", routes.SyncHandler)
+		group.POST("/certificate", routes.ImportCertificateHandler)
+		group.GET("/certificate", routes.ListCertificateHandler)
+		group.DELETE("/certificate/:name", routes.DeleteCertificateHandler)
 		group.POST("/dhparams", routes.DHParamsHandler)
+
+		group.POST("/sync", routes.SyncHandler)
 	}
 }

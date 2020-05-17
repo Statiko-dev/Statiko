@@ -128,9 +128,9 @@ func InspectCertificate(site *state.SiteState, cert *x509.Certificate) error {
 		return fmt.Errorf("certificate's NotBefore is in the future: %v", cert.NotBefore)
 	}
 
-	// Check if the list of domains matches, but not for certificates that are imported or from Azure Key Vault
+	// Check if the list of domains matches, but only for self-signed or ACME certificates
 	// We're not checking this for imported certificates because they might have wildcards and be valid for more domains
-	if site.TLS.Type != state.TLSCertificateImported && site.TLS.Type != state.TLSCertificateAzureKeyVault {
+	if site.TLS.Type == state.TLSCertificateACME || site.TLS.Type == state.TLSCertificateSelfSigned {
 		domains := append([]string{site.Domain}, site.Aliases...)
 		sort.Strings(domains)
 		certDomains := append(make([]string, 0), cert.DNSNames...)

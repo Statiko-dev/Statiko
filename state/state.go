@@ -484,7 +484,7 @@ func (m *Manager) DeleteSecret(key string) error {
 // GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
 func (m *Manager) GetCertificate(typ string, nameOrDomains []string) (key []byte, cert []byte, err error) {
 	// Key of the secret
-	secretKey := m.CertificateSecretKey(typ, nameOrDomains)
+	secretKey := m.certificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
 		return nil, nil, errors.New("invalid name or domains")
 	}
@@ -511,7 +511,7 @@ func (m *Manager) GetCertificate(typ string, nameOrDomains []string) (key []byte
 // SetCertificate stores a PEM-encoded certificate pair (key and certificate) as a secret
 func (m *Manager) SetCertificate(typ string, nameOrDomains []string, key []byte, cert []byte) (err error) {
 	// Key of the secret
-	secretKey := m.CertificateSecretKey(typ, nameOrDomains)
+	secretKey := m.certificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
 		return errors.New("invalid name or domains")
 	}
@@ -540,8 +540,32 @@ func (m *Manager) SetCertificate(typ string, nameOrDomains []string, key []byte,
 	return nil
 }
 
-// CertificateSecretKey returns the key of secret for the certificate
-func (m *Manager) CertificateSecretKey(typ string, nameOrDomains []string) string {
+// RemoveCertificate removes a certificate from the store
+func (m *Manager) RemoveCertificate(typ string, nameOrDomains []string) (err error) {
+	// Key of the secret
+	secretKey := m.certificateSecretKey(typ, nameOrDomains)
+	if secretKey == "" {
+		return errors.New("invalid name or domains")
+	}
+
+	return m.DeleteSecret(secretKey)
+}
+
+// ListImportedCertificates returns a list of the names of all imported certificates
+func (m *Manager) ListImportedCertificates() (res []string) {
+	res = make([]string, 0)
+	// Iterate through all secrets looking for those starting with "cert/imported/"
+	state := m.store.GetState()
+	for k := range state.Secrets {
+		if strings.HasPrefix(k, "cert/imported/") {
+			res = append(res, strings.TrimPrefix(k, "cert/imported/"))
+		}
+	}
+	return
+}
+
+// certificateSecretKey returns the key of secret for the certificate
+func (m *Manager) certificateSecretKey(typ string, nameOrDomains []string) string {
 	switch typ {
 	case TLSCertificateImported:
 		if len(nameOrDomains) != 1 || len(nameOrDomains[0]) == 0 {
