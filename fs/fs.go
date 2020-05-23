@@ -17,10 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 )
+
+// Singleton
+var Instance Fs
 
 // Get returns a store for the given connection string
 func Get(connection string) (store Fs, err error) {
@@ -56,11 +60,18 @@ type Fs interface {
 	Init(connection string) error
 
 	// Get returns a stream to a file in the filesystem
-	Get(name string, out io.Writer) (found bool, err error)
+	Get(name string, out io.Writer) (found bool, metadata map[string]string, err error)
 
 	// Set writes a stream to the file in the filesystem
-	Set(name string, in io.Reader) (err error)
+	Set(name string, in io.Reader, metadata map[string]string) (err error)
 
 	// Delete a file from the filesystem
 	Delete(name string) (err error)
 }
+
+// Errors
+var (
+	ErrNameEmptyInvalid  = errors.New("name is empty or invalid")
+	ErrConnStringInvalid = errors.New("invalid connection string")
+	ErrNotExist          = errors.New("file already exists")
+)

@@ -45,7 +45,7 @@ func (f *AzureStorage) Init(connection string) error {
 	r := regexp.MustCompile("^(azureblob|azure):([a-z0-9][a-z0-9-]{2,62})$")
 	match := r.FindStringSubmatch(connection)
 	if match == nil || len(match) != 3 {
-		return errors.New("invalid connection string for Azure Blob Storage")
+		return ErrConnStringInvalid
 	}
 	f.storageContainer = match[2]
 
@@ -74,9 +74,9 @@ func (f *AzureStorage) Init(connection string) error {
 	return nil
 }
 
-func (f *AzureStorage) Get(name string, out io.Writer) (found bool, err error) {
+func (f *AzureStorage) Get(name string, out io.Writer) (found bool, metadata map[string]string, err error) {
 	if name == "" {
-		err = errors.New("name is empty")
+		err = ErrNameEmptyInvalid
 		return
 	}
 
@@ -116,6 +116,9 @@ func (f *AzureStorage) Get(name string, out io.Writer) (found bool, err error) {
 		return
 	}
 
+	// Get the metadata
+	metadata = resp.NewMetadata()
+
 	// Copy the response body to the out stream
 	_, err = io.Copy(out, body)
 	if err != nil {
@@ -125,9 +128,9 @@ func (f *AzureStorage) Get(name string, out io.Writer) (found bool, err error) {
 	return
 }
 
-func (f *AzureStorage) Set(name string, in io.Reader) (err error) {
+func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" {
-		return errors.New("name is empty")
+		return ErrNameEmptyInvalid
 	}
 
 	// Create the blob URL
@@ -137,9 +140,19 @@ func (f *AzureStorage) Set(name string, in io.Reader) (err error) {
 	}
 	blockBlobURL := azblob.NewBlockBlobURL(*u, f.storagePipeline)
 
+	// Access conditions for blob uploads: disallow the operation if the blob already exists
+	// See: https://docs.microsoft.com/en-us/rest/api/storageservices/specifying-conditional-headers-for-blob-service-operations#Subheading1
+	accessConditions := azblob.BlobAccessConditions{
+		ModifiedAccessConditions: azblob.ModifiedAccessConditions{
+			IfNoneMatch: "*",
+		},
+	}
+
+	// Upload the blob
 	_, err = azblob.UploadStreamToBlockBlob(context.Background(), in, blockBlobURL, azblob.UploadStreamToBlockBlobOptions{
-		BufferSize: 3 * 1024 * 1024,
-		MaxBuffers: 2,
+		BufferSize:       3 * 1024 * 1024,
+		MaxBuffers:       2,
+		AccessConditions: accessConditions,
 	})
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
@@ -149,12 +162,22 @@ func (f *AzureStorage) Set(name string, in io.Reader) (err error) {
 		}
 	}
 
+	// Set metadata, if any
+	if metadata != nil && len(metadata) > 0 {
+		_, err = blockBlobURL.SetMetadata(context.Background(), metadata, azblob.BlobAccessConditions{})
+		if err != nil {
+			// Delete the file
+			_ = f.Delete(name)
+			return fmt.Errorf("error while setting metadata in Azure Storage: %v", err)
+		}
+	}
+
 	return nil
 }
 
 func (f *AzureStorage) Delete(name string) (err error) {
 	if name == "" {
-		return errors.New("name is empty")
+		return ErrNameEmptyInvalid
 	}
 
 	// Create the blob URL

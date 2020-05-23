@@ -17,15 +17,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
-	"errors"
-	"fmt"
+	"encoding/json"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-
-	homedir "github.com/mitchellh/go-homedir"
 
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -38,20 +36,14 @@ type Local struct {
 func (f *Local) Init(connection string) error {
 	// Ensure that connection starts with "local:" or "file:"
 	if !strings.HasPrefix(connection, "local:") && !strings.HasPrefix(connection, "file:") {
-		return fmt.Errorf("invalid scheme")
+		return ErrConnStringInvalid
 	}
 
 	// Get the path
 	path := connection[strings.Index(connection, ":")+1:]
 
-	// Expand the tilde if needed
-	path, err := homedir.Expand(path)
-	if err != nil {
-		return err
-	}
-
 	// Get the absolute path
-	path, err = filepath.Abs(path)
+	path, err := filepath.Abs(path)
 	if err != nil {
 		return err
 	}
@@ -72,9 +64,9 @@ func (f *Local) Init(connection string) error {
 	return nil
 }
 
-func (f *Local) Get(name string, out io.Writer) (found bool, err error) {
-	if name == "" {
-		err = errors.New("name is empty")
+func (f *Local) Get(name string, out io.Writer) (found bool, metadata map[string]string, err error) {
+	if name == "" || strings.HasPrefix(name, ".metadata.") {
+		err = ErrNameEmptyInvalid
 		return
 	}
 
@@ -101,6 +93,24 @@ func (f *Local) Get(name string, out io.Writer) (found bool, err error) {
 		return
 	}
 
+	// Get the metadata
+	read, err := ioutil.ReadFile(f.basePath + ".metadata." + name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			read = nil
+			err = nil
+		} else {
+			return
+		}
+	}
+	if read != nil && len(read) > 0 {
+		metadata = make(map[string]string)
+		err = json.Unmarshal(read, &metadata)
+		if err != nil {
+			return
+		}
+	}
+
 	// Copy the file to the out stream
 	_, err = io.Copy(out, file)
 	if err != nil {
@@ -110,9 +120,9 @@ func (f *Local) Get(name string, out io.Writer) (found bool, err error) {
 	return
 }
 
-func (f *Local) Set(name string, in io.Reader) (err error) {
-	if name == "" {
-		return errors.New("name is empty")
+func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err error) {
+	if name == "" || strings.HasPrefix(name, ".metadata.") {
+		return ErrNameEmptyInvalid
 	}
 
 	// Create intermediate folders if needed
@@ -122,6 +132,15 @@ func (f *Local) Set(name string, in io.Reader) (err error) {
 		if err != nil {
 			return
 		}
+	}
+
+	// Check if the file already exists
+	exists, err := utils.FileExists(f.basePath + name)
+	if err != nil {
+		return
+	}
+	if exists {
+		return ErrNotExist
 	}
 
 	// Create the file
@@ -137,14 +156,46 @@ func (f *Local) Set(name string, in io.Reader) (err error) {
 		return err
 	}
 
+	// Store metadata
+	if metadata != nil && len(metadata) > 0 {
+		// Serialize metadata to JSON
+		var enc []byte
+		enc, err = json.Marshal(metadata)
+		if err != nil {
+			// Delete the file
+			_ = f.Delete(name)
+			return
+		}
+
+		err = ioutil.WriteFile(f.basePath+".metadata."+name, enc, 0644)
+		if err != nil {
+			// Delete the file
+			_ = f.Delete(name)
+			return
+		}
+	}
+
 	return nil
 }
 
-func (f *Local) Delete(name string) (err error) {
-	if name == "" {
-		return errors.New("name is empty")
+func (f *Local) Delete(name string) error {
+	if name == "" || strings.HasPrefix(name, ".metadata.") {
+		return ErrNameEmptyInvalid
 	}
 
-	// Delete the file
-	return os.Remove(f.basePath + name)
+	// Delete the file and the metadata
+	err1 := os.Remove(f.basePath + name)
+	err2 := os.Remove(f.basePath + ".metadata." + name)
+	if err1 != nil {
+		if os.IsNotExist(err1) {
+			return ErrNotExist
+		}
+		return err1
+	}
+	if err2 != nil && !os.IsNotExist(err2) {
+		// Ignore the error when the metadata file doesn't exist
+		return err2
+	}
+
+	return nil
 }

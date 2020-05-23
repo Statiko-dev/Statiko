@@ -37,7 +37,7 @@ func (f *S3) Init(connection string) error {
 	// connection mus start with "s3:"
 	// Then it must contain the bucket name
 	if !strings.HasPrefix(connection, "s3:") || len(connection) < 4 {
-		return fmt.Errorf("invalid scheme")
+		return ErrConnStringInvalid
 	}
 	f.bucketName = connection[3:]
 
@@ -73,9 +73,9 @@ func (f *S3) Init(connection string) error {
 	return nil
 }
 
-func (f *S3) Get(name string, out io.Writer) (found bool, err error) {
+func (f *S3) Get(name string, out io.Writer) (found bool, metadata map[string]string, err error) {
 	if name == "" {
-		err = errors.New("name is empty")
+		err = ErrNameEmptyInvalid
 		return
 	}
 
@@ -92,6 +92,17 @@ func (f *S3) Get(name string, out io.Writer) (found bool, err error) {
 		return
 	}
 
+	// Get metadata
+	if stat.Metadata != nil && len(stat.Metadata) > 0 {
+		metadata = make(map[string]string)
+		for key, val := range stat.Metadata {
+			if val != nil && len(val) == 1 {
+				fmt.Println(key, val)
+				metadata[key] = val[0]
+			}
+		}
+	}
+
 	// Copy the response body to the out stream
 	_, err = io.Copy(out, obj)
 	if err != nil {
@@ -101,13 +112,27 @@ func (f *S3) Get(name string, out io.Writer) (found bool, err error) {
 	return
 }
 
-func (f *S3) Set(name string, in io.Reader) (err error) {
+func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" {
-		return errors.New("name is empty")
+		return ErrNameEmptyInvalid
+	}
+
+	// Check if the target exists already
+	// Expect this to return an error that says NoSuchKey
+	_, err = f.client.StatObject(f.bucketName, name, minio.StatObjectOptions{})
+	if err == nil {
+		return ErrNotExist
+	} else if minio.ToErrorResponse(err).Code != "NoSuchKey" {
+		return err
 	}
 
 	// Upload the file
-	_, err = f.client.PutObject(f.bucketName, name, in, -1, minio.PutObjectOptions{})
+	if metadata != nil && len(metadata) == 0 {
+		metadata = nil
+	}
+	_, err = f.client.PutObject(f.bucketName, name, in, -1, minio.PutObjectOptions{
+		UserMetadata: metadata,
+	})
 	if err != nil {
 		return err
 	}
@@ -117,7 +142,7 @@ func (f *S3) Set(name string, in io.Reader) (err error) {
 
 func (f *S3) Delete(name string) (err error) {
 	if name == "" {
-		return errors.New("name is empty")
+		return ErrNameEmptyInvalid
 	}
 
 	return f.client.RemoveObject(f.bucketName, name)

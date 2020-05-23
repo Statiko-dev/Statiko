@@ -35,7 +35,6 @@ import (
 	"strings"
 	"time"
 
-	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gobuffalo/packd"
 	"github.com/gobuffalo/packr/v2"
@@ -53,10 +52,6 @@ type Manager struct {
 	// Root folder for the platform
 	appRoot string
 
-	// Azure Storage client
-	azureStoragePipeline azpipeline.Pipeline
-	azureStorageURL      string
-
 	// Internals
 	codeSignKey *rsa.PublicKey
 	log         *log.Logger
@@ -73,28 +68,6 @@ func (m *Manager) Init() error {
 	if !strings.HasSuffix(m.appRoot, "/") {
 		m.appRoot += "/"
 	}
-
-	// Azure Storage authorization
-	credential, err := utils.GetAzureStorageCredentials()
-	if err != nil {
-		return err
-	}
-
-	// Get Azure Storage configuration
-	azureStorageAccount := appconfig.Config.GetString("azure.storage.account")
-	azureStorageContainer := appconfig.Config.GetString("azure.storage.appsContainer")
-	azureStorageSuffix, err := utils.GetAzureStorageEndpointSuffix()
-	if err != nil {
-		return err
-	}
-	m.azureStorageURL = fmt.Sprintf("https://%s.blob.%s/%s/", azureStorageAccount, azureStorageSuffix, azureStorageContainer)
-
-	// Azure Storage pipeline
-	m.azureStoragePipeline = azblob.NewPipeline(credential, azblob.PipelineOptions{
-		Retry: azblob.RetryOptions{
-			MaxTries: 3,
-		},
-	})
 
 	// Load the code signing key
 	if err := m.LoadSigningKey(); err != nil {
