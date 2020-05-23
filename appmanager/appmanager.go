@@ -613,6 +613,23 @@ func (m *Manager) LoadSigningKey() error {
 	if pemKey == "" {
 		goto nokey
 	}
+
+	// Check if the key is the path to a file
+	if !strings.HasPrefix(pemKey, "-----BEGIN") {
+		exists, err := utils.FileExists(pemKey)
+		if err != nil || !exists {
+			goto nokey
+		}
+
+		// Read the file
+		read, err := ioutil.ReadFile(pemKey)
+		if err != nil || read == nil || len(read) < 1 {
+			goto nokey
+		}
+		pemKey = string(read)
+	}
+
+	// Load the PEM key
 	block, _ = pem.Decode([]byte(pemKey))
 	if block == nil || len(block.Bytes) == 0 {
 		goto nokey
@@ -641,11 +658,15 @@ func (m *Manager) LoadSigningKey() error {
 		goto nokey
 	}
 
+	m.log.Println("Loaded code signing key")
+
 	return nil
 
 nokey:
 	if requireSign {
 		return errors.New("codesign.required is true, but no valid key found in codesign.publicKey")
+	} else {
+		m.log.Println("[Warn] No code signing key loaded")
 	}
 
 	return nil
