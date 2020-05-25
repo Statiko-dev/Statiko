@@ -36,10 +36,8 @@ func main() {
 	// Seed rand
 	rand.Seed(time.Now().UnixNano())
 
-	// Filesystem
-	var err error
-	fs.Instance, err = fs.Get("local:/test")
-	if err != nil {
+	// Store
+	if err := fs.Startup(); err != nil {
 		panic(err)
 	}
 

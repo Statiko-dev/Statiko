@@ -18,7 +18,6 @@ package appmanager
 
 import (
 	"bytes"
-	"context"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -30,12 +29,10 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gobuffalo/packd"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/google/renameio"
@@ -43,6 +40,7 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/fs"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -63,7 +61,7 @@ func (m *Manager) Init() error {
 	// Logger
 	m.log = log.New(os.Stdout, "appmanager: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Init properties from env vars
+	// Init properties from config
 	m.appRoot = appconfig.Config.GetString("appRoot")
 	if !strings.HasSuffix(m.appRoot, "/") {
 		m.appRoot += "/"
@@ -721,29 +719,20 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 // FetchBundle downloads the application's bundle
 func (m *Manager) FetchBundle(bundle string) error {
 	// Get the archive
-	u, err := url.Parse(m.azureStorageURL + bundle)
+	found, data, metadata, err := fs.Instance.Get(bundle)
+	defer data.Close()
 	if err != nil {
 		return err
 	}
-	blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
-	resp, err := blobURL.Download(context.TODO(), 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
-	if err != nil {
-		if stgErr, ok := err.(azblob.StorageError); !ok {
-			err = fmt.Errorf("Network error while downloading the bundle: %s", err.Error())
-		} else {
-			err = fmt.Errorf("Azure Storage error while downloading the bundle: %s", stgErr.Response().Status)
-		}
-		return err
+	if !found {
+		return errors.New("bundle not found in store")
 	}
-	body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
-	defer body.Close()
 
 	// Get the signature from the blob's metadata, if any
 	// Skip if we don't have a codesign key
 	var signature []byte
 	if m.codeSignKey != nil {
-		metadata := resp.NewMetadata()
-		if metadata != nil {
+		if metadata != nil && len(metadata) > 0 {
 			signatureB64, ok := metadata["signature"]
 			if ok && signatureB64 != "" {
 				// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
@@ -764,7 +753,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 
 	// The stream is split between two readers: one for the hashing, one for writing the stream to disk
 	h := sha256.New()
-	tee := io.TeeReader(body, h)
+	tee := io.TeeReader(data, h)
 
 	// Write to disk (this also makes the stream proceed so the hash is calculated)
 	out, err := os.Create(m.appRoot + "cache/" + bundle)

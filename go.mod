@@ -25,7 +25,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	go.etcd.io/etcd/v3 v3.3.0-rc.0.0.20200515055720-f1179fd70d85
+	go.etcd.io/etcd/v3 v3.3.0-rc.0.0.20200524195553-747ff75c96df
 	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
 	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.3.0

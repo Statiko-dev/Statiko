@@ -20,9 +20,16 @@ azure:
   sp:
     tenantId: "1ea3c9a2-b58b-48c7-b5ce-ca311c3c1196"
     clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
+    # DEV NOTE: passed as environmental variable
     clientSecret: ""
   keyVault:
     name: "statiko-ci-akv"
+
+repo:
+  type: "azure"
+  azure:
+    account: "statikocistorage"
+    container: "apps"
 
 nodeName: "e2e-test"
 
