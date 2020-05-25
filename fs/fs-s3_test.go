@@ -18,45 +18,54 @@ package fs
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/statiko-dev/statiko/appconfig"
 )
 
-func TestLocalInit(t *testing.T) {
-	t.Run("empty path", func(t *testing.T) {
-		o := &Local{}
-		appconfig.Config.Set("repo.local.path", "")
-		err := o.Init()
-		if err == nil {
-			t.Fatal("Expected error, but got none")
+func TestS3Init(t *testing.T) {
+	t.Run("empty credentials", func(t *testing.T) {
+		o := &S3{}
+
+		appconfig.Config.Set("repo.s3.accessKeyId", "")
+		if o.Init() == nil {
+			t.Fatal("Expected error for missing repo.s3.accessKeyId, but got none")
 		}
+		appconfig.Config.Set("repo.s3.accessKeyId", os.Getenv("REPO_S3_ACCESS_KEY_ID"))
+
+		appconfig.Config.Set("repo.s3.secretAccessKey", "")
+		if o.Init() == nil {
+			t.Fatal("Expected error for missing repo.s3.secretAccessKey, but got none")
+		}
+		appconfig.Config.Set("repo.s3.secretAccessKey", os.Getenv("REPO_S3_SECRET_ACCESS_KEY"))
+
+		appconfig.Config.Set("repo.s3.bucket", "")
+		if o.Init() == nil {
+			t.Fatal("Expected error for missing repo.s3.bucket, but got none")
+		}
+		appconfig.Config.Set("repo.s3.bucket", os.Getenv("REPO_S3_BUCKET"))
+
+		appconfig.Config.Set("repo.s3.endpoint", "")
+		if o.Init() == nil {
+			t.Fatal("Expected error for missing repo.s3.endpoint, but got none")
+		}
+		appconfig.Config.Set("repo.s3.endpoint", os.Getenv("REPO_S3_ENDPOINT"))
 	})
 	t.Run("init correctly", func(t *testing.T) {
-		obj = &Local{}
-		appconfig.Config.Set("repo.local.path", dir)
-		err := obj.Init()
-		if err != nil {
+		obj = &S3{}
+		if err := obj.Init(); err != nil {
 			t.Fatal(err)
 		}
 	})
 }
 
-func TestLocalSet(t *testing.T) {
+func TestS3Set(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
 		in := openTestFile()
 		defer in.Close()
 		err := obj.Set("", in, nil)
-		if err != ErrNameEmptyInvalid {
-			t.Error("Expected ErrNameEmptyInvalid, got", err)
-		}
-	})
-	t.Run("invalid name", func(t *testing.T) {
-		in := openTestFile()
-		defer in.Close()
-		err := obj.Set(".metadata.file", in, nil)
 		if err != ErrNameEmptyInvalid {
 			t.Error("Expected ErrNameEmptyInvalid, got", err)
 		}
@@ -85,33 +94,11 @@ func TestLocalSet(t *testing.T) {
 			t.Error("Got error", err)
 		}
 	})
-	t.Run("inspect folder", func(t *testing.T) {
-		list, err := ioutil.ReadDir(dir)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(list) != 3 {
-			t.Fatal("expected 3 files in temp folder, got", len(list))
-		}
-		files := make([]string, len(list))
-		for i, e := range list {
-			files[i] = e.Name()
-		}
-		if !reflect.DeepEqual(files, []string{".metadata.testphoto2.jpg", "testphoto.jpg", "testphoto2.jpg"}) {
-			t.Error("list of files does not match:", files)
-		}
-	})
 }
 
-func TestLocalGet(t *testing.T) {
+func TestS3Get(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
 		_, _, err := obj.Get("", nil)
-		if err != ErrNameEmptyInvalid {
-			t.Error("Expected ErrNameEmptyInvalid, got", err)
-		}
-	})
-	t.Run("invalid name", func(t *testing.T) {
-		_, _, err := obj.Get(".metadata.file", nil)
 		if err != ErrNameEmptyInvalid {
 			t.Error("Expected ErrNameEmptyInvalid, got", err)
 		}
@@ -171,15 +158,9 @@ func TestLocalGet(t *testing.T) {
 	})
 }
 
-func TestLocalDelete(t *testing.T) {
+func TestS3Delete(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
 		err := obj.Delete("")
-		if err != ErrNameEmptyInvalid {
-			t.Error("Expected ErrNameEmptyInvalid, got", err)
-		}
-	})
-	t.Run("invalid name", func(t *testing.T) {
-		err := obj.Delete(".metadata.file")
 		if err != ErrNameEmptyInvalid {
 			t.Error("Expected ErrNameEmptyInvalid, got", err)
 		}

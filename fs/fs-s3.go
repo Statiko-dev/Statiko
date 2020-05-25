@@ -18,8 +18,8 @@ package fs
 
 import (
 	"errors"
-	"fmt"
 	"io"
+	"strings"
 
 	"github.com/minio/minio-go"
 	"github.com/statiko-dev/statiko/appconfig"
@@ -47,6 +47,9 @@ func (f *S3) Init() error {
 
 	// Endpoint; defaults value is "s3.amazonaws.com"
 	endpoint := appconfig.Config.GetString("repo.s3.endpoint")
+	if endpoint == "" {
+		return errors.New("repo.s3.endpoint must be set")
+	}
 
 	// Enable TLS
 	tls := !appconfig.Config.GetBool("repo.s3.noTLS")
@@ -70,23 +73,33 @@ func (f *S3) Get(name string, out io.Writer) (found bool, metadata map[string]st
 	// Request the file from S3
 	obj, err := f.client.GetObject(f.bucketName, name, minio.GetObjectOptions{})
 	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			found = false
+			err = nil
+		}
 		return
 	}
 
 	// Check if the file exists but it's empty
 	stat, err := obj.Stat()
 	if err != nil || stat.Size == 0 {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			err = nil
+		}
 		found = false
 		return
 	}
+
+	found = true
 
 	// Get metadata
 	if stat.Metadata != nil && len(stat.Metadata) > 0 {
 		metadata = make(map[string]string)
 		for key, val := range stat.Metadata {
 			if val != nil && len(val) == 1 {
-				fmt.Println(key, val)
-				metadata[key] = val[0]
+				if strings.HasPrefix(key, "X-Amz-Meta") {
+					metadata[strings.ToLower(key[11:])] = val[0]
+				}
 			}
 		}
 	}
@@ -131,6 +144,15 @@ func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err err
 func (f *S3) Delete(name string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
+	}
+
+	// Check if the object exists
+	_, err = f.client.StatObject(f.bucketName, name, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			err = ErrNotExist
+		}
+		return
 	}
 
 	return f.client.RemoveObject(f.bucketName, name)
