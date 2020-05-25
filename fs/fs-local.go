@@ -64,7 +64,7 @@ func (f *Local) Init() error {
 	return nil
 }
 
-func (f *Local) Get(name string, out io.Writer) (found bool, metadata map[string]string, err error) {
+func (f *Local) Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		err = ErrNameEmptyInvalid
 		return
@@ -81,14 +81,17 @@ func (f *Local) Get(name string, out io.Writer) (found bool, metadata map[string
 		}
 		return
 	}
-	defer file.Close()
 
 	// Check if the file has any content
 	stat, err := file.Stat()
 	if err != nil {
+		file.Close()
+		file = nil
 		return
 	}
 	if stat.Size() == 0 {
+		file.Close()
+		file = nil
 		found = false
 		return
 	}
@@ -100,6 +103,8 @@ func (f *Local) Get(name string, out io.Writer) (found bool, metadata map[string
 			read = nil
 			err = nil
 		} else {
+			file.Close()
+			file = nil
 			return
 		}
 	}
@@ -107,15 +112,14 @@ func (f *Local) Get(name string, out io.Writer) (found bool, metadata map[string
 		metadata = make(map[string]string)
 		err = json.Unmarshal(read, &metadata)
 		if err != nil {
+			file.Close()
+			file = nil
 			return
 		}
 	}
 
-	// Copy the file to the out stream
-	_, err = io.Copy(out, file)
-	if err != nil {
-		return
-	}
+	// Set the response stream
+	data = file
 
 	return
 }

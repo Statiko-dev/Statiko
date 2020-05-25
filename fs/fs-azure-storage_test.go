@@ -17,7 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
-	"bytes"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -88,13 +88,13 @@ func TestAzureStorageSet(t *testing.T) {
 
 func TestAzureStorageGet(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
-		_, _, err := obj.Get("", nil)
+		_, _, _, err := obj.Get("")
 		if err != ErrNameEmptyInvalid {
 			t.Error("Expected ErrNameEmptyInvalid, got", err)
 		}
 	})
 	t.Run("not existing", func(t *testing.T) {
-		found, mData, err := obj.Get("notexist", nil)
+		found, _, mData, err := obj.Get("notexist")
 		if err != nil {
 			t.Fatal("Expected err to be nil, got", err)
 		}
@@ -106,8 +106,7 @@ func TestAzureStorageGet(t *testing.T) {
 		}
 	})
 	t.Run("normal", func(t *testing.T) {
-		buf := &bytes.Buffer{}
-		found, mData, err := obj.Get("testphoto.jpg", buf)
+		found, data, mData, err := obj.Get("testphoto.jpg")
 		if err != nil {
 			t.Fatal("Expected err to be nil, got", err)
 		}
@@ -117,16 +116,19 @@ func TestAzureStorageGet(t *testing.T) {
 		if mData != nil && len(mData) != 0 {
 			t.Fatal("Expected metadata to be empty")
 		}
-		if buf.Len() < 1 {
+		read, err := ioutil.ReadAll(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(read) < 1 {
 			t.Fatal("No data returned by the function")
 		}
-		if calculateDigest(buf.Bytes()) != testFileDigest {
-			t.Fatal("Downlaoded file's digest doesn't match")
+		if calculateDigest(read) != testFileDigest {
+			t.Fatal("Downloaded file's digest doesn't match")
 		}
 	})
 	t.Run("with metadata", func(t *testing.T) {
-		buf := &bytes.Buffer{}
-		found, mData, err := obj.Get("testphoto2.jpg", buf)
+		found, data, mData, err := obj.Get("testphoto2.jpg")
 		if err != nil {
 			t.Fatal("Expected err to be nil, got", err)
 		}
@@ -139,11 +141,15 @@ func TestAzureStorageGet(t *testing.T) {
 		if !reflect.DeepEqual(mData, metadata) {
 			t.Fatal("Metadata does not match")
 		}
-		if buf.Len() < 1 {
+		read, err := ioutil.ReadAll(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(read) < 1 {
 			t.Fatal("No data returned by the function")
 		}
-		if calculateDigest(buf.Bytes()) != testFileDigest {
-			t.Fatal("Downlaoded file's digest doesn't match")
+		if calculateDigest(read) != testFileDigest {
+			t.Fatal("Downloaded file's digest doesn't match")
 		}
 	})
 }

@@ -64,7 +64,7 @@ func (f *S3) Init() error {
 	return nil
 }
 
-func (f *S3) Get(name string, out io.Writer) (found bool, metadata map[string]string, err error) {
+func (f *S3) Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
 	if name == "" {
 		err = ErrNameEmptyInvalid
 		return
@@ -73,6 +73,8 @@ func (f *S3) Get(name string, out io.Writer) (found bool, metadata map[string]st
 	// Request the file from S3
 	obj, err := f.client.GetObject(f.bucketName, name, minio.GetObjectOptions{})
 	if err != nil {
+		obj.Close()
+		obj = nil
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			found = false
 			err = nil
@@ -83,6 +85,8 @@ func (f *S3) Get(name string, out io.Writer) (found bool, metadata map[string]st
 	// Check if the file exists but it's empty
 	stat, err := obj.Stat()
 	if err != nil || stat.Size == 0 {
+		obj.Close()
+		obj = nil
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			err = nil
 		}
@@ -104,11 +108,8 @@ func (f *S3) Get(name string, out io.Writer) (found bool, metadata map[string]st
 		}
 	}
 
-	// Copy the response body to the out stream
-	_, err = io.Copy(out, obj)
-	if err != nil {
-		return
-	}
+	// Set the response stream
+	data = obj
 
 	return
 }

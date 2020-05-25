@@ -71,7 +71,7 @@ func (f *AzureStorage) Init() error {
 	return nil
 }
 
-func (f *AzureStorage) Get(name string, out io.Writer) (found bool, metadata map[string]string, err error) {
+func (f *AzureStorage) Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
 	if name == "" {
 		err = ErrNameEmptyInvalid
 		return
@@ -102,25 +102,20 @@ func (f *AzureStorage) Get(name string, out io.Writer) (found bool, metadata map
 		}
 		return
 	}
-	body := resp.Body(azblob.RetryReaderOptions{
+	data = resp.Body(azblob.RetryReaderOptions{
 		MaxRetryRequests: 3,
 	})
-	defer body.Close()
 
 	// Check if the file exists but it's empty
 	if resp.ContentLength() == 0 {
 		found = false
+		data.Close()
+		data = nil
 		return
 	}
 
 	// Get the metadata
 	metadata = resp.NewMetadata()
-
-	// Copy the response body to the out stream
-	_, err = io.Copy(out, body)
-	if err != nil {
-		return
-	}
 
 	return
 }

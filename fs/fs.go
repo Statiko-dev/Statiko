@@ -20,10 +20,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/statiko-dev/statiko/appconfig"
 )
 
 // Singleton
 var Instance Fs
+
+// Startup initializes the singleton
+func Startup() (err error) {
+	typ := appconfig.Config.GetString("repo.type")
+	Instance, err = Get(typ)
+	return
+}
 
 // Get returns a store for the given type
 func Get(typ string) (store Fs, err error) {
@@ -52,7 +61,7 @@ type Fs interface {
 	Init() error
 
 	// Get returns a stream to a file in the filesystem
-	Get(name string, out io.Writer) (found bool, metadata map[string]string, err error)
+	Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error)
 
 	// Set writes a stream to the file in the filesystem
 	Set(name string, in io.Reader, metadata map[string]string) (err error)
