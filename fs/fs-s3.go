@@ -122,7 +122,7 @@ func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err err
 	// Expect this to return an error that says NoSuchKey
 	_, err = f.client.StatObject(f.bucketName, name, minio.StatObjectOptions{})
 	if err == nil {
-		return ErrNotExist
+		return ErrExist
 	} else if minio.ToErrorResponse(err).Code != "NoSuchKey" {
 		return err
 	}

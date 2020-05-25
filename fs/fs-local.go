@@ -140,7 +140,7 @@ func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err 
 		return
 	}
 	if exists {
-		return ErrNotExist
+		return ErrExist
 	}
 
 	// Create the file

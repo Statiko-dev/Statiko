@@ -65,5 +65,6 @@ type Fs interface {
 var (
 	ErrNameEmptyInvalid  = errors.New("name is empty or invalid")
 	ErrConnStringInvalid = errors.New("invalid connection string")
-	ErrNotExist          = errors.New("file already exists")
+	ErrExist             = errors.New("file already exists")
+	ErrNotExist          = errors.New("file does not exist")
 )

@@ -25,43 +25,33 @@ import (
 	"github.com/statiko-dev/statiko/appconfig"
 )
 
-func TestS3Init(t *testing.T) {
+func TestAzureStorageInit(t *testing.T) {
 	t.Run("empty credentials", func(t *testing.T) {
-		o := &S3{}
+		o := &AzureStorage{}
 
-		appconfig.Config.Set("repo.s3.accessKeyId", "")
+		appconfig.Config.Set("repo.azure.account", "")
 		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.accessKeyId, but got none")
+			t.Fatal("Expected error for missing repo.azure.account, but got none")
 		}
-		appconfig.Config.Set("repo.s3.accessKeyId", os.Getenv("REPO_S3_ACCESS_KEY_ID"))
+		appconfig.Config.Set("repo.azure.account", os.Getenv("REPO_AZURE_ACCOUNT"))
 
-		appconfig.Config.Set("repo.s3.secretAccessKey", "")
+		appconfig.Config.Set("repo.azure.container", "")
 		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.secretAccessKey, but got none")
+			t.Fatal("Expected error for missing repo.azure.container, but got none")
 		}
-		appconfig.Config.Set("repo.s3.secretAccessKey", os.Getenv("REPO_S3_SECRET_ACCESS_KEY"))
+		appconfig.Config.Set("repo.azure.container", "fs-test")
 
-		appconfig.Config.Set("repo.s3.bucket", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.bucket, but got none")
-		}
-		appconfig.Config.Set("repo.s3.bucket", os.Getenv("REPO_S3_BUCKET"))
-
-		appconfig.Config.Set("repo.s3.endpoint", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.endpoint, but got none")
-		}
-		appconfig.Config.Set("repo.s3.endpoint", os.Getenv("REPO_S3_ENDPOINT"))
+		// Uses the service principal for authenticating
 	})
 	t.Run("init correctly", func(t *testing.T) {
-		obj = &S3{}
+		obj = &AzureStorage{}
 		if err := obj.Init(); err != nil {
 			t.Fatal(err)
 		}
 	})
 }
 
-func TestS3Set(t *testing.T) {
+func TestAzureStorageSet(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
 		in := openTestFile()
 		defer in.Close()
@@ -96,7 +86,7 @@ func TestS3Set(t *testing.T) {
 	})
 }
 
-func TestS3Get(t *testing.T) {
+func TestAzureStorageGet(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
 		_, _, err := obj.Get("", nil)
 		if err != ErrNameEmptyInvalid {
@@ -158,7 +148,7 @@ func TestS3Get(t *testing.T) {
 	})
 }
 
-func TestS3Delete(t *testing.T) {
+func TestAzureStorageDelete(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
 		err := obj.Delete("")
 		if err != ErrNameEmptyInvalid {

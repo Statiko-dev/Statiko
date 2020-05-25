@@ -73,8 +73,8 @@ func TestLocalSet(t *testing.T) {
 		in := openTestFile()
 		defer in.Close()
 		err := obj.Set("testphoto.jpg", in, nil)
-		if err != ErrNotExist {
-			t.Error("Expected ErrNotExist, got", err)
+		if err != ErrExist {
+			t.Error("Expected ErrExist, got", err)
 		}
 	})
 	t.Run("with metadata", func(t *testing.T) {
@@ -117,11 +117,11 @@ func TestLocalGet(t *testing.T) {
 		}
 	})
 	t.Run("not existing", func(t *testing.T) {
-		found, metadata, err := obj.Get("notexist", nil)
+		found, mData, err := obj.Get("notexist", nil)
 		if err != nil {
 			t.Fatal("Expected err to be nil, got", err)
 		}
-		if metadata != nil || len(metadata) != 0 {
+		if mData != nil && len(mData) != 0 {
 			t.Fatal("Expected metadata to be empty")
 		}
 		if found {
@@ -137,7 +137,7 @@ func TestLocalGet(t *testing.T) {
 		if !found {
 			t.Fatal("Expected found to be true")
 		}
-		if mData != nil || len(mData) != 0 {
+		if mData != nil && len(mData) != 0 {
 			t.Fatal("Expected metadata to be empty")
 		}
 		if buf.Len() < 1 {

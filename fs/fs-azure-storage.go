@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
@@ -94,7 +93,7 @@ func (f *AzureStorage) Get(name string, out io.Writer) (found bool, metadata map
 			err = fmt.Errorf("network error while downloading the file: %s", err.Error())
 		} else {
 			// Blob not found
-			if stgErr.Response().StatusCode == http.StatusNotFound {
+			if stgErr.ServiceCode() == "BlobNotFound" {
 				found = false
 				err = nil
 				return
@@ -156,6 +155,9 @@ func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string
 		if stgErr, ok := err.(azblob.StorageError); !ok {
 			return fmt.Errorf("network error while uploading the file: %s", err.Error())
 		} else {
+			if stgErr.ServiceCode() == "BlobAlreadyExists" {
+				return ErrExist
+			}
 			return fmt.Errorf("Azure Storage error failed while uploading the file: %s", stgErr.Response().Status)
 		}
 	}
@@ -187,5 +189,15 @@ func (f *AzureStorage) Delete(name string) (err error) {
 
 	// Delete the blob
 	_, err = blockBlobURL.Delete(context.Background(), azblob.DeleteSnapshotsOptionInclude, azblob.BlobAccessConditions{})
+	if err != nil {
+		if stgErr, ok := err.(azblob.StorageError); !ok {
+			return fmt.Errorf("network error while deleting the file: %s", err.Error())
+		} else {
+			if stgErr.ServiceCode() == "BlobNotFound" {
+				return ErrNotExist
+			}
+			return fmt.Errorf("Azure Storage error failed while deleting the file: %s", stgErr.Response().Status)
+		}
+	}
 	return
 }
