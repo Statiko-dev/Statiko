@@ -23,11 +23,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"regexp"
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // AzureStorage stores files on Azure Blob Storage
@@ -38,30 +38,28 @@ type AzureStorage struct {
 	storageURL         string
 }
 
-func (f *AzureStorage) Init(connection string) error {
-	// Ensure the connection string is valid and extract the parts
-	// connection mus start with "azureblob:" or "azure:"
-	// Then it must contain the storage account container
-	r := regexp.MustCompile("^(azureblob|azure):([a-z0-9][a-z0-9-]{2,62})$")
-	match := r.FindStringSubmatch(connection)
-	if match == nil || len(match) != 3 {
-		return ErrConnStringInvalid
+func (f *AzureStorage) Init() error {
+	// Get the storage account name and key
+	f.storageAccountName = appconfig.Config.GetString("repo.azure.account")
+	f.storageContainer = appconfig.Config.GetString("repo.azure.container")
+	if f.storageAccountName == "" || f.storageContainer == "" {
+		return errors.New("configuration options repo.azure.account and repo.azure.container must be set")
 	}
-	f.storageContainer = match[2]
-
-	// Get the storage account name and key from the environment
-	name := os.Getenv("AZURE_STORAGE_ACCOUNT")
-	key := os.Getenv("AZURE_STORAGE_ACCESS_KEY")
-	if name == "" || key == "" {
-		return errors.New("environmental variables AZURE_STORAGE_ACCOUNT and AZURE_STORAGE_ACCESS_KEY are not defined")
-	}
-	f.storageAccountName = name
 
 	// Storage endpoint
 	f.storageURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s", f.storageAccountName, f.storageContainer)
 
-	// Authenticate with Azure Storage
-	credential, err := azblob.NewSharedKeyCredential(f.storageAccountName, key)
+	// Authenticate with Azure Storage using an access key
+	key := appconfig.Config.GetString("repo.azure.accessKey")
+	var err error
+	var credential azblob.Credential
+	if key != "" {
+		// Try to authenticate using a shared key
+		credential, err = azblob.NewSharedKeyCredential(f.storageAccountName, key)
+	} else {
+		// Try to authenticate using a Service Principal
+		credential, err = utils.GetAzureStorageCredentials()
+	}
 	if err != nil {
 		return err
 	}

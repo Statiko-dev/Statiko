@@ -26,6 +26,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/statiko-dev/statiko/appconfig"
 )
 
 var (
@@ -78,12 +80,22 @@ func calculateDigest(data []byte) string {
 }
 
 func TestInit(t *testing.T) {
-	obj = &Local{}
-	err := obj.Init("local:" + dir)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	t.Run("empty path", func(t *testing.T) {
+		o := &Local{}
+		appconfig.Config.Set("repo.local.path", "")
+		err := o.Init()
+		if err == nil {
+			t.Fatal("Expected error, but got none")
+		}
+	})
+	t.Run("init correctly", func(t *testing.T) {
+		obj = &Local{}
+		appconfig.Config.Set("repo.local.path", dir)
+		err := obj.Init()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestSet(t *testing.T) {

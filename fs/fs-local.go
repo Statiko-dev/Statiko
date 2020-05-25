@@ -18,6 +18,7 @@ package fs
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -25,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -33,14 +35,12 @@ type Local struct {
 	basePath string
 }
 
-func (f *Local) Init(connection string) error {
-	// Ensure that connection starts with "local:" or "file:"
-	if !strings.HasPrefix(connection, "local:") && !strings.HasPrefix(connection, "file:") {
-		return ErrConnStringInvalid
-	}
-
+func (f *Local) Init() error {
 	// Get the path
-	path := connection[strings.Index(connection, ":")+1:]
+	path := appconfig.Config.GetString("repo.local.path")
+	if path == "" {
+		return errors.New("repo.local.path must be set")
+	}
 
 	// Get the absolute path
 	path, err := filepath.Abs(path)

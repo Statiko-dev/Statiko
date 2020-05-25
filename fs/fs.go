@@ -20,35 +20,27 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 )
 
 // Singleton
 var Instance Fs
 
-// Get returns a store for the given connection string
-func Get(connection string) (store Fs, err error) {
+// Get returns a store for the given type
+func Get(typ string) (store Fs, err error) {
 	store = nil
 
-	// Get the name of the store
-	pos := strings.Index(connection, ":")
-	if pos < 1 {
-		err = fmt.Errorf("invalid connection string")
-		return
-	}
-
-	switch connection[0:pos] {
+	switch typ {
 	case "file", "local":
 		store = &Local{}
-		err = store.Init(connection)
+		err = store.Init()
 	case "azure", "azureblob":
 		store = &AzureStorage{}
-		err = store.Init(connection)
+		err = store.Init()
 	case "s3", "minio":
 		store = &S3{}
-		err = store.Init(connection)
+		err = store.Init()
 	default:
-		err = fmt.Errorf("invalid connection string")
+		err = fmt.Errorf("invalid store type")
 	}
 
 	return
@@ -56,8 +48,8 @@ func Get(connection string) (store Fs, err error) {
 
 // Fs is the interface for the filesystem
 type Fs interface {
-	// Init the object, by passing a connection string
-	Init(connection string) error
+	// Init the object
+	Init() error
 
 	// Get returns a stream to a file in the filesystem
 	Get(name string, out io.Writer) (found bool, metadata map[string]string, err error)

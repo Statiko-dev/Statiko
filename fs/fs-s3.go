@@ -20,10 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"strings"
 
 	"github.com/minio/minio-go"
+	"github.com/statiko-dev/statiko/appconfig"
 )
 
 // S3 stores files on a S3-compatible service
@@ -32,36 +31,25 @@ type S3 struct {
 	bucketName string
 }
 
-func (f *S3) Init(connection string) error {
-	// Ensure the connection string is valid and extract the parts
-	// connection mus start with "s3:"
-	// Then it must contain the bucket name
-	if !strings.HasPrefix(connection, "s3:") || len(connection) < 4 {
-		return ErrConnStringInvalid
-	}
-	f.bucketName = connection[3:]
-
+func (f *S3) Init() error {
 	// Get the access key
-	accessKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
-	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	accessKeyId := appconfig.Config.GetString("repo.s3.accessKeyId")
+	secretAccessKey := appconfig.Config.GetString("repo.s3.secretAccessKey")
 	if accessKeyId == "" || secretAccessKey == "" {
-		return errors.New("environmental variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not defined")
+		return errors.New("repo.s3.accessKeyId and repo.s3.secretAccessKey must be set")
 	}
 
-	// Endpoint
-	// If not set, defaults to "s3.amazonaws.com"
-	endpoint := os.Getenv("S3_ENDPOINT")
-	if endpoint == "" {
-		endpoint = "s3.amazonaws.com"
+	// Bucket name
+	f.bucketName = appconfig.Config.GetString("repo.s3.bucket")
+	if f.bucketName == "" {
+		return errors.New("repo.s3.bucket must be set")
 	}
+
+	// Endpoint; defaults value is "s3.amazonaws.com"
+	endpoint := appconfig.Config.GetString("repo.s3.endpoint")
 
 	// Enable TLS
-	// If not set, defaults to true
-	tls := true
-	tlsStr := strings.ToLower(os.Getenv("S3_TLS"))
-	if tlsStr == "0" || tlsStr == "n" || tlsStr == "no" || tlsStr == "false" {
-		tls = false
-	}
+	tls := !appconfig.Config.GetBool("repo.s3.noTLS")
 
 	// Initialize minio client object for connecting to S3
 	var err error
