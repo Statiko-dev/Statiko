@@ -170,6 +170,38 @@ func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string
 	return nil
 }
 
+func (f *AzureStorage) SetMetadata(name string, metadata map[string]string) error {
+	if name == "" {
+		return ErrNameEmptyInvalid
+	}
+
+	if metadata == nil || len(metadata) == 0 {
+		metadata = nil
+	}
+
+	// Create the blob URL
+	u, err := url.Parse(f.storageURL + "/" + name)
+	if err != nil {
+		return err
+	}
+	blockBlobURL := azblob.NewBlockBlobURL(*u, f.storagePipeline)
+
+	// Set metadata
+	_, err = blockBlobURL.SetMetadata(context.Background(), metadata, azblob.BlobAccessConditions{})
+	if err != nil {
+		if stgErr, ok := err.(azblob.StorageError); !ok {
+			return fmt.Errorf("network error while setting metadata: %s", err.Error())
+		} else {
+			if stgErr.ServiceCode() == "BlobNotFound" {
+				return ErrNotExist
+			}
+			return fmt.Errorf("Azure Storage error while setting metadata: %s", stgErr.Response().Status)
+		}
+	}
+
+	return nil
+}
+
 func (f *AzureStorage) Delete(name string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
@@ -191,7 +223,7 @@ func (f *AzureStorage) Delete(name string) (err error) {
 			if stgErr.ServiceCode() == "BlobNotFound" {
 				return ErrNotExist
 			}
-			return fmt.Errorf("Azure Storage error failed while deleting the file: %s", stgErr.Response().Status)
+			return fmt.Errorf("Azure Storage error while deleting the file: %s", stgErr.Response().Status)
 		}
 	}
 	return

@@ -142,6 +142,35 @@ func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err err
 	return nil
 }
 
+func (f *S3) SetMetadata(name string, metadata map[string]string) error {
+	if name == "" {
+		return ErrNameEmptyInvalid
+	}
+
+	if metadata == nil || len(metadata) == 0 {
+		metadata = map[string]string{
+			// Fix an issue with Minio not being able to delete metadata
+			"": "",
+		}
+	}
+
+	// Create a copy of the object to the same location to add metadata
+	src := minio.NewSourceInfo(f.bucketName, name, nil)
+	dst, err := minio.NewDestinationInfo(f.bucketName, name, nil, metadata)
+	if err != nil {
+		return err
+	}
+	err = f.client.CopyObject(dst, src)
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return ErrNotExist
+		}
+		return err
+	}
+
+	return nil
+}
+
 func (f *S3) Delete(name string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid

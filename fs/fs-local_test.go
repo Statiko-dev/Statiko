@@ -176,6 +176,85 @@ func TestLocalGet(t *testing.T) {
 	})
 }
 
+func TestLocalSetMetadata(t *testing.T) {
+	setMetadata := map[string]string{
+		"foo": "bar",
+	}
+	t.Run("empty name", func(t *testing.T) {
+		err := obj.SetMetadata("", setMetadata)
+		if err != ErrNameEmptyInvalid {
+			t.Error("Expected ErrNameEmptyInvalid, got", err)
+		}
+	})
+	t.Run("not existing", func(t *testing.T) {
+		err := obj.SetMetadata("notexist", setMetadata)
+		if err != ErrNotExist {
+			t.Fatal("Expected ErrNotExist, got", err)
+		}
+	})
+	t.Run("add metadata", func(t *testing.T) {
+		err := obj.SetMetadata("testphoto.jpg", setMetadata)
+		if err != nil {
+			t.Fatal("Expected err to be nil, got", err)
+		}
+	})
+	t.Run("check metadata added", func(t *testing.T) {
+		found, _, mData, err := obj.Get("testphoto.jpg")
+		if err != nil {
+			t.Fatal("Expected err to be nil, got", err)
+		}
+		if !found {
+			t.Fatal("Expected found to be true")
+		}
+		if mData == nil || len(mData) == 0 {
+			t.Fatal("Expected metadata not to be empty")
+		}
+		if !reflect.DeepEqual(mData, setMetadata) {
+			t.Fatal("Metadata does not match")
+		}
+	})
+	setMetadata["hello"] = "world"
+	t.Run("update metadata", func(t *testing.T) {
+		err := obj.SetMetadata("testphoto.jpg", setMetadata)
+		if err != nil {
+			t.Fatal("Expected err to be nil, got", err)
+		}
+	})
+	t.Run("check metadata added", func(t *testing.T) {
+		found, _, mData, err := obj.Get("testphoto.jpg")
+		if err != nil {
+			t.Fatal("Expected err to be nil, got", err)
+		}
+		if !found {
+			t.Fatal("Expected found to be true")
+		}
+		if mData == nil || len(mData) == 0 {
+			t.Fatal("Expected metadata not to be empty")
+		}
+		if !reflect.DeepEqual(mData, setMetadata) {
+			t.Fatal("Metadata does not match")
+		}
+	})
+	t.Run("remove metadata", func(t *testing.T) {
+		err := obj.SetMetadata("testphoto.jpg", nil)
+		if err != nil {
+			t.Fatal("Expected err to be nil, got", err)
+		}
+	})
+	t.Run("check metadata removed", func(t *testing.T) {
+		found, _, mData, err := obj.Get("testphoto.jpg")
+		if err != nil {
+			t.Fatal("Expected err to be nil, got", err)
+		}
+		if !found {
+			t.Fatal("Expected found to be true")
+		}
+		if mData != nil && len(mData) != 0 {
+			t.Fatal("Expected metadata to be empty")
+		}
+	})
+}
+
 func TestLocalDelete(t *testing.T) {
 	t.Run("empty name", func(t *testing.T) {
 		err := obj.Delete("")

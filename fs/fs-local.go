@@ -171,11 +171,54 @@ func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err 
 			return
 		}
 
+		// Write to file
 		err = ioutil.WriteFile(f.basePath+".metadata."+name, enc, 0644)
 		if err != nil {
 			// Delete the file
 			_ = f.Delete(name)
 			return
+		}
+	}
+
+	return nil
+}
+
+func (f *Local) SetMetadata(name string, metadata map[string]string) error {
+	if name == "" || strings.HasPrefix(name, ".metadata.") {
+		return ErrNameEmptyInvalid
+	}
+
+	// Ensure that the file itself exists
+	exists, err := utils.FileExists(f.basePath + name)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ErrNotExist
+	}
+
+	// If we have an empty metadata object, delete the metadata file if present
+	if metadata == nil || len(metadata) == 0 {
+		exists, err := utils.FileExists(f.basePath + ".metadata." + name)
+		if err != nil {
+			return err
+		}
+		if exists {
+			err := os.Remove(f.basePath + ".metadata." + name)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		// Serialize metadata to JSON and write to fie
+		var enc []byte
+		enc, err = json.Marshal(metadata)
+		if err != nil {
+			return err
+		}
+		err = ioutil.WriteFile(f.basePath+".metadata."+name, enc, 0644)
+		if err != nil {
+			return err
 		}
 	}
 

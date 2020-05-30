@@ -66,6 +66,9 @@ type Fs interface {
 	// Set writes a stream to the file in the filesystem
 	Set(name string, in io.Reader, metadata map[string]string) (err error)
 
+	// SetMetadata updates a file's metadata in the filesystem
+	SetMetadata(name string, metadata map[string]string) error
+
 	// Delete a file from the filesystem
 	Delete(name string) (err error)
 }
