@@ -89,11 +89,12 @@ func (s *APIServer) Start() {
 		go func() {
 			// HTTP Server
 			s.srv = &http.Server{
-				Addr:           "0.0.0.0:" + appconfig.Config.GetString("port"),
-				Handler:        s.router,
-				ReadTimeout:    10 * time.Second,
-				WriteTimeout:   10 * time.Second,
-				MaxHeaderBytes: 1 << 20,
+				Addr:              "0.0.0.0:" + appconfig.Config.GetString("port"),
+				Handler:           s.router,
+				ReadTimeout:       2 * time.Hour,
+				ReadHeaderTimeout: 30 * time.Second,
+				WriteTimeout:      2 * time.Hour,
+				MaxHeaderBytes:    1 << 20,
 			}
 
 			s.running = true
