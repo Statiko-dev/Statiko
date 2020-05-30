@@ -200,8 +200,8 @@ func (s *APIServer) setupRoutes() {
 		group.POST("/state", routes.PutStateHandler)
 		group.PUT("/state", routes.PutStateHandler) // Alias
 
-		group.POST("/uploadauth", routes.UploadAuthHandler)
-		group.GET("/keyvaultinfo", routes.KeyVaultInfoHandler)
+		group.POST("/app", routes.AppUploadHandler)
+		group.POST("/app/:name", routes.AppUpdateHandler)
 
 		group.POST("/certificate", routes.ImportCertificateHandler)
 		group.GET("/certificate", routes.ListCertificateHandler)

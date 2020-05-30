@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/api"
+	"github.com/statiko-dev/statiko/fs"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/webserver"
@@ -34,6 +35,11 @@ import (
 func main() {
 	// Seed rand
 	rand.Seed(time.Now().UnixNano())
+
+	// Store
+	if err := fs.Startup(); err != nil {
+		panic(err)
+	}
 
 	// Init notifications client
 	if err := notifications.InitNotifications(); err != nil {

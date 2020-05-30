@@ -18,7 +18,6 @@ package appmanager
 
 import (
 	"bytes"
-	"context"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -30,13 +29,10 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	azpipeline "github.com/Azure/azure-pipeline-go/pipeline"
-	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/gobuffalo/packd"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/google/renameio"
@@ -44,6 +40,7 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/fs"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -52,10 +49,6 @@ import (
 type Manager struct {
 	// Root folder for the platform
 	appRoot string
-
-	// Azure Storage client
-	azureStoragePipeline azpipeline.Pipeline
-	azureStorageURL      string
 
 	// Internals
 	codeSignKey *rsa.PublicKey
@@ -68,33 +61,11 @@ func (m *Manager) Init() error {
 	// Logger
 	m.log = log.New(os.Stdout, "appmanager: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Init properties from env vars
+	// Init properties from config
 	m.appRoot = appconfig.Config.GetString("appRoot")
 	if !strings.HasSuffix(m.appRoot, "/") {
 		m.appRoot += "/"
 	}
-
-	// Azure Storage authorization
-	credential, err := utils.GetAzureStorageCredentials()
-	if err != nil {
-		return err
-	}
-
-	// Get Azure Storage configuration
-	azureStorageAccount := appconfig.Config.GetString("azure.storage.account")
-	azureStorageContainer := appconfig.Config.GetString("azure.storage.appsContainer")
-	azureStorageSuffix, err := utils.GetAzureStorageEndpointSuffix()
-	if err != nil {
-		return err
-	}
-	m.azureStorageURL = fmt.Sprintf("https://%s.blob.%s/%s/", azureStorageAccount, azureStorageSuffix, azureStorageContainer)
-
-	// Azure Storage pipeline
-	m.azureStoragePipeline = azblob.NewPipeline(credential, azblob.PipelineOptions{
-		Retry: azblob.RetryOptions{
-			MaxTries: 3,
-		},
-	})
 
 	// Load the code signing key
 	if err := m.LoadSigningKey(); err != nil {
@@ -730,7 +701,7 @@ func (m *Manager) StageApp(bundle string) error {
 			return err
 		}
 		return errors.New("no files in the extracted folder")
-	} else if len(contents) == 1 && contents[0].IsDir() && false {
+	} else if len(contents) == 1 && contents[0].IsDir() {
 		// If there's only one folder, move all files one directory up
 		// First, rename to a temporary folder (app bundles can't begin with an underscore)
 		// Then, delete the target folder and rename the extracted one
@@ -769,39 +740,41 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 // FetchBundle downloads the application's bundle
 func (m *Manager) FetchBundle(bundle string) error {
 	// Get the archive
-	u, err := url.Parse(m.azureStorageURL + bundle)
+	found, data, metadata, err := fs.Instance.Get(bundle)
 	if err != nil {
 		return err
 	}
-	blobURL := azblob.NewBlobURL(*u, m.azureStoragePipeline)
-	resp, err := blobURL.Download(context.TODO(), 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
-	if err != nil {
-		if stgErr, ok := err.(azblob.StorageError); !ok {
-			err = fmt.Errorf("Network error while downloading the bundle: %s", err.Error())
-		} else {
-			err = fmt.Errorf("Azure Storage error while downloading the bundle: %s", stgErr.Response().Status)
-		}
-		return err
+	if !found {
+		return errors.New("bundle not found in store")
 	}
-	body := resp.Body(azblob.RetryReaderOptions{MaxRetryRequests: 3})
-	defer body.Close()
+	defer data.Close()
 
-	// Get the signature from the blob's metadata, if any
-	// Skip if we don't have a codesign key
+	var hash []byte
 	var signature []byte
-	if m.codeSignKey != nil {
-		metadata := resp.NewMetadata()
-		if metadata != nil {
+	if metadata != nil && len(metadata) > 0 {
+		// Get the hash from the blob's metadata, if any
+		hashB64, ok := metadata["hash"]
+		if ok && hashB64 != "" {
+			hash, err = base64.StdEncoding.DecodeString(hashB64)
+			if err != nil {
+				return err
+			}
+			if len(hash) != 32 {
+				hash = nil
+			}
+		}
+
+		// Get the signature from the blob's metadata, if any
+		// Skip if we don't have a codesign key
+		if m.codeSignKey != nil {
 			signatureB64, ok := metadata["signature"]
 			if ok && signatureB64 != "" {
-				// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
-				signature = make([]byte, 513)
-				len, err := base64.StdEncoding.Decode(signature, []byte(signatureB64))
+				signature, err = base64.StdEncoding.DecodeString(signatureB64)
 				if err != nil {
 					return err
 				}
-				if len != 512 {
-					return errors.New("Invalid signature length")
+				if len(signature) != 512 {
+					signature = nil
 				}
 			}
 		}
@@ -812,7 +785,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 
 	// The stream is split between two readers: one for the hashing, one for writing the stream to disk
 	h := sha256.New()
-	tee := io.TeeReader(body, h)
+	tee := io.TeeReader(data, h)
 
 	// Write to disk (this also makes the stream proceed so the hash is calculated)
 	out, err := os.Create(m.appRoot + "cache/" + bundle)
@@ -841,20 +814,26 @@ func (m *Manager) FetchBundle(bundle string) error {
 	hashed := h.Sum(nil)
 	m.log.Printf("SHA256 checksum for bundle %s is %x\n", bundle, hashed)
 
-	// Verify the digital signature if present
-	if signature != nil {
-		// (Need to grab the first 512 bytes from the signature only)
-		err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature[:512])
-		if err != nil {
-			m.log.Println("Signature mismatch for bundle", bundle)
-
+	// Verify the hash and digital signature if present
+	if hash == nil && signature == nil {
+		m.log.Printf("[Warn] Bundle %s did not contain a signature; skipping integrity and origin check\n", bundle)
+	}
+	if hash != nil {
+		if bytes.Compare(hash, hashed) != 0 {
 			// File needs to be deleted if signature is invalid
 			deleteFile = true
-
+			m.log.Println("Hash mismatch for bundle", bundle)
+			return fmt.Errorf("hash does not match: got %x, wanted %x", hashed, hash)
+		}
+	}
+	if signature != nil {
+		err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature)
+		if err != nil {
+			// File needs to be deleted if signature is invalid
+			deleteFile = true
+			m.log.Println("Signature mismatch for bundle", bundle)
 			return err
 		}
-	} else {
-		m.log.Printf("[Warn] Bundle %s did not contain a signature; skipping integrity and origin check\n", bundle)
 	}
 
 	return nil

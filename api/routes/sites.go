@@ -129,7 +129,7 @@ func ListSiteHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, sites)
 }
 
-// ShowSiteHandler is the handler for GET /site/{domain}, which shows a site
+// ShowSiteHandler is the handler for GET /site/:domain, which shows a site
 func ShowSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
 		// Get the site from the state object
@@ -149,7 +149,7 @@ func ShowSiteHandler(c *gin.Context) {
 	}
 }
 
-// DeleteSiteHandler is the handler for DELETE /site/{domain}, which deletes a site
+// DeleteSiteHandler is the handler for DELETE /site/:domain, which deletes a site
 func DeleteSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
 		// Get the site from the state object to check if it exists
@@ -177,7 +177,7 @@ func DeleteSiteHandler(c *gin.Context) {
 	}
 }
 
-// PatchSiteHandler is the handler for PATCH /site/{domain}, which replaces a site
+// PatchSiteHandler is the handler for PATCH /site/:domain, which replaces a site
 func PatchSiteHandler(c *gin.Context) {
 	// Get the site to update (domain name)
 	domain := c.Param("domain")

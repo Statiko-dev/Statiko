@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,6 +37,9 @@ var (
 // Initializes the authentication objects for Azure
 func initAzure() error {
 	tenantID := appconfig.Config.GetString("azure.sp.tenantId")
+	if tenantID == "" {
+		return errors.New("azure.sp.tenantId must be defined")
+	}
 
 	// Get Azure environment properties
 	env, err := azure.EnvironmentFromName("AZUREPUBLICCLOUD")
@@ -78,6 +82,8 @@ func GetAzureEndpoint(service string) (endpoint string, err error) {
 	case "storage":
 		endpoint = azureEnv.ResourceIdentifiers.Storage
 		break
+	default:
+		return "", errors.New("invalid service name: " + service)
 	}
 
 	return
@@ -142,6 +148,9 @@ func GetAzureServicePrincipalToken(service string) (*adal.ServicePrincipalToken,
 	// Service Principal-based authorization
 	clientID := appconfig.Config.GetString("azure.sp.clientId")
 	clientSecret := appconfig.Config.GetString("azure.sp.clientSecret")
+	if clientID == "" || clientSecret == "" {
+		return nil, errors.New("azure.sp.clientId and azure.sp.clientSecret must be defined")
+	}
 	spt, err := adal.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, endpoint)
 	if err != nil {
 		return nil, err
