@@ -172,7 +172,7 @@ jobs:
           --rm \
           -v "$PWD":/usr/src/myapp \
           -w /usr/src/myapp \
-          ${{env.NODE_BUILDER_IMAGE}} \
+          ${{env.GO_BUILDER_IMAGE}} \
             sh -c '
               echo -e "###\nFetching utilities\n"
               go get github.com/axw/gocov/gocov
