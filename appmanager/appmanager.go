@@ -720,29 +720,40 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 func (m *Manager) FetchBundle(bundle string) error {
 	// Get the archive
 	found, data, metadata, err := fs.Instance.Get(bundle)
-	defer data.Close()
 	if err != nil {
 		return err
 	}
 	if !found {
 		return errors.New("bundle not found in store")
 	}
+	defer data.Close()
 
-	// Get the signature from the blob's metadata, if any
-	// Skip if we don't have a codesign key
+	var hash []byte
 	var signature []byte
-	if m.codeSignKey != nil {
-		if metadata != nil && len(metadata) > 0 {
+	if metadata != nil && len(metadata) > 0 {
+		// Get the hash from the blob's metadata, if any
+		hashB64, ok := metadata["hash"]
+		if ok && hashB64 != "" {
+			hash, err = base64.StdEncoding.DecodeString(hashB64)
+			if err != nil {
+				return err
+			}
+			if len(hash) != 32 {
+				hash = nil
+			}
+		}
+
+		// Get the signature from the blob's metadata, if any
+		// Skip if we don't have a codesign key
+		if m.codeSignKey != nil {
 			signatureB64, ok := metadata["signature"]
 			if ok && signatureB64 != "" {
-				// Signature should be 512-byte long (+1 null terminator). If it's longer, Go will throw an error anyways (out of range)
-				signature = make([]byte, 513)
-				len, err := base64.StdEncoding.Decode(signature, []byte(signatureB64))
+				signature, err = base64.StdEncoding.DecodeString(signatureB64)
 				if err != nil {
 					return err
 				}
-				if len != 512 {
-					return errors.New("Invalid signature length")
+				if len(signature) != 512 {
+					signature = nil
 				}
 			}
 		}
@@ -782,20 +793,26 @@ func (m *Manager) FetchBundle(bundle string) error {
 	hashed := h.Sum(nil)
 	m.log.Printf("SHA256 checksum for bundle %s is %x\n", bundle, hashed)
 
-	// Verify the digital signature if present
-	if signature != nil {
-		// (Need to grab the first 512 bytes from the signature only)
-		err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature[:512])
-		if err != nil {
-			m.log.Println("Signature mismatch for bundle", bundle)
-
+	// Verify the hash and digital signature if present
+	if hash == nil && signature == nil {
+		m.log.Printf("[Warn] Bundle %s did not contain a signature; skipping integrity and origin check\n", bundle)
+	}
+	if hash != nil {
+		if bytes.Compare(hash, hashed) != 0 {
 			// File needs to be deleted if signature is invalid
 			deleteFile = true
-
+			m.log.Println("Hash mismatch for bundle", bundle)
+			return fmt.Errorf("hash does not match: got %x, wanted %x", hashed, hash)
+		}
+	}
+	if signature != nil {
+		err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature)
+		if err != nil {
+			// File needs to be deleted if signature is invalid
+			deleteFile = true
+			m.log.Println("Signature mismatch for bundle", bundle)
 			return err
 		}
-	} else {
-		m.log.Printf("[Warn] Bundle %s did not contain a signature; skipping integrity and origin check\n", bundle)
 	}
 
 	return nil

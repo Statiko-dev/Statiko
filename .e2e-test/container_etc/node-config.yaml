@@ -34,7 +34,7 @@ repo:
 nodeName: "e2e-test"
 
 codesign:
-  required: true
+  required: false
   publicKey: |-
     -----BEGIN RSA PUBLIC KEY-----
     MIICCgKCAgEArq01IOnu8nFHAy8W0YuDu2L/zJUuJXh9TbAT0I49vOwSzAZr+pb0
