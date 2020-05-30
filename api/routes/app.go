@@ -26,7 +26,7 @@ import (
 )
 
 // AppUploadHandler is the handler for POST /app, which is used to upload new app bundles
-// The request body must be a multipart/form-data with a "file" field containing the bundle and an optional "signature" one
+// The request body must be a multipart/form-data with a "file" field containing the bundle, and optional "signature" and/or "hash" ones
 func AppUploadHandler(c *gin.Context) {
 	// Get the file from the body
 	file, err := c.FormFile("file")
@@ -53,18 +53,28 @@ func AppUploadHandler(c *gin.Context) {
 	defer in.Close()
 
 	// Check if we have a signature to store together with the file
+	metadata := make(map[string]string)
 	signature := c.PostForm("signature")
-	var metadata map[string]string
 	if signature != "" {
 		if len(signature) > 1024 {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": "Value for signature cannot be longer than 1024 characters",
+				"error": "Value for 'signature' cannot be longer than 1024 characters",
 			})
 			return
 		}
-		metadata = map[string]string{
-			"signature": signature,
+		metadata["signature"] = signature
+	}
+
+	// Check if we have a hash
+	hash := c.PostForm("hash")
+	if hash != "" {
+		if len(hash) > 64 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Value for 'hash' cannot be longer than 64 characters",
+			})
+			return
 		}
+		metadata["hash"] = hash
 	}
 
 	// Store the file
@@ -80,15 +90,16 @@ func AppUploadHandler(c *gin.Context) {
 	}
 
 	// Response
-	c.AbortWithStatus(http.StatusOK)
+	c.AbortWithStatus(http.StatusNoContent)
 }
 
 type appUpdateRequest struct {
 	Signature string `json:"signature" form:"signature"`
+	Hash      string `json:"hash" form:"hash"`
 }
 
 // AppUpdateHandler is the handler for POST /app/:name, which updates the signature of a file
-// The request may contain a "signature" field
+// The request may contain a "signature" field or a "hash" onne
 func AppUpdateHandler(c *gin.Context) {
 	// Get the app to update
 	name := c.Param("name")
@@ -109,18 +120,25 @@ func AppUpdateHandler(c *gin.Context) {
 		return
 	}
 
-	// Field could be empty if we're trying to remove a signature
-	var metadata map[string]string
+	// Fields could be empty if we're trying to remove a signature/hash
+	metadata := make(map[string]string)
 	if data.Signature != "" {
 		if len(data.Signature) > 1024 {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": "Value for signature cannot be longer than 1024 characters",
+				"error": "Value for 'signature' cannot be longer than 1024 characters",
 			})
 			return
 		}
-		metadata = map[string]string{
-			"signature": data.Signature,
+		metadata["signature"] = data.Signature
+	}
+	if data.Hash != "" {
+		if len(data.Hash) > 64 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Value for 'hash' cannot be longer than 64 characters",
+			})
+			return
 		}
+		metadata["hash"] = data.Hash
 	}
 
 	// Update the metadata
@@ -137,5 +155,5 @@ func AppUpdateHandler(c *gin.Context) {
 	}
 
 	// Response
-	c.AbortWithStatus(http.StatusOK)
+	c.AbortWithStatus(http.StatusNoContent)
 }
