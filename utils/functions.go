@@ -28,7 +28,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
 	"net/http"
 	"regexp"
 	"strings"
@@ -92,18 +91,6 @@ func ParseRSAPublicKey(nStr string, eStr string) (*rsa.PublicKey, error) {
 	pubKey.E = int(e.Int64())
 
 	return pubKey, nil
-}
-
-// Letters used for random string generation
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-// RandString returns a random string of n bytes
-func RandString(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
-	}
-	return string(b)
 }
 
 // SHA256String returns the SHA256 of a string, as a hex-encoded string
