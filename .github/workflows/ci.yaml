@@ -82,6 +82,8 @@ jobs:
           -e CGO_ENABLED=0 \
           ${{env.GO_BUILDER_IMAGE}} \
             sh -c '
+              set -e
+
               echo -e "###\nFetching packr2\n"
               mkdir -p .packr
               wget -O - https://github.com/gobuffalo/packr/releases/download/v${{env.PACKR_VERSION}}/packr_${{env.PACKR_VERSION}}_linux_amd64.tar.gz | tar xvz -C .packr
@@ -94,6 +96,7 @@ jobs:
               go get
 
               echo -e "\n###\nRunning unit tests\n"
+              AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }} \
               REPO_S3_ACCESS_KEY_ID=${{ secrets.REPO_S3_ACCESS_KEY_ID }} \
               REPO_S3_SECRET_ACCESS_KEY=${{ secrets.REPO_S3_SECRET_ACCESS_KEY }} \
               REPO_S3_BUCKET=statiko-test \
