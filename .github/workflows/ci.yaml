@@ -185,7 +185,7 @@ jobs:
               gocovmerge \
                 .e2e-test/results/unittests.out \
                 .e2e-test/results/e2e.out \
-                > .e2e-test/results/coverage.html
+                > .e2e-test/results/coverage.out
 
               echo -e "###\nConverting coverage reports\n"
               gocov convert .e2e-test/results/coverage.out | gocov-xml > .e2e-test/results/coverage.xml
