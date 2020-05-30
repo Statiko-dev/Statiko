@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -115,6 +116,10 @@ func (f *S3) Get(name string) (found bool, data io.ReadCloser, metadata map[stri
 }
 
 func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err error) {
+	return f.SetWithContext(context.Background(), name, in, metadata)
+}
+
+func (f *S3) SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
@@ -132,7 +137,7 @@ func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err err
 	if metadata != nil && len(metadata) == 0 {
 		metadata = nil
 	}
-	_, err = f.client.PutObject(f.bucketName, name, in, -1, minio.PutObjectOptions{
+	_, err = f.client.PutObjectWithContext(ctx, f.bucketName, name, in, -1, minio.PutObjectOptions{
 		UserMetadata: metadata,
 	})
 	if err != nil {

@@ -78,7 +78,7 @@ func AppUploadHandler(c *gin.Context) {
 	}
 
 	// Store the file
-	err = fs.Instance.Set(name, in, metadata)
+	err = fs.Instance.SetWithContext(c.Request.Context(), name, in, metadata)
 	if err != nil {
 		if err == fs.ErrExist {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{

@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -65,6 +66,9 @@ type Fs interface {
 
 	// Set writes a stream to the file in the filesystem
 	Set(name string, in io.Reader, metadata map[string]string) (err error)
+
+	// SetWithContext is like Set, but accepts a custom context object
+	SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error)
 
 	// SetMetadata updates a file's metadata in the filesystem
 	SetMetadata(name string, metadata map[string]string) error

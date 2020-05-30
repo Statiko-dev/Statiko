@@ -121,6 +121,10 @@ func (f *AzureStorage) Get(name string) (found bool, data io.ReadCloser, metadat
 }
 
 func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string) (err error) {
+	return f.SetWithContext(context.Background(), name, in, metadata)
+}
+
+func (f *AzureStorage) SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
@@ -141,7 +145,7 @@ func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string
 	}
 
 	// Upload the blob
-	_, err = azblob.UploadStreamToBlockBlob(context.Background(), in, blockBlobURL, azblob.UploadStreamToBlockBlobOptions{
+	_, err = azblob.UploadStreamToBlockBlob(ctx, in, blockBlobURL, azblob.UploadStreamToBlockBlobOptions{
 		BufferSize:       3 * 1024 * 1024,
 		MaxBuffers:       2,
 		AccessConditions: accessConditions,
@@ -159,7 +163,7 @@ func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string
 
 	// Set metadata, if any
 	if metadata != nil && len(metadata) > 0 {
-		_, err = blockBlobURL.SetMetadata(context.Background(), metadata, azblob.BlobAccessConditions{})
+		_, err = blockBlobURL.SetMetadata(ctx, metadata, azblob.BlobAccessConditions{})
 		if err != nil {
 			// Delete the file
 			_ = f.Delete(name)

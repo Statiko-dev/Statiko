@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -125,6 +126,10 @@ func (f *Local) Get(name string) (found bool, data io.ReadCloser, metadata map[s
 }
 
 func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err error) {
+	return f.SetWithContext(context.Background(), name, in, metadata)
+}
+
+func (f *Local) SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		return ErrNameEmptyInvalid
 	}
@@ -155,7 +160,7 @@ func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err 
 	defer file.Close()
 
 	// Write the stream to file
-	_, err = io.Copy(file, in)
+	_, err = io.Copy(file, utils.ReaderFuncWithContext(ctx, in))
 	if err != nil {
 		return err
 	}
