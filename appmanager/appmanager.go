@@ -680,7 +680,7 @@ func (m *Manager) StageApp(bundle string) error {
 			return err
 		}
 		return errors.New("no files in the extracted folder")
-	} else if len(contents) == 1 && contents[0].IsDir() && false {
+	} else if len(contents) == 1 && contents[0].IsDir() {
 		// If there's only one folder, move all files one directory up
 		// First, rename to a temporary folder (app bundles can't begin with an underscore)
 		// Then, delete the target folder and rename the extracted one
