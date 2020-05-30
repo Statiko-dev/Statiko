@@ -4,6 +4,8 @@
 # Required secrets:
 # - DOCKER_PASSWORD password for Docker Hub
 # - AZURE_CLIENT_SECRET secret for the Azure Service principal
+# - REPO_S3_ACCESS_KEY_ID access key ID for AWS S3 for testing
+# - REPO_S3_SECRET_ACCESS_KEY secret access key for AWS S3 for testing
 
 name: Continuous Integration
 
@@ -63,16 +65,21 @@ jobs:
         echo -e "\n###\nCompilation done\n"
         ls -al default-app/dist
 
-    # Build Statiko
-    - name: Build Statiko
+    # Build and test Statiko
+    - name: Build and test Statiko
       run: |
         mkdir -p .bin
 
         # Build using Docker
+        # Disable CGO so the binary is fully static
         docker run \
           --rm \
           -v "$PWD":/usr/src/myapp \
+          -v "$PWD"/.e2e-test/results:/results \
+          -v "$PWD"/.e2e-test/container_etc:/etc/statiko \
           -w /usr/src/myapp \
+          -e GO111MODULE=on \
+          -e CGO_ENABLED=0 \
           ${{env.GO_BUILDER_IMAGE}} \
             sh -c '
               echo -e "###\nFetching packr2\n"
@@ -84,25 +91,27 @@ jobs:
               .packr/packr2
 
               echo -e "\n###\nFetching modules\n"
-              GO111MODULE=on \
-                go get
+              go get
+
+              echo -e "\n###\nRunning unit tests\n"
+              REPO_S3_ACCESS_KEY_ID=${{ secrets.REPO_S3_ACCESS_KEY_ID }} \
+              REPO_S3_SECRET_ACCESS_KEY=${{ secrets.REPO_S3_SECRET_ACCESS_KEY }} \
+              REPO_S3_BUCKET=statiko-test \
+              REPO_S3_ENDPOINT=s3.us-west-1.amazonaws.com \
+              REPO_AZURE_ACCOUNT=statikocistorage \
+                go test -v ./... -coverprofile=/results/unittests.out
 
               echo -e "\n###\nBuilding amd64\n"
-              # Disable CGO so the binary is fully static
-              CGO_ENABLED=0 \
               GOOS=linux \
               GOARCH=amd64 \
-              GO111MODULE=on \
                 go build \
                   -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
                   -o .bin/statiko_linux_amd64
               
               echo -e "\n###\nBuilding amd64 test binary\n"
               # Disable CGO so the binary is fully static
-              CGO_ENABLED=0 \
               GOOS=linux \
               GOARCH=amd64 \
-              GO111MODULE=on \
                 go test \
                 -coverpkg=github.com/statiko-dev/statiko/... \
                 -c \
@@ -160,7 +169,7 @@ jobs:
           --rm \
           -v "$PWD":/usr/src/myapp \
           -w /usr/src/myapp \
-          golang:1.13-alpine \
+          ${{env.NODE_BUILDER_IMAGE}} \
             sh -c '
               echo -e "###\nFetching utilities\n"
               go get github.com/axw/gocov/gocov
