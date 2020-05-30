@@ -175,10 +175,17 @@ jobs:
           ${{env.GO_BUILDER_IMAGE}} \
             sh -c '
               echo -e "###\nFetching utilities\n"
+              go get github.com/wadey/gocovmerge
               go get github.com/axw/gocov/gocov
               go get github.com/axw/gocov/...
               go get github.com/matm/gocov-html
               go get github.com/AlekSi/gocov-xml
+
+              echo -e "###\nMerging coverage reports\n"
+              gocovmerge \
+                .e2e-test/results/unittests.out \
+                .e2e-test/results/e2e.out \
+                > .e2e-test/results/coverage.html
 
               echo -e "###\nConverting coverage reports\n"
               gocov convert .e2e-test/results/coverage.out | gocov-xml > .e2e-test/results/coverage.xml
