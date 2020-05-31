@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
 )
@@ -64,6 +65,12 @@ type Fs interface {
 	// Get returns a stream to a file in the filesystem
 	Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error)
 
+	// List returns the list of files in the filesystem
+	List() ([]FileInfo, error)
+
+	// ListWithContext is like List, but accepts a custom context object
+	ListWithContext(ctx context.Context) ([]FileInfo, error)
+
 	// Set writes a stream to the file in the filesystem
 	Set(name string, in io.Reader, metadata map[string]string) (err error)
 
@@ -75,6 +82,13 @@ type Fs interface {
 
 	// Delete a file from the filesystem
 	Delete(name string) (err error)
+}
+
+// FileInfo object returned by the List methods
+type FileInfo struct {
+	Name         string
+	Size         int64
+	LastModified time.Time
 }
 
 // Errors

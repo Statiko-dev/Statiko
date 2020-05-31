@@ -184,6 +184,31 @@ func sharedGetTest(t *testing.T, obj Fs) func() {
 	}
 }
 
+func sharedListTest(t *testing.T, obj Fs) func() {
+	return func() {
+		list, err := obj.List()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// List can have more elements, we'll just check for the ones we created
+		if len(list) < 2 {
+			t.Fatalf("List needs to have at least 2 elements, got %d", len(list))
+		}
+		found := 0
+		for _, el := range list {
+			if el.Name == "testphoto.jpg" || el.Name == "testphoto2.jpg" {
+				found++
+				if found == 2 {
+					break
+				}
+			}
+		}
+		if found != 2 {
+			t.Fatal("List does not contain both testphoto.jpg and testphoto2.jpg")
+		}
+	}
+}
+
 func sharedSetMetadataTest(t *testing.T, obj Fs) func() {
 	return func() {
 		setMetadata := map[string]string{

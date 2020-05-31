@@ -115,6 +115,52 @@ func (f *S3) Get(name string) (found bool, data io.ReadCloser, metadata map[stri
 	return
 }
 
+func (f *S3) List() ([]FileInfo, error) {
+	return f.ListWithContext(context.Background())
+}
+
+func (f *S3) ListWithContext(ctx context.Context) ([]FileInfo, error) {
+	// Channel to cancel the operation
+	doneCh := make(chan struct{})
+	doneSent := false
+	defer func() {
+		if !doneSent {
+			doneCh <- struct{}{}
+		}
+		close(doneCh)
+	}()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				doneCh <- struct{}{}
+				doneSent = true
+				return
+			case <-doneCh:
+				return
+			}
+		}
+	}()
+
+	// Request the list of files
+	resp := f.client.ListObjectsV2(f.bucketName, "", false, doneCh)
+
+	// Iterate through the response
+	list := make([]FileInfo, 0)
+	for msg := range resp {
+		if msg.Err != nil {
+			return nil, msg.Err
+		}
+		list = append(list, FileInfo{
+			Name:         msg.Key,
+			Size:         msg.Size,
+			LastModified: msg.LastModified,
+		})
+	}
+
+	return list, nil
+}
+
 func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err error) {
 	return f.SetWithContext(context.Background(), name, in, metadata)
 }
@@ -155,6 +201,7 @@ func (f *S3) SetMetadata(name string, metadata map[string]string) error {
 	if metadata == nil || len(metadata) == 0 {
 		metadata = map[string]string{
 			// Fix an issue with Minio not being able to delete metadata
+			// See: https://github.com/minio/minio-go/issues/1295
 			"": "",
 		}
 	}

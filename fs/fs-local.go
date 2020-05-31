@@ -125,6 +125,14 @@ func (f *Local) Get(name string) (found bool, data io.ReadCloser, metadata map[s
 	return
 }
 
+func (f *Local) List() ([]FileInfo, error) {
+	return f.ListWithContext(context.Background())
+}
+
+func (f *Local) ListWithContext(ctx context.Context) ([]FileInfo, error) {
+	return nil, nil
+}
+
 func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err error) {
 	return f.SetWithContext(context.Background(), name, in, metadata)
 }

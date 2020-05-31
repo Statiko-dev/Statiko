@@ -120,6 +120,61 @@ func (f *AzureStorage) Get(name string) (found bool, data io.ReadCloser, metadat
 	return
 }
 
+func (f *AzureStorage) List() ([]FileInfo, error) {
+	return f.ListWithContext(context.Background())
+}
+
+func (f *AzureStorage) ListWithContext(ctx context.Context) ([]FileInfo, error) {
+	// Create the container URL
+	u, err := url.Parse(f.storageURL)
+	if err != nil {
+		return nil, err
+	}
+	containerUrl := azblob.NewContainerURL(*u, f.storagePipeline)
+
+	// Request the list
+	list := make([]FileInfo, 0)
+	marker := azblob.Marker{}
+	more := true
+	for more {
+		resp, err := containerUrl.ListBlobsFlatSegment(ctx, marker, azblob.ListBlobsSegmentOptions{})
+		if err != nil {
+			if stgErr, ok := err.(azblob.StorageError); !ok {
+				return nil, fmt.Errorf("network error while listing filles: %s", err.Error())
+			} else {
+				return nil, fmt.Errorf("Azure Storage error while listing filles: %s", stgErr.Response().Status)
+			}
+		}
+
+		// Check if there's more
+		marker = resp.NextMarker
+		if !marker.NotDone() {
+			fmt.Println("Done")
+			more = false
+		} else {
+			fmt.Println("Not Done")
+		}
+
+		// Iterate through the response
+		if resp == nil || resp.Segment.BlobItems == nil {
+			return nil, errors.New("invalid response object")
+		}
+		for _, el := range resp.Segment.BlobItems {
+			size := int64(0)
+			if el.Properties.ContentLength != nil {
+				size = *el.Properties.ContentLength
+			}
+			list = append(list, FileInfo{
+				Name:         el.Name,
+				Size:         size,
+				LastModified: el.Properties.LastModified,
+			})
+		}
+	}
+
+	return list, nil
+}
+
 func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string) (err error) {
 	return f.SetWithContext(context.Background(), name, in, metadata)
 }
@@ -157,7 +212,7 @@ func (f *AzureStorage) SetWithContext(ctx context.Context, name string, in io.Re
 			if stgErr.ServiceCode() == "BlobAlreadyExists" {
 				return ErrExist
 			}
-			return fmt.Errorf("Azure Storage error failed while uploading the file: %s", stgErr.Response().Status)
+			return fmt.Errorf("Azure Storage error while uploading the file: %s", stgErr.Response().Status)
 		}
 	}
 
