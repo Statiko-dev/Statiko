@@ -136,18 +136,3 @@ func CertificateExists(cert string, key string) (exists bool, err error) {
 	}
 	return
 }
-
-// WriteData writes a byte slice to disk
-func WriteData(data []byte, path string) error {
-	f, err := os.Create(path)
-	defer f.Close()
-
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(data); err != nil {
-		return err
-	}
-
-	return f.Close()
-}

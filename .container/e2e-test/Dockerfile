@@ -56,4 +56,4 @@ FROM testimage
 # Copy the binary with the coverage test, then change the command in the supervisord.conf
 RUN mv .bin/statiko_linux_amd64.test /usr/local/bin/statiko.test \
     && chmod +x /usr/local/bin/statiko.test \
-    && sed -i 's/\/usr\/local\/bin\/statiko/\/usr\/local\/bin\/statiko.test -test.run "^TestRunMain$" -test.coverprofile=\/results\/coverage.out/' /etc/supervisord.conf 
+    && sed -i 's/\/usr\/local\/bin\/statiko/\/usr\/local\/bin\/statiko.test -test.run "^TestRunMain$" -test.coverprofile=\/results\/e2e.out/' /etc/supervisord.conf 
