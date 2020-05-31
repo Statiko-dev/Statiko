@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -74,4 +75,221 @@ func openTestFile() io.ReadCloser {
 func calculateDigest(data []byte) string {
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
+}
+
+func sharedSetTest(t *testing.T, obj Fs) func() {
+	return func() {
+		t.Run("empty name", func(t *testing.T) {
+			in := openTestFile()
+			defer in.Close()
+			err := obj.Set("", in, nil)
+			if err != ErrNameEmptyInvalid {
+				t.Error("Expected ErrNameEmptyInvalid, got", err)
+			}
+		})
+		t.Run("normal", func(t *testing.T) {
+			in := openTestFile()
+			defer in.Close()
+			err := obj.Set("testphoto.jpg", in, nil)
+			if err != nil {
+				t.Error("Got error", err)
+			}
+		})
+		t.Run("file exists", func(t *testing.T) {
+			in := openTestFile()
+			defer in.Close()
+			err := obj.Set("testphoto.jpg", in, nil)
+			if err != ErrExist {
+				t.Error("Expected ErrExist, got", err)
+			}
+		})
+		t.Run("with metadata", func(t *testing.T) {
+			in := openTestFile()
+			defer in.Close()
+			err := obj.Set("testphoto2.jpg", in, metadata)
+			if err != nil {
+				t.Error("Got error", err)
+			}
+		})
+	}
+}
+
+func sharedGetTest(t *testing.T, obj Fs) func() {
+	return func() {
+		t.Run("empty name", func(t *testing.T) {
+			_, _, _, err := obj.Get("")
+			if err != ErrNameEmptyInvalid {
+				t.Error("Expected ErrNameEmptyInvalid, got", err)
+			}
+		})
+		t.Run("not existing", func(t *testing.T) {
+			found, _, mData, err := obj.Get("notexist")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+			if mData != nil && len(mData) != 0 {
+				t.Fatal("Expected metadata to be empty")
+			}
+			if found {
+				t.Fatal("Expected found to be false")
+			}
+		})
+		t.Run("normal", func(t *testing.T) {
+			found, data, mData, err := obj.Get("testphoto.jpg")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+			if !found {
+				t.Fatal("Expected found to be true")
+			}
+			if mData != nil && len(mData) != 0 {
+				t.Fatal("Expected metadata to be empty")
+			}
+			read, err := ioutil.ReadAll(data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(read) < 1 {
+				t.Fatal("No data returned by the function")
+			}
+			if calculateDigest(read) != testFileDigest {
+				t.Fatal("Downloaded file's digest doesn't match")
+			}
+		})
+		t.Run("with metadata", func(t *testing.T) {
+			found, data, mData, err := obj.Get("testphoto2.jpg")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+			if !found {
+				t.Fatal("Expected found to be true")
+			}
+			if mData == nil || len(mData) == 0 {
+				t.Fatal("Expected metadata not to be empty")
+			}
+			if !reflect.DeepEqual(mData, metadata) {
+				t.Fatal("Metadata does not match")
+			}
+			read, err := ioutil.ReadAll(data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(read) < 1 {
+				t.Fatal("No data returned by the function")
+			}
+			if calculateDigest(read) != testFileDigest {
+				t.Fatal("Downloaded file's digest doesn't match")
+			}
+		})
+	}
+}
+
+func sharedSetMetadataTest(t *testing.T, obj Fs) func() {
+	return func() {
+		setMetadata := map[string]string{
+			"foo": "bar",
+		}
+		t.Run("empty name", func(t *testing.T) {
+			err := obj.SetMetadata("", setMetadata)
+			if err != ErrNameEmptyInvalid {
+				t.Error("Expected ErrNameEmptyInvalid, got", err)
+			}
+		})
+		t.Run("not existing", func(t *testing.T) {
+			err := obj.SetMetadata("notexist", setMetadata)
+			if err != ErrNotExist {
+				t.Fatal("Expected ErrNotExist, got", err)
+			}
+		})
+		t.Run("add metadata", func(t *testing.T) {
+			err := obj.SetMetadata("testphoto.jpg", setMetadata)
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+		})
+		t.Run("check metadata added", func(t *testing.T) {
+			found, _, mData, err := obj.Get("testphoto.jpg")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+			if !found {
+				t.Fatal("Expected found to be true")
+			}
+			if mData == nil || len(mData) == 0 {
+				t.Fatal("Expected metadata not to be empty")
+			}
+			if !reflect.DeepEqual(mData, setMetadata) {
+				t.Fatal("Metadata does not match")
+			}
+		})
+		setMetadata["hello"] = "world"
+		t.Run("update metadata", func(t *testing.T) {
+			err := obj.SetMetadata("testphoto.jpg", setMetadata)
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+		})
+		t.Run("check metadata added", func(t *testing.T) {
+			found, _, mData, err := obj.Get("testphoto.jpg")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+			if !found {
+				t.Fatal("Expected found to be true")
+			}
+			if mData == nil || len(mData) == 0 {
+				t.Fatal("Expected metadata not to be empty")
+			}
+			if !reflect.DeepEqual(mData, setMetadata) {
+				t.Fatal("Metadata does not match")
+			}
+		})
+		t.Run("remove metadata", func(t *testing.T) {
+			err := obj.SetMetadata("testphoto.jpg", nil)
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+		})
+		t.Run("check metadata removed", func(t *testing.T) {
+			found, _, mData, err := obj.Get("testphoto.jpg")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+			if !found {
+				t.Fatal("Expected found to be true")
+			}
+			if mData != nil && len(mData) != 0 {
+				t.Fatal("Expected metadata to be empty")
+			}
+		})
+	}
+}
+
+func sharedDeleteTest(t *testing.T, obj Fs) func() {
+	return func() {
+		t.Run("empty name", func(t *testing.T) {
+			err := obj.Delete("")
+			if err != ErrNameEmptyInvalid {
+				t.Error("Expected ErrNameEmptyInvalid, got", err)
+			}
+		})
+		t.Run("not existing", func(t *testing.T) {
+			err := obj.Delete("notexist")
+			if err != ErrNotExist {
+				t.Fatal("Expected ErrNotExist, got", err)
+			}
+		})
+		t.Run("normal", func(t *testing.T) {
+			err := obj.Delete("testphoto.jpg")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+		})
+		t.Run("with metadata", func(t *testing.T) {
+			err := obj.Delete("testphoto2.jpg")
+			if err != nil {
+				t.Fatal("Expected err to be nil, got", err)
+			}
+		})
+	}
 }
