@@ -170,3 +170,32 @@ func AppListHandler(c *gin.Context) {
 	// Response
 	c.JSON(http.StatusOK, list)
 }
+
+// AppDeleteHandler is the handler for DELETE /app/:name which removes an app from the storage
+func AppDeleteHandler(c *gin.Context) {
+	// Get the app to delete
+	name := c.Param("name")
+	name = utils.SanitizeAppName(name)
+	if len(name) == 0 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid parameter 'name' (app name)",
+		})
+		return
+	}
+
+	// Delete the app
+	err := fs.Instance.Delete(name)
+	if err != nil {
+		if err == fs.ErrNotExist {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "File does not exist",
+			})
+			return
+		}
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Response
+	c.Status(http.StatusNoContent)
+}
