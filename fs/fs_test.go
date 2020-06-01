@@ -25,6 +25,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 var (
@@ -34,7 +35,8 @@ var (
 )
 
 const testFileName = "../.e2e-test/fixtures/simone-mascellari-h1SSRcFuHMk-unsplash.jpg"
-const testFileDigest = "cae18d3ba38520dbd850f24b19739651a57e2a8bda4199f039b870173463c420"
+const testFileDigest = "29118369f295f81324bbff85e370f8da6c33ea27498733a293d5ce5b361b7ca0"
+const testFileSize = 275857
 
 // TestMain initializes all tests for this package
 func TestMain(m *testing.M) {
@@ -190,13 +192,22 @@ func sharedListTest(t *testing.T, obj Fs) func() {
 		if err != nil {
 			t.Fatal(err)
 		}
+		time5MinsAgo := time.Now().Add(-5 * time.Minute)
 		// List can have more elements, we'll just check for the ones we created
 		if len(list) < 2 {
 			t.Fatalf("List needs to have at least 2 elements, got %d", len(list))
 		}
 		found := 0
 		for _, el := range list {
+			// Look for these 2 files
 			if el.Name == "testphoto.jpg" || el.Name == "testphoto2.jpg" {
+				// Ensure the file was created recently and size is the expected one
+				if el.Size != testFileSize {
+					t.Errorf("Size for file %s does not match the required one: %d", el.Name, el.Size)
+				}
+				if !el.LastModified.After(time5MinsAgo) {
+					t.Errorf("LastModified for file %s is not within the last 5 minutes: %v", el.Name, el.LastModified)
+				}
 				found++
 				if found == 2 {
 					break

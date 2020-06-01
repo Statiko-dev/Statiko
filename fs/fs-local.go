@@ -126,11 +126,28 @@ func (f *Local) Get(name string) (found bool, data io.ReadCloser, metadata map[s
 }
 
 func (f *Local) List() ([]FileInfo, error) {
-	return f.ListWithContext(context.Background())
+	// List files
+	read, err := ioutil.ReadDir(f.basePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate through the result to get the slice in the format we want
+	list := make([]FileInfo, len(read))
+	for i, el := range read {
+		list[i] = FileInfo{
+			Name:         el.Name(),
+			Size:         el.Size(),
+			LastModified: el.ModTime(),
+		}
+	}
+
+	return list, nil
 }
 
 func (f *Local) ListWithContext(ctx context.Context) ([]FileInfo, error) {
-	return nil, nil
+	// This filesystem does not support a context
+	return f.List()
 }
 
 func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err error) {

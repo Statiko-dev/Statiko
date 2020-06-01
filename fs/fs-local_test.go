@@ -84,6 +84,10 @@ func TestLocalGet(t *testing.T) {
 	sharedGetTest(t, obj)()
 }
 
+func TestLocalList(t *testing.T) {
+	sharedListTest(t, obj)()
+}
+
 func TestLocalSetMetadata(t *testing.T) {
 	sharedSetMetadataTest(t, obj)()
 }
