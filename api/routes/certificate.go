@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -61,7 +62,7 @@ func ImportCertificateHandler(c *gin.Context) {
 
 	// Validate the name
 	if certNameRegEx == nil {
-		certNameRegEx = regexp.MustCompile("^([a-z][a-zA-Z0-9\\.\\-]*)$")
+		certNameRegEx = regexp.MustCompile("^([a-z][a-z0-9\\.\\-]*)$")
 	}
 	data.Name = strings.ToLower(data.Name)
 	if !certNameRegEx.MatchString(data.Name) {
@@ -136,6 +137,7 @@ func ImportCertificateHandler(c *gin.Context) {
 func ListCertificateHandler(c *gin.Context) {
 	// Get the list of certificates from the state object
 	certs := state.Instance.ListImportedCertificates()
+	sort.Strings(certs)
 	c.JSON(http.StatusOK, certs)
 }
 
