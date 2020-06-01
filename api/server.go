@@ -203,6 +203,7 @@ func (s *APIServer) setupRoutes() {
 
 		group.POST("/app", routes.AppUploadHandler)
 		group.POST("/app/:name", routes.AppUpdateHandler)
+		group.GET("/app", routes.AppListHandler)
 
 		group.POST("/certificate", routes.ImportCertificateHandler)
 		group.GET("/certificate", routes.ListCertificateHandler)

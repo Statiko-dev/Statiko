@@ -90,7 +90,7 @@ func AppUploadHandler(c *gin.Context) {
 	}
 
 	// Response
-	c.AbortWithStatus(http.StatusNoContent)
+	c.Status(http.StatusNoContent)
 }
 
 type appUpdateRequest struct {
@@ -155,5 +155,18 @@ func AppUpdateHandler(c *gin.Context) {
 	}
 
 	// Response
-	c.AbortWithStatus(http.StatusNoContent)
+	c.Status(http.StatusNoContent)
+}
+
+// AppListHandler is the handler for GET /app which returns the list of apps
+func AppListHandler(c *gin.Context) {
+	// Get the list
+	list, err := fs.Instance.ListWithContext(c.Request.Context())
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Response
+	c.JSON(http.StatusOK, list)
 }
