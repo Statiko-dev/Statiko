@@ -39,13 +39,14 @@ const (
 
 // Manager is the state manager class
 type Manager struct {
-	RefreshHealth chan int
-	RefreshCerts  chan int
-	updated       *time.Time
-	store         StateStore
-	storeType     string
-	siteHealth    SiteHealth
-	nodeHealth    *utils.NodeStatus
+	RefreshHealth      chan int
+	RefreshCerts       chan int
+	DHParamsGenerating bool
+	updated            *time.Time
+	store              StateStore
+	storeType          string
+	siteHealth         SiteHealth
+	nodeHealth         *utils.NodeStatus
 }
 
 // Init loads the state from the store

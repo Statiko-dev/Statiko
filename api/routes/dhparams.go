@@ -18,6 +18,7 @@ package routes
 
 import (
 	"net/http"
+	"time"
 
 	dhparam "github.com/Luzifer/go-dhparam"
 	"github.com/gin-gonic/gin"
@@ -29,8 +30,14 @@ type dhParamsRequest struct {
 	DHParams string `json:"dhparams" form:"dhparams"`
 }
 
-// DHParamsHandler is the handler for POST /dhparams, which stores new DH parameters (PEM-encoded)
-func DHParamsHandler(c *gin.Context) {
+type dhParamsResponse struct {
+	Type       string     `json:"type"`
+	Date       *time.Time `json:"date,omitempty"`
+	Generating bool       `json:"generating"`
+}
+
+// DHParamsSetHandler is the handler for POST /dhparams, which stores new DH parameters (PEM-encoded)
+func DHParamsSetHandler(c *gin.Context) {
 	// Get data from the form body
 	data := &dhParamsRequest{}
 	if err := c.Bind(data); err != nil {
@@ -79,4 +86,23 @@ func DHParamsHandler(c *gin.Context) {
 
 	// Return
 	c.Status(http.StatusNoContent)
+}
+
+// DHParamsGetHandler is the handler for GET /dhparams, which returns wether DH parameters exist or are being re-generated
+// The response type is "builtin" when the cluster is using the built-in DH parameters, and "cluster" when it's using DH parameters generated for the cluster
+func DHParamsGetHandler(c *gin.Context) {
+	// Get the current DH params's age
+	_, date := state.Instance.GetDHParams()
+
+	// Response
+	response := &dhParamsResponse{}
+	if date == nil {
+		response.Type = "builtin"
+	} else {
+		response.Type = "cluster"
+		response.Date = date
+	}
+	response.Generating = state.Instance.DHParamsGenerating
+
+	c.JSON(http.StatusOK, response)
 }

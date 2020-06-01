@@ -209,7 +209,9 @@ func (s *APIServer) setupRoutes() {
 		group.POST("/certificate", routes.ImportCertificateHandler)
 		group.GET("/certificate", routes.ListCertificateHandler)
 		group.DELETE("/certificate/:name", routes.DeleteCertificateHandler)
-		group.POST("/dhparams", routes.DHParamsHandler)
+
+		group.GET("/dhparams", routes.DHParamsGetHandler)
+		group.POST("/dhparams", routes.DHParamsSetHandler)
 
 		group.POST("/sync", routes.SyncHandler)
 	}

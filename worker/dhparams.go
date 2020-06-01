@@ -132,7 +132,9 @@ func dhparamsWorker(parentCtx context.Context) error {
 		// Need to regenerate the DH parameters
 		bits := appconfig.Config.GetInt("tls.dhparams.bits")
 		dhparamsLogger.Printf("DH parameters expired; starting generation with %d bits\n", bits)
+		state.Instance.DHParamsGenerating = true
 		result, err := dhparam.GenerateWithContext(ctx, bits, dhparam.GeneratorTwo, nil)
+		state.Instance.DHParamsGenerating = false
 		if err != nil {
 			if err == context.Canceled || err == context.DeadlineExceeded {
 				dhparamsLogger.Println("DH parameters generation aborted")
