@@ -133,13 +133,17 @@ func (f *Local) List() ([]FileInfo, error) {
 	}
 
 	// Iterate through the result to get the slice in the format we want
-	list := make([]FileInfo, len(read))
-	for i, el := range read {
-		list[i] = FileInfo{
+	list := make([]FileInfo, 0)
+	for _, el := range read {
+		// Ignore files that start with ".metadata."
+		if strings.HasPrefix(el.Name(), ".metadata.") {
+			continue
+		}
+		list = append(list, FileInfo{
 			Name:         el.Name(),
 			Size:         el.Size(),
 			LastModified: el.ModTime(),
-		}
+		})
 	}
 
 	return list, nil
