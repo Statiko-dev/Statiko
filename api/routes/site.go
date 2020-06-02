@@ -21,8 +21,10 @@ import (
 	"reflect"
 	"strings"
 
+	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/gin-gonic/gin"
 
+	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
@@ -37,6 +39,46 @@ func CreateSiteHandler(c *gin.Context) {
 			"error": "Invalid request body: " + err.Error(),
 		})
 		return
+	}
+
+	// If we're creating a temporary site, generate a domain name
+	if site.Temporary {
+		// Ensure a domain is set
+		tempDomain := appconfig.Config.GetString("temporarySites.domain")
+		if tempDomain == "" {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"error": "Configuration option `temporarySites.domain` must be set before creating a temporary site",
+			})
+			return
+		}
+		if tempDomain[0] != '.' {
+			// Ensure there's a dot at the beginning
+			tempDomain = "." + tempDomain
+		}
+
+		// Temporary sites cannot have domain names or aliases
+		if site.Domain != "" || len(site.Aliases) > 0 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Temporary sites cannot have a defined domain name or alias",
+			})
+			return
+		}
+		// Temporary domains cannot use TLS certificates from ACME, to avoid rate limiting
+		if site.TLS != nil && site.TLS.Type == state.TLSCertificateACME {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Temporary sites cannot request TLS certificates from ACME",
+			})
+			return
+		}
+		site.Domain = petname.Generate(3, "-") + tempDomain
+	} else {
+		// Ensure that the domain name is set
+		if site.Domain == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Field 'domain' is required",
+			})
+			return
+		}
 	}
 
 	// Check if site exists already

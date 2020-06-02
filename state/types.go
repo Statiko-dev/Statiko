@@ -40,8 +40,11 @@ type NodeState struct {
 // SiteState represents the state of a single site
 type SiteState struct {
 	// Domains: primary and aliases
-	Domain  string   `json:"domain" binding:"required,ne=_default"`
+	Domain  string   `json:"domain" binding:"ne=_default"`
 	Aliases []string `json:"aliases" binding:"dive,ne=_default"`
+
+	// Temporary site (e.g. for testing)
+	Temporary bool `json:"temporary,omitempty"`
 
 	// TLS configuration
 	TLS *SiteTLS `json:"tls"`
