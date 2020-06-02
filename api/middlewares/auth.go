@@ -38,11 +38,13 @@ var keyCache map[string]*rsa.PublicKey
 var jwksFetchInterval = 5 * time.Minute
 var jwksLastFetch time.Time
 
-// JWKS URL for Azure AD
+// JWKS URL and JWT token issuer for Azure AD
 const azureADJWKS = "https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys"
-
-// JWT Token issuer for Azure AD
 const azureADIssuer = "https://login.microsoftonline.com/{tenant}/v2.0"
+
+// JWKS URL and JWT token issuer for Auth0
+const auth0JWKS = "https://{domain}/.well-known/jwks.json"
+const auth0Issuer = "https://{domain}/"
 
 // Key response from the JWKS endpoint
 type jwksKey struct {
@@ -56,6 +58,25 @@ type jwksKey struct {
 
 // Auth middleware that checks the Authorization header in the request
 func Auth(required bool) gin.HandlerFunc {
+	// Check if an authentication provider is allowed; we can only support one at a time
+	auth0Enabled := appconfig.Config.GetBool("auth.auth0.enabled")
+	azureADEnabled := appconfig.Config.GetBool("auth.azureAD.enabled")
+	if auth0Enabled && azureADEnabled {
+		panic("only one external authentication provider can be enabled at any given time")
+	}
+
+	// Get the token key function
+	var tokenKeyFunc jwt.Keyfunc
+	var validateClaimFunc func(jwt.MapClaims) bool
+	switch {
+	case auth0Enabled:
+		tokenKeyFunc = tokenKeyFuncGenerator("auth0")
+		validateClaimFunc = validateClaimFuncGenerator("auth0")
+	case azureADEnabled:
+		tokenKeyFunc = tokenKeyFuncGenerator("azuread")
+		validateClaimFunc = validateClaimFuncGenerator("azuread")
+	}
+
 	return func(c *gin.Context) {
 		// Check the Authorization header, and stop invalid requests
 		auth := c.GetHeader("Authorization")
@@ -75,21 +96,15 @@ func Auth(required bool) gin.HandlerFunc {
 				return
 			}
 
-			// Check if Azure AD authentication is allowed
-			if appconfig.Config.GetBool("auth.azureAD.enabled") {
+			// Check if an authentication provider is allowed
+			if auth0Enabled || azureADEnabled {
 				token, err := jwt.Parse(auth, tokenKeyFunc)
 				if err == nil {
-					// Check claims
-					if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-						// Perform some extra checks: iss, aud, then ensure exp and nbf are present (they were validated already)
-						audience := appconfig.Config.GetString("auth.azureAD.clientId")
-						tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
-						issuer := strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
-						if claims["iss"] == issuer && claims["aud"] == audience && claims["exp"] != "" && claims["nbf"] != "" {
-							// All good
-							c.Set("authenticated", true)
-							return
-						}
+					// Check claims and perform some extra checks
+					if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid && validateClaimFunc(claims) {
+						// All good
+						c.Set("authenticated", true)
+						return
 					}
 				}
 			}
@@ -106,28 +121,59 @@ func Auth(required bool) gin.HandlerFunc {
 	}
 }
 
-// Function used to return the key used to sign the tokens
-func tokenKeyFunc(token *jwt.Token) (interface{}, error) {
-	// Azure AD tokens are signed with RS256 method
-	if token.Method.Alg() != "RS256" {
-		return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
+// Validate claims for a specific provider
+func validateClaimFuncGenerator(provider string) func(jwt.MapClaims) bool {
+	switch provider {
+	case "auth0":
+		return func(claims jwt.MapClaims) bool {
+			// Perform some extra checks: iss, aud, then ensure exp and iat are present (they were validated already)
+			audience := appconfig.Config.GetString("auth.auth0.clientId")
+			domain := appconfig.Config.GetString("auth.auth0.domain")
+			issuer := strings.Replace(auth0Issuer, "{domain}", domain, 1)
+			if claims["iss"] == issuer && claims["aud"] == audience && claims["iat"] != "" && claims["nbf"] != "" {
+				return true
+			}
+			return false
+		}
+	case "azuread":
+		return func(claims jwt.MapClaims) bool {
+			// Perform some extra checks: iss, aud, then ensure exp and nbf are present (they were validated already)
+			audience := appconfig.Config.GetString("auth.azureAD.clientId")
+			tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
+			issuer := strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
+			if claims["iss"] == issuer && claims["aud"] == audience && claims["exp"] != "" && claims["nbf"] != "" {
+				return true
+			}
+			return false
+		}
 	}
+	return nil
+}
 
-	// Get the signing key
-	key, err := getTokenSigningKey(token.Header["kid"].(string))
-	if err != nil {
-		logger.Println("[Error] Error while requesting token signing key:", err)
-		return nil, err
+// Function used to return the key used to sign the tokens
+func tokenKeyFuncGenerator(provider string) jwt.Keyfunc {
+	return func(token *jwt.Token) (interface{}, error) {
+		// Azure AD tokens are signed with RS256 method
+		if token.Method.Alg() != "RS256" {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
+		}
+
+		// Get the signing key
+		key, err := getTokenSigningKey(token.Header["kid"].(string), provider)
+		if err != nil {
+			logger.Println("[Error] Error while requesting token signing key:", err)
+			return nil, err
+		}
+		if key == nil {
+			logger.Println("[Error] Key not found in the key store")
+			return nil, errors.New("key not found")
+		}
+		return key, nil
 	}
-	if key == nil {
-		logger.Println("[Error] Key not found in the key store")
-		return nil, errors.New("key not found")
-	}
-	return key, nil
 }
 
 // Get the token signing keys
-func getTokenSigningKey(kid string) (key *rsa.PublicKey, err error) {
+func getTokenSigningKey(kid string, provider string) (key *rsa.PublicKey, err error) {
 	// Check if we have the key in memory
 	if keyCache == nil {
 		keyCache = make(map[string]*rsa.PublicKey)
@@ -147,9 +193,17 @@ func getTokenSigningKey(kid string) (key *rsa.PublicKey, err error) {
 	}
 
 	// Need to request the key
-	tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
-	issuer := strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
-	url := strings.Replace(azureADJWKS, "{tenant}", tenant, 1)
+	var issuer, url string
+	switch provider {
+	case "auth0":
+		domain := appconfig.Config.GetString("auth.auth0.domain")
+		url = strings.Replace(auth0JWKS, "{domain}", domain, 1)
+		// Issuer is not present in the JWKS from Auth0
+	case "azuread":
+		tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
+		issuer = strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
+		url = strings.Replace(azureADJWKS, "{tenant}", tenant, 1)
+	}
 	logger.Println("Fetching JWKS from " + url)
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -163,6 +217,7 @@ func getTokenSigningKey(kid string) (key *rsa.PublicKey, err error) {
 	if err != nil {
 		return
 	}
+	jwksLastFetch = time.Now()
 
 	// Iterate through the keys and add them to cache
 	if len(jwks.Keys) < 1 {
@@ -171,7 +226,7 @@ func getTokenSigningKey(kid string) (key *rsa.PublicKey, err error) {
 	}
 	for _, el := range jwks.Keys {
 		// Skip invalid keys
-		if el.Kty != "RSA" || el.Use != "sig" || el.Issuer != issuer || el.N == "" || el.E == "" || el.Kid == "" {
+		if el.Kty != "RSA" || el.Use != "sig" || (issuer != "" && el.Issuer != issuer) || el.N == "" || el.E == "" || el.Kid == "" {
 			continue
 		}
 		// Parse the key
