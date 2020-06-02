@@ -101,7 +101,6 @@ func (c *appConfig) setDefaults() {
 	// Other default values
 	viper.SetDefault("acme.endpoint", "https://acme-v02.api.letsencrypt.org/directory")
 	viper.SetDefault("appRoot", "/var/statiko/")
-	viper.SetDefault("azure.storage.appsContainer", "apps")
 	viper.SetDefault("codesign.required", false)
 	viper.SetDefault("disallowLeadership", false)
 	viper.SetDefault("manifestFile", "_statiko.yaml")

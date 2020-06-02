@@ -51,7 +51,7 @@ func Get(typ string) (store Fs, err error) {
 		store = &S3{}
 		err = store.Init()
 	default:
-		err = fmt.Errorf("invalid store type")
+		err = fmt.Errorf("invalid repo type")
 	}
 
 	return
