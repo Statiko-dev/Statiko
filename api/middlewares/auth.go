@@ -119,6 +119,10 @@ func tokenKeyFunc(token *jwt.Token) (interface{}, error) {
 		logger.Println("[Error] Error while requesting token signing key:", err)
 		return nil, err
 	}
+	if key == nil {
+		logger.Println("[Error] Key not found in the key store")
+		return nil, errors.New("key not found")
+	}
 	return key, nil
 }
 
