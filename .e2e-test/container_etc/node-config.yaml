@@ -22,7 +22,9 @@ azure:
     clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
     # DEV NOTE: passed as environmental variable
     clientSecret: ""
-  keyVault:
+
+certs:
+  azureKeyVault:
     name: "statiko-ci-akv"
 
 repo:
