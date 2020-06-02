@@ -45,7 +45,7 @@ func GetInstance() *Client {
 	if instance == nil {
 		// Initialize the singleton
 		instance = &Client{
-			VaultName: appconfig.Config.GetString("azure.keyVault.name"),
+			VaultName: appconfig.Config.GetString("certs.azureKeyVault.name"),
 		}
 		if err := instance.Init(); err != nil {
 			panic(err)
