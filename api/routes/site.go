@@ -17,15 +17,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package routes
 
 import (
+	"fmt"
+	"math/rand"
 	"net/http"
 	"reflect"
 	"strings"
 
+	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/gin-gonic/gin"
 
+	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site
@@ -37,6 +42,46 @@ func CreateSiteHandler(c *gin.Context) {
 			"error": "Invalid request body: " + err.Error(),
 		})
 		return
+	}
+
+	// If we're creating a temporary site, generate a domain name
+	if site.Temporary {
+		// Ensure a domain is set
+		tempDomain := appconfig.Config.GetString("temporarySites.domain")
+		if tempDomain == "" {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"error": "Configuration option `temporarySites.domain` must be set before creating a temporary site",
+			})
+			return
+		}
+		if tempDomain[0] != '.' {
+			// Ensure there's a dot at the beginning
+			tempDomain = "." + tempDomain
+		}
+
+		// Temporary sites cannot have domain names or aliases
+		if site.Domain != "" || len(site.Aliases) > 0 {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Temporary sites cannot have a defined domain name or alias",
+			})
+			return
+		}
+		// Temporary domains cannot use TLS certificates from ACME, to avoid rate limiting
+		if site.TLS != nil && site.TLS.Type == state.TLSCertificateACME {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Temporary sites cannot request TLS certificates from ACME",
+			})
+			return
+		}
+		site.Domain = fmt.Sprintf("%s-%d%s", petname.Generate(3, "-"), (rand.Intn(899) + 100), tempDomain)
+	} else {
+		// Ensure that the domain name is set
+		if site.Domain == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Field 'domain' is required",
+			})
+			return
+		}
 	}
 
 	// Check if site exists already
@@ -132,6 +177,24 @@ func ListSiteHandler(c *gin.Context) {
 // ShowSiteHandler is the handler for GET /site/:domain, which shows a site
 func ShowSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
+		// If we're getting a temporary site, add the domain automatically
+		if utils.IsTruthy(c.Query("temporary")) {
+			// Ensure a domain is set
+			tempDomain := appconfig.Config.GetString("temporarySites.domain")
+			if tempDomain == "" {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+					"error": "Configuration option `temporarySites.domain` must be set before requesting a temporary site",
+				})
+				return
+			}
+			if tempDomain[0] != '.' {
+				// Ensure there's a dot at the beginning
+				tempDomain = "." + tempDomain
+			}
+			// Append the temporary domain
+			domain += tempDomain
+		}
+
 		// Get the site from the state object
 		site := state.Instance.GetSite(domain)
 		if site == nil {
@@ -152,6 +215,24 @@ func ShowSiteHandler(c *gin.Context) {
 // DeleteSiteHandler is the handler for DELETE /site/:domain, which deletes a site
 func DeleteSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
+		// If we're getting a temporary site, add the domain automatically
+		if utils.IsTruthy(c.Query("temporary")) {
+			// Ensure a domain is set
+			tempDomain := appconfig.Config.GetString("temporarySites.domain")
+			if tempDomain == "" {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+					"error": "Configuration option `temporarySites.domain` must be set before requesting a temporary site",
+				})
+				return
+			}
+			if tempDomain[0] != '.' {
+				// Ensure there's a dot at the beginning
+				tempDomain = "." + tempDomain
+			}
+			// Append the temporary domain
+			domain += tempDomain
+		}
+
 		// Get the site from the state object to check if it exists
 		if site := state.Instance.GetSite(domain); site == nil {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
@@ -186,6 +267,24 @@ func PatchSiteHandler(c *gin.Context) {
 			"error": "Invalid parameter 'domain'",
 		})
 		return
+	}
+
+	// If we're getting a temporary site, add the domain automatically
+	if utils.IsTruthy(c.Query("temporary")) {
+		// Ensure a domain is set
+		tempDomain := appconfig.Config.GetString("temporarySites.domain")
+		if tempDomain == "" {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"error": "Configuration option `temporarySites.domain` must be set before requesting a temporary site",
+			})
+			return
+		}
+		if tempDomain[0] != '.' {
+			// Ensure there's a dot at the beginning
+			tempDomain = "." + tempDomain
+		}
+		// Append the temporary domain
+		domain += tempDomain
 	}
 
 	// Get the site from the state object
@@ -223,8 +322,17 @@ func PatchSiteHandler(c *gin.Context) {
 					return
 				}
 				switch certType {
-				case state.TLSCertificateSelfSigned, state.TLSCertificateACME:
-					// Self-signed certificate and ACME
+				case state.TLSCertificateACME:
+					if site.Temporary {
+						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+							"error": "Temporary sites cannot request TLS certificates from ACME",
+						})
+						return
+					}
+					site.TLS = &state.SiteTLS{
+						Type: state.TLSCertificateACME,
+					}
+				case state.TLSCertificateSelfSigned:
 					site.TLS = &state.SiteTLS{
 						Type: certType,
 					}
@@ -300,6 +408,13 @@ func PatchSiteHandler(c *gin.Context) {
 				updated = true
 			}
 		case "aliases":
+			// Aliases can't be updated for temporary sites
+			if site.Temporary {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"error": "Cannot set aliases for a temporary site",
+				})
+				return
+			}
 			if t == nil {
 				// Reset the aliases slice
 				site.Aliases = make([]string, 0)

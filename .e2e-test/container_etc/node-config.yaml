@@ -35,6 +35,9 @@ repo:
 
 nodeName: "e2e-test"
 
+temporarySites:
+  domain: "example.com"
+
 codesign:
   required: false
   publicKey: |-

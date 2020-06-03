@@ -24,7 +24,7 @@ import (
 // SiteHealth contains the results of the health checks for each individual app
 type SiteHealth struct {
 	Domain       string     `json:"domain"`
-	App          *string    `json:"app"`
+	App          *string    `json:"app,omitempty"`
 	StatusCode   *int       `json:"-"`
 	ResponseSize *int       `json:"-"`
 	Error        string     `json:"error,omitempty"`

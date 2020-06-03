@@ -177,6 +177,7 @@ func (c *appConfig) bindEnvVars() {
 	viper.BindEnv("state.etcd.tlsSkipVerify", "STATE_ETCD_TLS_SKIP_VERIFY")
 	viper.BindEnv("state.file.path", "STATE_FILE_PATH")
 	viper.BindEnv("state.store", "STATE_STORE")
+	viper.BindEnv("temporarySites.domain", "TEMPORARY_SITES_DOMAIN")
 	viper.BindEnv("tls.dhparams.bits", "TLS_DHPARAMS_BITS")
 	viper.BindEnv("tls.dhparams.maxAge", "TLS_DHPARAMS_MAX_AGE")
 	viper.BindEnv("tls.node.acme", "TLS_NODE_ACME")

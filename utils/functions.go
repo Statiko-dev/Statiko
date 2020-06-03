@@ -153,3 +153,8 @@ func SanitizeAppName(name string) string {
 
 	return name
 }
+
+// IsTruthy returns true if a string (e.g. a querystring parameter) is a truthy value, as a string
+func IsTruthy(val string) bool {
+	return val == "1" || val == "true" || val == "t" || val == "y" || val == "yes"
+}

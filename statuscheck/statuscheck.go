@@ -202,7 +202,7 @@ func updateHealthCache() (hasError bool) {
 			// Check if the jobs channel is full
 			for len(jobs) == cap(jobs) {
 				// Pause this until the channel is not at capacity anymore
-				time.Sleep(time.Millisecond * 5)
+				time.Sleep(10 * time.Millisecond)
 			}
 
 			// Start the request in parallel

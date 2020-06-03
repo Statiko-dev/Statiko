@@ -42,8 +42,7 @@ func StatusHandler(c *gin.Context) {
 	}
 
 	// Check if we need to force a refresh
-	forceQs := c.Query("force")
-	if forceQs == "1" || forceQs == "true" || forceQs == "t" || forceQs == "y" || forceQs == "yes" {
+	if utils.IsTruthy(c.Query("force")) {
 		statuscheck.ResetHealthCache()
 		statuscheck.UpdateStoredNodeHealth()
 	}
