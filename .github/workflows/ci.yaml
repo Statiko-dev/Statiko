@@ -217,9 +217,7 @@ jobs:
     - name: Publish Docker CI image
       run: |
         # Add the tags before publishing, as we won't be publishing "latest"
-        docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:${{env.TAG}}
         docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:canary
 
         # Publish the images
-        docker push ${{env.DOCKER_REPO}}:${{env.TAG}}
         docker push ${{env.DOCKER_REPO}}:canary
