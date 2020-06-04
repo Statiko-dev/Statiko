@@ -47,7 +47,11 @@ jobs:
     
     # Set variables
     - name: Set variables
-      run: |
+      run: 
+        # Fetch semver: https://github.com/fsaintjacques/semver-tool
+        curl https://raw.githubusercontent.com/fsaintjacques/semver-tool/3.0.0/src/semver > semver
+        chmod +x semver
+
         # Trim the first 10 characters, which are "refs/tags/"
         BUILD_ID="${GITHUB_REF:10}"
         # Just like BUILD_ID, but without the "v" at the beginning
@@ -60,15 +64,20 @@ jobs:
         echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
 
         # Branch
-        MAJOR_VERSION="$(cut -d '.' -f 1 <<< "$BUILD_VERSION")"
-        MAJOR_REVISION="$(cut -d '.' -f 2 <<< "$BUILD_VERSION")"
+        MAJOR_VERSION=$(./semver get major $BUILD_VERSION)
+        MINOR_VERSION=$(./semver get minor $BUILD_VERSION)
+        PRERELEASE=$(./semver get prerel $BUILD_VERSION)
         BRANCH=""
-        if [ $MAJOR_VERSION = "0" ]; then
-          BRANCH="$MAJOR_VERSION.$MAJOR_REVISION"
+        if [ "$MAJOR_VERSION" = "0" ]; then
+          BRANCH="$MAJOR_VERSION.$MINOR_VERSION"
         else
           BRANCH="$MAJOR_VERSION"
         fi
+        if [ "$PRERELEASE" != "" ]; then
+          BRANCH="${BRANCH}-pre"
+        fi
         echo ::set-env name=BRANCH::$BRANCH
+        echo ::set-env name=PRERELEASE::$PRERELEASE
 
     # Build default web app
     - name: Build default web app
@@ -176,6 +185,7 @@ jobs:
           -f .container/agent/Dockerfile \
           .
         # Repeat to add the $BRANCH tag (images are cached so they're not re-built)
+        # Do this only if this is not a pre-release
         docker buildx build \
           -t ${{env.DOCKER_REPO}}:${{env.BRANCH}} \
           --push \
@@ -196,7 +206,7 @@ jobs:
         tag_name: ${{ github.ref }}
         release_name: ${{ github.ref }}
         draft: true
-        prerelease: false
+        prerelease: ${{ env.PRERELEASE != '' }}
 
     - name: Upload release asset amd64
       uses: actions/upload-release-asset@v1
