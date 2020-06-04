@@ -59,6 +59,17 @@ jobs:
         echo ::set-env name=BUILD_TIME::$BUILD_TIME
         echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
 
+        # Branch
+        MAJOR_VERSION="$(cut -d '.' -f 1 <<< "$BUILD_VERSION")"
+        MAJOR_REVISION="$(cut -d '.' -f 2 <<< "$BUILD_VERSION")"
+        BRANCH=""
+        if [ $MAJOR_VERSION = "0" ]; then
+          BRANCH="$MAJOR_VERSION.$MAJOR_REVISION"
+        else
+          BRANCH="$MAJOR_VERSION"
+        fi
+        echo ::set-env name=BRANCH::$BRANCH
+
     # Build default web app
     - name: Build default web app
       run: |
@@ -164,9 +175,9 @@ jobs:
           --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
           -f .container/agent/Dockerfile \
           .
-        # Repeat to add the "latest" tag (images are cached so they're not re-built)
+        # Repeat to add the $BRANCH tag (images are cached so they're not re-built)
         docker buildx build \
-          -t ${{env.DOCKER_REPO}}:latest \
+          -t ${{env.DOCKER_REPO}}:${{env.BRANCH}} \
           --push \
           --platform linux/amd64,linux/arm64,linux/arm \
           --build-arg BUILD_ID=${{env.BUILD_ID}} \
