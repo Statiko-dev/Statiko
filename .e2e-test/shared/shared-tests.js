@@ -169,7 +169,7 @@ async function checkDataDirectory(sites) {
         assert(await utils.folderExists('/data/sites/' + expectSites[i] + '/www'))
         if (expectSites[i] == '_default') {
             assert.deepStrictEqual((await readdir('/data/sites/_default')).sort(), ['nginx-error.log', 'www'])
-            assert(await utils.fileExists('/data/sites/_default/www/statiko-welcome.html'), 'File statiko-welcome.html not found in default app')
+            assert(await utils.fileExists('/data/sites/_default/www/index.html'), 'File index.html not found in default app')
         }
         else {
             assert.deepStrictEqual((await readdir('/data/sites/' + expectSites[i])).sort(), ['nginx-error.log', 'tls', 'www'])
@@ -196,7 +196,7 @@ async function checkDataDirectory(sites) {
 
     for (let i = 0; i < expectApps.length; i++) {
         if (expectApps[i] == '_default') {
-            assert(await utils.fileExists('/data/apps/_default/statiko-welcome.html'), 'File statiko-welcome.html not found in default app')
+            assert(await utils.fileExists('/data/apps/_default/index.html'), 'File index.html not found in default app')
         }
         else {
             // Check all files and their md5 hash
@@ -471,7 +471,7 @@ const tests = {
                 .expect(404) // This should fail with a 404
                 .expect('Content-Type', 'text/html') // Should return the default app
                 .then((response) => {
-                    assert(/<title>Statiko node<\/title>/.test(response.text))
+                    assert(/<title>Statiko<\/title>/.test(response.text))
                 })
         }
     },
