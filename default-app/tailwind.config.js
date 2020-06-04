@@ -11,6 +11,8 @@ module.exports = {
 
     },
     plugins: [
-        
-    ]
+
+    ],
+    // We're purging CSS from PostCSS
+    purge: false
 }

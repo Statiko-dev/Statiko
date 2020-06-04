@@ -1,4 +1,4 @@
-const production = !process.env.ROLLUP_WATCH
+const production = (process.env.NODE_ENV == 'production')
 
 module.exports = {
     plugins: [
@@ -9,13 +9,14 @@ module.exports = {
 
             // Specify the paths to all of the template files in your project
             content: [
-                './dist/index.html',
-                './src/**/*.svelte',
                 './src/**/*.html',
             ],
 
             // Include any special characters you're using in this regular expression
             defaultExtractor: content => content.match(/[\w-/:]+(?<!:)/g) || []
+        }),
+        require('cssnano')({
+            preset: 'default',
         })] : []),
     ],
 }
