@@ -47,11 +47,10 @@ jobs:
     
     # Set variables
     - name: Set variables
-      run: 
+      run: |
         # Fetch semver: https://github.com/fsaintjacques/semver-tool
         curl https://raw.githubusercontent.com/fsaintjacques/semver-tool/3.0.0/src/semver > semver
         chmod +x semver
-
         # Trim the first 10 characters, which are "refs/tags/"
         BUILD_ID="${GITHUB_REF:10}"
         # Just like BUILD_ID, but without the "v" at the beginning
