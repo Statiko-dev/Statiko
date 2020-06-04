@@ -34,9 +34,10 @@ jobs:
     # Setup Docker buildx
     - name: Set up Docker buildx
       id: buildx
-      uses: crazy-max/ghaction-docker-buildx@v1
+      uses: crazy-max/ghaction-docker-buildx@v2
       with:
-        version: latest
+        buildx-version: latest
+        qemu-version: latest
     
     # Login to Docker Hub
     - name: Login to Docker Hub
