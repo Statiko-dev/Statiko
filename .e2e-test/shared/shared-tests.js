@@ -326,7 +326,7 @@ async function checkNginxSite(site, appDeployed) {
         // No app deployed, so expect the default site
         assert(/text\/html/i.test(result.type))
         assert(result.text)
-        assert(/<title>Statiko<\/title>/.test(response.text))
+        assert(/<title>Statiko<\/title>/.test(result.text))
     }
 
     // Without TLS, should redirect
