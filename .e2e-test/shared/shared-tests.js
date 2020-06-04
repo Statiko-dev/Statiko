@@ -255,15 +255,11 @@ async function checkNginxConfig(sites) {
 
 // Checks that a site is correctly configured on Nginx and it respons to queries
 async function checkNginxSite(site, appDeployed) {
-    // If an app has been deployed, it should return 200
-    // Otherwise, a 403 is expected
-    const statusCode = appDeployed ? 200 : 403
-
     // Test the base site, with TLS
     const result = await nginxRequest
         .get('/')
         .set('Host', site.domain)
-        .expect(statusCode)
+        .expect(200)
 
     const promises = []
     
@@ -325,6 +321,12 @@ async function checkNginxSite(site, appDeployed) {
                 promises.push(p)
             }
         }
+    }
+    else {
+        // No app deployed, so expect the default site
+        assert(/text\/html/i.test(result.type))
+        assert(result.text)
+        assert(/<title>Statiko<\/title>/.test(response.text))
     }
 
     // Without TLS, should redirect
