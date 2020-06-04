@@ -86,7 +86,7 @@ jobs:
               npm ci
 
               echo -e "\n###\nBuilding default web app\n"
-              APP_VERSION="${{env.BUILD_VERSION}}" npm run build
+              APP_VERSION="${{env.BUILD_VERSION}}" ./build.sh
               '
         echo -e "\n###\nCompilation done\n"
         ls -al default-app/dist

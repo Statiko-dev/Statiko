@@ -60,7 +60,7 @@ jobs:
               npm ci
 
               echo -e "\n###\nBuilding default web app\n"
-              npm run build
+              ./build.sh
               '
         echo -e "\n###\nCompilation done\n"
         ls -al default-app/dist
