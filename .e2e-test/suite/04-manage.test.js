@@ -60,7 +60,10 @@ describe('Manage sites', function() {
             .expect(200)
 
         // Tests
-        assert(response.text.length == 0)
+        assert(response.text.length)
+        const data = JSON.parse(response.text)
+        assert(data)
+        assert(data.domain == deploy.domain)
 
         // Add to list of sites deployed
         deployed.unshift(deploy)
