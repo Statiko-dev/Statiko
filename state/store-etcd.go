@@ -461,9 +461,18 @@ func (s *StateStoreEtcd) StoreNodeHealth(health *utils.NodeStatus) error {
 		}
 
 		// Maintain the key for as long as the node is up
-		_, err = s.client.KeepAlive(context.Background(), lease.ID)
+		ch, err := s.client.KeepAlive(context.Background(), lease.ID)
 		if err != nil {
 			return err
+		}
+		if ch != nil {
+			// Just listen to the keepalive channel and read the messages to avoid the channel to fill up
+			// No need to handle errors, as if the etcd cluster fails, this app crashes
+			go func() {
+				for range ch {
+					// noop
+				}
+			}()
 		}
 
 		s.clusterMemberLease = lease.ID

@@ -339,9 +339,18 @@ func (w *ControllerEtcd) acquireLeadership(leaderChan chan bool) error {
 		}
 
 		// We acquired the lock, so we're leaders. Maintain the key alive
-		_, err = w.store.GetClient().KeepAlive(ctx, lease.ID)
+		ch, err := w.store.GetClient().KeepAlive(ctx, lease.ID)
 		if err != nil {
 			return err
+		}
+		if ch != nil {
+			// Just listen to the keepalive channel and read the messages to avoid the channel to fill up
+			// No need to handle errors, as if the etcd cluster fails, this app crashes
+			go func() {
+				for range ch {
+					// noop
+				}
+			}()
 		}
 
 		return nil
