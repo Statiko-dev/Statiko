@@ -36,9 +36,9 @@ var (
 
 // Initializes the authentication objects for Azure
 func initAzure() error {
-	tenantID := appconfig.Config.GetString("azure.sp.tenantId")
+	tenantID := appconfig.Config.GetString("azure.tenantId")
 	if tenantID == "" {
-		return errors.New("azure.sp.tenantId must be defined")
+		return errors.New("azure.tenantId must be defined")
 	}
 
 	// Get Azure environment properties
@@ -146,10 +146,10 @@ func GetAzureServicePrincipalToken(service string) (*adal.ServicePrincipalToken,
 	}
 
 	// Service Principal-based authorization
-	clientID := appconfig.Config.GetString("azure.sp.clientId")
-	clientSecret := appconfig.Config.GetString("azure.sp.clientSecret")
+	clientID := appconfig.Config.GetString("azure.clientId")
+	clientSecret := appconfig.Config.GetString("azure.clientSecret")
 	if clientID == "" || clientSecret == "" {
-		return nil, errors.New("azure.sp.clientId and azure.sp.clientSecret must be defined")
+		return nil, errors.New("azure.clientId and azure.sp.clientSecret must be defined")
 	}
 	spt, err := adal.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, endpoint)
 	if err != nil {
