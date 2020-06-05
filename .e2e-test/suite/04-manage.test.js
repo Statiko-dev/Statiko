@@ -57,7 +57,7 @@ describe('Manage sites', function() {
             .post('/site')
             .set('Authorization', shared.auth)
             .send(deploy)
-            .expect(204)
+            .expect(200)
 
         // Tests
         assert(response.text.length == 0)
@@ -223,7 +223,7 @@ describe('Manage sites', function() {
                 .patch('/site/site1.local')
                 .set('Authorization', shared.auth)
                 .send(sitesData['site1patch' + i])
-                .expect(204)
+                .expect(200)
             // Update the local data
             Object.assign(site, sitesData['site1patch' + i])
 

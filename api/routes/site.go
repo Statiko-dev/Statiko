@@ -162,8 +162,8 @@ func CreateSiteHandler(c *gin.Context) {
 	// Queue a sync
 	sync.QueueRun()
 
-	// Respond with "No Content"
-	c.Status(http.StatusNoContent)
+	// Respond with the site
+	c.JSON(http.StatusOK, site)
 }
 
 // ListSiteHandler is the handler for GET /site, which lists all sites
@@ -463,6 +463,6 @@ func PatchSiteHandler(c *gin.Context) {
 		sync.QueueRun()
 	}
 
-	// Respond with "No content"
-	c.Status(http.StatusNoContent)
+	// Respond with the site
+	c.JSON(http.StatusOK, site)
 }
