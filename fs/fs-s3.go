@@ -193,6 +193,35 @@ func (f *S3) SetWithContext(ctx context.Context, name string, in io.Reader, meta
 	return nil
 }
 
+func (f *S3) GetMetadata(name string) (metadata map[string]string, err error) {
+	if name == "" {
+		return nil, ErrNameEmptyInvalid
+	}
+
+	// Request the metadata from S3
+	stat, err := f.client.StatObject(f.bucketName, name, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			err = ErrNotExist
+		}
+		return nil, err
+	}
+
+	// Get metadata
+	if stat.Metadata != nil && len(stat.Metadata) > 0 {
+		metadata = make(map[string]string)
+		for key, val := range stat.Metadata {
+			if val != nil && len(val) == 1 {
+				if strings.HasPrefix(key, "X-Amz-Meta") {
+					metadata[strings.ToLower(key[11:])] = val[0]
+				}
+			}
+		}
+	}
+
+	return metadata, nil
+}
+
 func (f *S3) SetMetadata(name string, metadata map[string]string) error {
 	if name == "" {
 		return ErrNameEmptyInvalid

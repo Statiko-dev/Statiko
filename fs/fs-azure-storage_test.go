@@ -60,6 +60,10 @@ func TestAzureStorageList(t *testing.T) {
 	sharedListTest(t, obj)()
 }
 
+func TestAzureStorageGetMetadata(t *testing.T) {
+	sharedGetMetadataTest(t, obj)()
+}
+
 func TestAzureStorageSetMetadata(t *testing.T) {
 	sharedSetMetadataTest(t, obj)()
 }

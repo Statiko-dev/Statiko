@@ -77,6 +77,9 @@ type Fs interface {
 	// SetWithContext is like Set, but accepts a custom context object
 	SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error)
 
+	// GetMetadata returns the metadata for the file only
+	GetMetadata(name string) (metadata map[string]string, err error)
+
 	// SetMetadata updates a file's metadata in the filesystem
 	SetMetadata(name string, metadata map[string]string) error
 

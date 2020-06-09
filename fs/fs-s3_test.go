@@ -71,6 +71,10 @@ func TestS3List(t *testing.T) {
 	sharedListTest(t, obj)()
 }
 
+func TestS3GetMetadata(t *testing.T) {
+	sharedGetMetadataTest(t, obj)()
+}
+
 func TestS3SetMetadata(t *testing.T) {
 	sharedSetMetadataTest(t, obj)()
 }

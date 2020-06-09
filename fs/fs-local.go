@@ -217,6 +217,38 @@ func (f *Local) SetWithContext(ctx context.Context, name string, in io.Reader, m
 	return nil
 }
 
+func (f *Local) GetMetadata(name string) (metadata map[string]string, err error) {
+	if name == "" || strings.HasPrefix(name, ".metadata.") {
+		return nil, ErrNameEmptyInvalid
+	}
+
+	// Ensure that the file itself exists
+	exists, err := utils.FileExists(f.basePath + name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrNotExist
+	}
+
+	// Get the metadata
+	read, err := ioutil.ReadFile(f.basePath + ".metadata." + name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = nil
+		}
+		return nil, err
+	}
+	if read != nil && len(read) > 0 {
+		metadata = make(map[string]string)
+		err = json.Unmarshal(read, &metadata)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return metadata, nil
+}
+
 func (f *Local) SetMetadata(name string, metadata map[string]string) error {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		return ErrNameEmptyInvalid

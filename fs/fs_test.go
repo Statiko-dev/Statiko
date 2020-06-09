@@ -220,6 +220,41 @@ func sharedListTest(t *testing.T, obj Fs) func() {
 	}
 }
 
+func sharedGetMetadataTest(t *testing.T, obj Fs) func() {
+	return func() {
+		t.Run("empty name", func(t *testing.T) {
+			_, err := obj.GetMetadata("")
+			if err != ErrNameEmptyInvalid {
+				t.Error("Expected ErrNameEmptyInvalid, got", err)
+			}
+		})
+		t.Run("not existing", func(t *testing.T) {
+			_, err := obj.GetMetadata("notexist")
+			if err != ErrNotExist {
+				t.Fatal("Expected ErrNotExist, got", err)
+			}
+		})
+		t.Run("with metadata", func(t *testing.T) {
+			res, err := obj.GetMetadata("testphoto2.jpg")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(res, metadata) {
+				t.Fatal("Metadata does not match")
+			}
+		})
+		t.Run("without metadata", func(t *testing.T) {
+			res, err := obj.GetMetadata("testphoto.jpg")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res != nil && len(res) != 0 {
+				t.Fatalf("Metadata object not empty as expected: %v", res)
+			}
+		})
+	}
+}
+
 func sharedSetMetadataTest(t *testing.T, obj Fs) func() {
 	return func() {
 		setMetadata := map[string]string{

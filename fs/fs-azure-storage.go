@@ -229,6 +229,36 @@ func (f *AzureStorage) SetWithContext(ctx context.Context, name string, in io.Re
 	return nil
 }
 
+func (f *AzureStorage) GetMetadata(name string) (metadata map[string]string, err error) {
+	if name == "" {
+		return nil, ErrNameEmptyInvalid
+	}
+
+	// Create the blob URL
+	u, err := url.Parse(f.storageURL + "/" + name)
+	if err != nil {
+		return nil, err
+	}
+	blockBlobURL := azblob.NewBlockBlobURL(*u, f.storagePipeline)
+
+	// Download the file
+	resp, err := blockBlobURL.GetProperties(context.Background(), azblob.BlobAccessConditions{})
+	if err != nil {
+		if stgErr, ok := err.(azblob.StorageError); !ok {
+			err = fmt.Errorf("network error while downloading the file: %s", err.Error())
+		} else {
+			// Blob not found
+			if stgErr.ServiceCode() == "BlobNotFound" {
+				return nil, ErrNotExist
+			}
+			err = fmt.Errorf("azure Storage error while downloading the file: %s", stgErr.Response().Status)
+		}
+		return nil, err
+	}
+	metadata = resp.NewMetadata()
+	return metadata, nil
+}
+
 func (f *AzureStorage) SetMetadata(name string, metadata map[string]string) error {
 	if name == "" {
 		return ErrNameEmptyInvalid
