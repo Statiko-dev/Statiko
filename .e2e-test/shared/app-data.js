@@ -18,27 +18,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 module.exports = {
     app1: {
-        app: 'app1-1.tar.bz2',
+        app: 'app1-1',
         contents: {
             'index.html': '3bfa3e40f142c9e6143eab5a9a13bbe5'
         }
     },
     app2: {
-        app: 'app2-1.0.1.tar.bz2',
+        app: 'app2-1.0.1',
         contents: {
             'index.html': 'f6bf0230e47135a8245be5a8e49e765f',
             'roquefabio-unsplash.jpg': '3ea45b9bdc5bd2a856df0af23da867cf'
         }
     },
     app2v2: {
-        app: 'app2-1.2.0.tar.bz2',
+        app: 'app2-1.2.0',
         contents: {
             'index.html': 'c457a60869554676811f3b0a183aeca6',
             'roquefabio-unsplash.jpg': '3ea45b9bdc5bd2a856df0af23da867cf'
         }
     },
     app3: {
-        app: 'app3-502.tar.bz2',
+        app: 'app3-502',
         contents: {
             '403.html': 'e9f3ffd6f02ff6485585745aeda1f651',
             '404.html': 'dc39a4bece6c7c794063c716af8102c0',
