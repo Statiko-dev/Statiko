@@ -23,6 +23,7 @@ require (
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/nwaples/rardecode v1.1.0 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.7.0
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect

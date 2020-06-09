@@ -347,8 +347,13 @@ func (w *ControllerEtcd) acquireLeadership(leaderChan chan bool) error {
 			// Just listen to the keepalive channel and read the messages to avoid the channel to fill up
 			// No need to handle errors, as if the etcd cluster fails, this app crashes
 			go func() {
-				for range ch {
-					// noop
+				for {
+					select {
+					case <-ch:
+						// noop
+					default:
+						return
+					}
 				}
 			}()
 		}

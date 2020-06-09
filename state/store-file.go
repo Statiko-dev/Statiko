@@ -119,7 +119,7 @@ func (s *StateStoreFile) Healthy() (bool, error) {
 
 // OnStateUpdate isn't used with this store
 func (s *StateStoreFile) OnStateUpdate(callback func()) {
-	// NOOP
+	// noop
 }
 
 // ClusterHealth returns the health of all members in the cluster

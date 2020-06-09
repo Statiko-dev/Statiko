@@ -21,12 +21,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"go.etcd.io/etcd/v3/clientv3"
 	"go.etcd.io/etcd/v3/pkg/transport"
 	"google.golang.org/grpc/connectivity"
@@ -251,7 +251,7 @@ func (s *StateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, er
 	lease, err := s.client.Grant(ctx, EtcdLockDuration)
 	cancel()
 	if err != nil {
-		return leaseID, err
+		return leaseID, errors.Wrap(err, "")
 	}
 	leaseID = lease.ID
 
@@ -298,7 +298,7 @@ func (s *StateStoreEtcd) ReleaseLock(leaseID interface{}) error {
 	_, err := s.client.Revoke(ctx, leaseID.(clientv3.LeaseID))
 	cancel()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 
 	return nil
@@ -317,7 +317,7 @@ func (s *StateStoreEtcd) tryLockAcquisition(lockKey string, leaseID clientv3.Lea
 	cancel()
 
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "")
 	}
 
 	return res.Succeeded, nil
@@ -371,7 +371,7 @@ func (s *StateStoreEtcd) ReadState() (err error) {
 	resp, err := s.client.Get(ctx, s.stateKey)
 	cancel()
 	if err != nil {
-		return
+		return errors.Wrap(err, "")
 	}
 
 	// Check if the value exists
@@ -423,7 +423,7 @@ func (s *StateStoreEtcd) ClusterHealth() (map[string]*utils.NodeStatus, error) {
 	resp, err := s.client.Get(ctx, s.nodesKeyPrefix, clientv3.WithPrefix())
 	cancel()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "")
 	}
 
 	// Parse the response
@@ -457,20 +457,27 @@ func (s *StateStoreEtcd) StoreNodeHealth(health *utils.NodeStatus) error {
 		lease, err := s.client.Grant(ctx, etcdNodeRegistrationTTL)
 		cancel()
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 
 		// Maintain the key for as long as the node is up
 		ch, err := s.client.KeepAlive(context.Background(), lease.ID)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 		if ch != nil {
 			// Just listen to the keepalive channel and read the messages to avoid the channel to fill up
 			// No need to handle errors, as if the etcd cluster fails, this app crashes
 			go func() {
-				for range ch {
-					// noop
+				for {
+					select {
+					case <-ch:
+						// noop
+					default:
+						// We're here if the channel was closed
+						s.clusterMemberLease = 0
+						return
+					}
 				}
 			}()
 		}
@@ -566,7 +573,7 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	resp, err := s.client.Get(ctx, s.secretsKeyPrefix, clientv3.WithPrefix())
 	cancel()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "")
 	}
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
 		unserialized.Secrets = make(map[string][]byte)
@@ -587,11 +594,14 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	ctx, cancel = s.GetContext()
 	resp, err = s.client.Get(ctx, s.dhparamsKey)
 	cancel()
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
 		unserialized.DHParams = &NodeDHParams{}
 		err := json.Unmarshal(resp.Kvs[0].Value, unserialized.DHParams)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "")
 		}
 	}
 
