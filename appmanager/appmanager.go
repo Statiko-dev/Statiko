@@ -671,6 +671,26 @@ func (m *Manager) StageApp(bundle string) error {
 		}
 	}
 
+	// Get file type
+	var fileType int
+	exists, err = utils.FileExists(m.appRoot + "cache/.type." + bundle)
+	if err != nil {
+		return err
+	}
+	if exists {
+		read, err := ioutil.ReadFile(m.appRoot + "cache/.type." + bundle)
+		if err != nil {
+			return err
+		}
+		if len(read) == 0 {
+			return errors.New("File type object was empty")
+		}
+		fileType = utils.ArchiveTypeByExtension("." + string(read))
+	} else {
+		// Try getting the file type from the extension
+		fileType = utils.ArchiveTypeByExtension(bundle)
+	}
+
 	// Uncompress the archive
 	m.log.Println("Extracting " + archivePath)
 	if err := utils.EnsureFolder(stagingPath); err != nil {
@@ -685,7 +705,7 @@ func (m *Manager) StageApp(bundle string) error {
 	if err != nil {
 		return err
 	}
-	err = utils.ExtractArchive(stagingPath, f, stat.Size(), utils.ArchiveTypeByExtension(bundle))
+	err = utils.ExtractArchive(stagingPath, f, stat.Size(), fileType)
 	if err != nil {
 		return err
 	}
@@ -751,6 +771,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 
 	var hash []byte
 	var signature []byte
+	fileType := ""
 	if metadata != nil && len(metadata) > 0 {
 		// Get the hash from the blob's metadata, if any
 		hashB64, ok := metadata["hash"]
@@ -777,6 +798,12 @@ func (m *Manager) FetchBundle(bundle string) error {
 					signature = nil
 				}
 			}
+		}
+
+		// Check if there's a file type in the metadata
+		typ, ok := metadata["type"]
+		if ok && typ != "" {
+			fileType = typ
 		}
 	}
 	if signature == nil && appconfig.Config.GetBool("codesign.required") {
@@ -820,7 +847,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 	}
 	if hash != nil {
 		if bytes.Compare(hash, hashed) != 0 {
-			// File needs to be deleted if signature is invalid
+			// File needs to be deleted if hash is invalid
 			deleteFile = true
 			m.log.Println("Hash mismatch for bundle", bundle)
 			return fmt.Errorf("hash does not match: got %x, wanted %x", hashed, hash)
@@ -832,6 +859,16 @@ func (m *Manager) FetchBundle(bundle string) error {
 			// File needs to be deleted if signature is invalid
 			deleteFile = true
 			m.log.Println("Signature mismatch for bundle", bundle)
+			return err
+		}
+	}
+
+	// Write the file type to disk
+	if fileType != "" {
+		err = ioutil.WriteFile(m.appRoot+"cache/.type."+bundle, []byte(fileType), 0644)
+		if err != nil {
+			// File needs to be deleted if we had an error
+			deleteFile = true
 			return err
 		}
 	}

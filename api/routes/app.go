@@ -26,7 +26,8 @@ import (
 )
 
 // AppUploadHandler is the handler for POST /app, which is used to upload new app bundles
-// The request body must be a multipart/form-data with a "file" field containing the bundle, and optional "signature" and/or "hash" ones
+// The request body must be a multipart/form-data with a "file" field containing the bundle, a "name" field containing the name, and a "type" one containing the type (file extension)
+// Optionally, pass a "signature" and/or "hash" fielld
 func AppUploadHandler(c *gin.Context) {
 	// Get the file from the body
 	file, err := c.FormFile("file")
@@ -36,10 +37,19 @@ func AppUploadHandler(c *gin.Context) {
 	}
 
 	// Get and sanitize the app's name
-	name := utils.SanitizeAppName(file.Filename)
+	name := utils.SanitizeAppName(c.PostForm("name"))
 	if name == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Filename for the file is empty or invalid",
+		})
+		return
+	}
+
+	// Get and validate the app's type
+	typ := c.PostForm("type")
+	if typ == "" || !utils.StringInSlice(utils.ArchiveExtensions, "."+typ) {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "File extension is empty or invalid",
 		})
 		return
 	}
@@ -52,8 +62,11 @@ func AppUploadHandler(c *gin.Context) {
 	}
 	defer in.Close()
 
-	// Check if we have a signature to store together with the file
+	// Store file type
 	metadata := make(map[string]string)
+	metadata["type"] = typ
+
+	// Check if we have a signature to store together with the file
 	signature := c.PostForm("signature")
 	if signature != "" {
 		if len(signature) > 1024 {
@@ -120,8 +133,27 @@ func AppUpdateHandler(c *gin.Context) {
 		return
 	}
 
+	// Get the current metadata
+	metadata, err := fs.Instance.GetMetadata(name)
+	if err != nil {
+		if err == fs.ErrNotExist {
+			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"error": "File does not exist",
+			})
+			return
+		}
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+	if metadata == nil {
+		metadata = make(map[string]string)
+	}
+
+	// Reset the signature and hash
+	metadata["signature"] = ""
+	metadata["hash"] = ""
+
 	// Fields could be empty if we're trying to remove a signature/hash
-	metadata := make(map[string]string)
 	if data.Signature != "" {
 		if len(data.Signature) > 1024 {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -142,7 +174,7 @@ func AppUpdateHandler(c *gin.Context) {
 	}
 
 	// Update the metadata
-	err := fs.Instance.SetMetadata(name, metadata)
+	err = fs.Instance.SetMetadata(name, metadata)
 	if err != nil {
 		if err == fs.ErrNotExist {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{

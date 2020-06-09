@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
-	"strings"
 	"time"
 
 	"github.com/statiko-dev/statiko/utils"
@@ -71,21 +70,9 @@ type SiteApp struct {
 
 // Validate returns true if the app object is valid
 func (a *SiteApp) Validate() bool {
-	// Name must be at least 4 characters (it must include an extension)
-	// Also, Name must not start with `_`
-	if len(a.Name) < 4 || a.Name[0] == '_' {
-		return false
-	}
-
-	// Ensure that there's an extension, of a supported type
-	nameLc := strings.ToLower(a.Name)
-	for _, ext := range utils.ArchiveExtensions {
-		if strings.HasSuffix(nameLc, ext) {
-			return true
-		}
-	}
-
-	return false
+	// Sanitize and validate
+	a.Name = utils.SanitizeAppName(a.Name)
+	return a.Name != ""
 }
 
 // NodeDHParams represents the DH Parameters file (PEM-encoded) and their age

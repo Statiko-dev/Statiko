@@ -140,11 +140,10 @@ func NodeAddress() string {
 var appNameRegEx *regexp.Regexp
 
 // SanitizeAppName validates and sanitizes the name of an app's bundle
-// App bundles must be lowercase strings containing letters, numbers, dashes and dots. The first character must be a letter, and they must contain a supported extension
+// App bundles must be lowercase strings containing letters, numbers, dashes and dots; the first character must be a letter
 func SanitizeAppName(name string) string {
 	if appNameRegEx == nil {
-		extensions := strings.ReplaceAll(strings.Join(ArchiveExtensions, "|"), ".", "\\.")
-		appNameRegEx = regexp.MustCompile("^([a-z][a-zA-Z0-9\\.\\-]*)(" + extensions + ")$")
+		appNameRegEx = regexp.MustCompile("^([a-z][a-zA-Z0-9\\.\\-]*)$")
 	}
 	name = strings.ToLower(name)
 	if !appNameRegEx.MatchString(name) {
