@@ -469,16 +469,11 @@ func (s *StateStoreEtcd) StoreNodeHealth(health *utils.NodeStatus) error {
 			// Just listen to the keepalive channel and read the messages to avoid the channel to fill up
 			// No need to handle errors, as if the etcd cluster fails, this app crashes
 			go func() {
-				for {
-					select {
-					case <-ch:
-						// noop
-					default:
-						// We're here if the channel was closed
-						s.clusterMemberLease = 0
-						return
-					}
+				for range ch {
+					// noop
 				}
+				// We're here if the channel was closed
+				s.clusterMemberLease = 0
 			}()
 		}
 
