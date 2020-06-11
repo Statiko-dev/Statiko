@@ -34,6 +34,10 @@ repo:
 
 nodeName: "e2e-test"
 
+acme:
+  email: someone@example.com
+  endpoint: https://pebble:14000/dir
+
 temporarySites:
   domain: "example.com"
 
