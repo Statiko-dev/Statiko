@@ -473,6 +473,7 @@ func (s *StateStoreEtcd) StoreNodeHealth(health *utils.NodeStatus) error {
 					// noop
 				}
 				// We're here if the channel was closed
+				logger.Println("Lost lease on node health; a new lease will have to be re-acquired")
 				s.clusterMemberLease = 0
 			}()
 		}
