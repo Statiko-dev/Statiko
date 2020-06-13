@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package utils
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -25,8 +24,9 @@ import (
 type SiteHealth struct {
 	Domain       string     `json:"domain"`
 	App          *string    `json:"app"`
-	StatusCode   *int       `json:"-"`
-	ResponseSize *int       `json:"-"`
+	StatusCode   *int       `json:"statusCode,omitempty"`
+	ResponseSize *int       `json:"responseSize,omitempty"`
+	Healthy      *bool      `json:"healthy,omitempty"`
 	Error        string     `json:"error,omitempty"`
 	Time         *time.Time `json:"time,omitempty"`
 }
@@ -51,19 +51,6 @@ func (h *SiteHealth) IsHealthy() bool {
 
 	// Otherwise, false
 	return false
-}
-
-// MarshalJSON implements a custom JSON serializer for the SiteHealth object
-func (h *SiteHealth) MarshalJSON() ([]byte, error) {
-	// Marshal the JSON object
-	type Alias SiteHealth
-	return json.Marshal(&struct {
-		*Alias
-		Healthy bool `json:"healthy"`
-	}{
-		Alias:   (*Alias)(h),
-		Healthy: h.IsHealthy(),
-	})
 }
 
 // NodeSync contains information on the sync status

@@ -33,5 +33,17 @@ func ClusterStatusHandler(c *gin.Context) {
 		return
 	}
 
+	// Iterate through the result to clean it
+	for i := range health {
+		for j := range health[i].Health {
+			el := health[i].Health[j]
+			healthy := el.IsHealthy()
+			el.Healthy = &healthy
+			el.StatusCode = nil
+			el.ResponseSize = nil
+			health[i].Health[j] = el
+		}
+	}
+
 	c.JSON(http.StatusOK, health)
 }

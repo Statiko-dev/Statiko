@@ -77,10 +77,14 @@ func StatusHandler(c *gin.Context) {
 			for _, el := range health.Health {
 				if el.Domain == domain {
 					domainHealth = el
+					healthy := el.IsHealthy()
+					domainHealth.Healthy = &healthy
 					found = true
-					if !el.IsHealthy() {
+					if !health.Store.Healthy {
 						appError = true
 					}
+					domainHealth.StatusCode = nil
+					domainHealth.ResponseSize = nil
 					break
 				}
 			}
@@ -122,12 +126,16 @@ func StatusHandler(c *gin.Context) {
 		if total > 0 {
 			obj := make([]utils.SiteHealth, total)
 			for i, el := range health.Health {
-				if !el.IsHealthy() {
+				healthy := el.IsHealthy()
+				el.Healthy = &healthy
+				if !healthy {
 					errorCount++
 				} else if el.App == nil {
 					// Ignore sites that have no apps and no errors in the counts
 					total--
 				}
+				el.StatusCode = nil
+				el.ResponseSize = nil
 
 				// If we're not authenticated, do not display the app and domain name
 				if !isAuthenticated {
