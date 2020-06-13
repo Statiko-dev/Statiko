@@ -130,7 +130,7 @@ func validateClaimFuncGenerator(provider string) func(jwt.MapClaims) bool {
 			audience := appconfig.Config.GetString("auth.auth0.clientId")
 			domain := appconfig.Config.GetString("auth.auth0.domain")
 			issuer := strings.Replace(auth0Issuer, "{domain}", domain, 1)
-			if claims["iss"] == issuer && claims["aud"] == audience && claims["iat"] != "" && claims["nbf"] != "" {
+			if claims["iss"] == issuer && claims["aud"] == audience && claims["exp"] != "" && claims["iat"] != "" {
 				return true
 			}
 			return false
