@@ -1,0 +1,46 @@
+# Based on: https://github.com/microsoft/vscode-dev-containers/tree/v0.140.1/containers/go/.devcontainer/base.Dockerfile
+
+# Go version
+ARG VARIANT="1"
+FROM golang:${VARIANT}
+
+# Install needed packages and setup non-root user
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+COPY library-scripts/common-debian.sh /tmp/library-scripts/
+RUN bash /tmp/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" \
+    && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts
+
+# Install Go tools
+ENV GO111MODULE=auto
+COPY library-scripts/go-debian.sh /tmp/library-scripts/
+RUN bash /tmp/library-scripts/go-debian.sh "none" "/usr/local/go" "${GOPATH}" "${USERNAME}" "false" \
+    && apt-get clean -y && rm -rf /tmp/library-scripts
+
+# Install Node.js
+ARG NODE_VERSION="lts/*"
+ENV NVM_DIR=/usr/local/share/nvm
+ENV NVM_SYMLINK_CURRENT=true \
+    PATH=${NVM_DIR}/current/bin:${PATH}
+COPY library-scripts/node-debian.sh /tmp/library-scripts/
+RUN bash /tmp/library-scripts/node-debian.sh "${NVM_DIR}" "${NODE_VERSION}" "${USERNAME}" \
+    && su dev -c "source /usr/local/share/nvm/nvm.sh && nvm install ${NODE_VERSION} 2>&1" \
+    && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts
+
+# Install additional OS packages
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends nginx
+
+# Install a set of development tools
+RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/local/bin sh \
+  && curl -sf https://gobinaries.com/github.com/gobuffalo/packr/packr2@v2.8.0 | PREFIX=/usr/local/bin sh \
+  && curl -sf https://gobinaries.com/github.com/markbates/pkger/cmd/pkger@v0.17.1 | PREFIX=/usr/local/bin sh \
+  && go get -x github.com/matm/gocov-html \
+  && go get -x github.com/axw/gocov/gocov
+
+# Install global packages from NPM
+RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
+
+# Expose ports
+EXPOSE 80 443 2265
