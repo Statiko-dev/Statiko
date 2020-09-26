@@ -37,7 +37,16 @@ RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/l
   && curl -sf https://gobinaries.com/github.com/gobuffalo/packr/packr2@v2.8.0 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/markbates/pkger/cmd/pkger@v0.17.1 | PREFIX=/usr/local/bin sh \
   && go get -x github.com/matm/gocov-html \
-  && go get -x github.com/axw/gocov/gocov
+  && go get -x github.com/axw/gocov/gocov \
+  && export PROTOC_VERSION="3.13.0" \
+  && PB_REL="https://github.com/protocolbuffers/protobuf/releases" \
+  && curl -LO $PB_REL/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip \
+  && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip -d protoc/ \
+  && cp -rvp protoc/bin/protoc /usr/local/bin/ \
+  && cp -rvp protoc/include/* /usr/local/include/ \
+  && chmod 0755 /usr/local/bin/protoc \
+  && chmod -R 0755 /usr/local/include/google \
+  && rm -rvf protoc*
 
 # Install global packages from NPM
 RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
