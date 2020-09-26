@@ -25,6 +25,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -39,7 +41,6 @@ const (
 
 // Manager is the state manager class
 type Manager struct {
-	RefreshHealth      chan int
 	RefreshCerts       chan int
 	DHParamsGenerating bool
 	updated            *time.Time
@@ -47,10 +48,14 @@ type Manager struct {
 	storeType          string
 	siteHealth         SiteHealth
 	nodeHealth         *utils.NodeStatus
+	logger             *log.Logger
 }
 
 // Init loads the state from the store
 func (m *Manager) Init() (err error) {
+	// Initialize the logger
+	m.logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
+
 	// Get store type
 	typ := appconfig.Config.GetString("state.store")
 	switch typ {
@@ -71,14 +76,7 @@ func (m *Manager) Init() (err error) {
 
 	// Init variables
 	m.siteHealth = make(SiteHealth)
-	m.RefreshHealth = make(chan int, 1)
 	m.RefreshCerts = make(chan int, 1)
-
-	// Init node health object
-	err = m.SetNodeHealth(nil)
-	if err != nil {
-		return err
-	}
 
 	return
 }
@@ -308,11 +306,6 @@ func (m *Manager) OnStateUpdate(callback func()) {
 	m.store.OnStateUpdate(callback)
 }
 
-// ClusterHealth returns the health of all members in the cluster
-func (m *Manager) ClusterHealth() (map[string]*utils.NodeStatus, error) {
-	return m.store.ClusterHealth()
-}
-
 // GetSiteHealth returns the health of a site
 func (m *Manager) GetSiteHealth(domain string) error {
 	return m.siteHealth[domain]
@@ -349,6 +342,13 @@ func (m *Manager) GetDHParams() (string, *time.Time) {
 func (m *Manager) SetDHParams(val string) error {
 	if val == "" || val == defaultDHParams {
 		return errors.New("val is empty or invalid")
+	}
+
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
 	}
 
 	// Lock
@@ -427,6 +427,13 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	// Encrypt the secret
 	encValue := aesgcm.Seal(nil, nonce, value, nil)
 
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
 	// Lock
 	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
@@ -456,6 +463,13 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 
 // DeleteSecret deletes a secret
 func (m *Manager) DeleteSecret(key string) error {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
 	// Lock
 	leaseID, err := m.store.AcquireLock("state", true)
 	if err != nil {
@@ -537,7 +551,7 @@ func (m *Manager) SetCertificate(typ string, nameOrDomains []string, key []byte,
 		return err
 	}
 
-	logger.Printf("Stored %s certificate for %v with key %s\n", typ, nameOrDomains, secretKey)
+	m.logger.Printf("Stored %s certificate for %v with key %s\n", typ, nameOrDomains, secretKey)
 	return nil
 }
 
@@ -622,42 +636,9 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 	return encKey, nil
 }
 
-// SetNodeHealth stores the node status object
-func (m *Manager) SetNodeHealth(health *utils.NodeStatus) error {
-	if health == nil {
-		logger.Println("Received nil node health object")
-		// Create a default object
-		health = &utils.NodeStatus{
-			Nginx: utils.NginxStatus{
-				Running: true,
-			},
-			Sync: utils.NodeSync{},
-			Store: utils.NodeStore{
-				Healthy: true,
-			},
-			Health: []utils.SiteHealth{},
-		}
-	} else {
-		logger.Println("Received node health object")
-	}
-	m.nodeHealth = health
-	return m.store.StoreNodeHealth(health)
-}
-
 // GetNodeHealth gets the node status object
 func (m *Manager) GetNodeHealth() *utils.NodeStatus {
 	return m.nodeHealth
-}
-
-// TriggerRefreshHealth triggers a background job that re-checks the health of all websites
-func (m *Manager) TriggerRefreshHealth() {
-	select {
-	case m.RefreshHealth <- 1:
-		return
-	default:
-		// If the buffer is full, it means there's already one message in the queue, so all good
-		return
-	}
 }
 
 // TriggerRefreshCerts triggers a background job that re-checks all certificates and refreshes them

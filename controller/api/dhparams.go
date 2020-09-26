@@ -22,8 +22,6 @@ import (
 
 	dhparam "github.com/Luzifer/go-dhparam"
 	"github.com/gin-gonic/gin"
-
-	"github.com/statiko-dev/statiko/state"
 )
 
 type dhParamsRequest struct {
@@ -78,7 +76,7 @@ func (s *APIServer) DHParamsSetHandler(c *gin.Context) {
 	}
 
 	// Store the DH parameters
-	err = state.Instance.SetDHParams(string(pem))
+	err = s.State.SetDHParams(string(pem))
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -92,7 +90,7 @@ func (s *APIServer) DHParamsSetHandler(c *gin.Context) {
 // The response type is "builtin" when the cluster is using the built-in DH parameters, and "cluster" when it's using DH parameters generated for the cluster
 func (s *APIServer) DHParamsGetHandler(c *gin.Context) {
 	// Get the current DH params's age
-	_, date := state.Instance.GetDHParams()
+	_, date := s.State.GetDHParams()
 
 	// Response
 	response := &dhParamsResponse{}
@@ -102,7 +100,7 @@ func (s *APIServer) DHParamsGetHandler(c *gin.Context) {
 		response.Type = "cluster"
 		response.Date = date
 	}
-	response.Generating = state.Instance.DHParamsGenerating
+	response.Generating = s.State.DHParamsGenerating
 
 	c.JSON(http.StatusOK, response)
 }

@@ -21,8 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/state"
-	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/controller/state"
 )
 
 // DeploySiteHandler is the handler for POST/PUT /site/{domain}/app, which deploys an app
@@ -37,7 +36,7 @@ func (s *APIServer) DeploySiteHandler(c *gin.Context) {
 	}
 
 	// Get the site from the state object
-	site := state.Instance.GetSite(domain)
+	site := s.State.GetSite(domain)
 	if site == nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error": "Domain name not found",
@@ -63,13 +62,10 @@ func (s *APIServer) DeploySiteHandler(c *gin.Context) {
 	site.App = &app
 
 	// Update the app
-	if err := state.Instance.UpdateSite(site, true); err != nil {
+	if err := s.State.UpdateSite(site, true); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-
-	// Queue a sync
-	sync.QueueRun()
 
 	// Respond with "No content"
 	c.Status(http.StatusNoContent)

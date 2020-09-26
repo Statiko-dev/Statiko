@@ -17,16 +17,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"github.com/statiko-dev/statiko/api"
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/fs"
+	"github.com/statiko-dev/statiko/controller/api"
+	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/notifications"
-	"github.com/statiko-dev/statiko/worker"
+	"github.com/statiko-dev/statiko/shared/fs"
+	//"github.com/statiko-dev/statiko/controller/worker"
 )
 
 // Controller is the class that manages the controller app
 type Controller struct {
 	store    fs.Fs
+	state    *state.Manager
 	notifier notifications.Notifications
 	apiSrv   api.APIServer
 }
@@ -40,6 +42,13 @@ func (c *Controller) Init() (err error) {
 		return err
 	}
 
+	// Init the state manager
+	c.state = &state.Manager{}
+	err = c.state.Init()
+	if err != nil {
+		return err
+	}
+
 	// Init the notifications client
 	c.notifier = notifications.Notifications{}
 	err = c.notifier.Init()
@@ -48,11 +57,13 @@ func (c *Controller) Init() (err error) {
 	}
 
 	// Start all background workers
-	worker.StartWorker()
+	// TODO: NEEDS UPDATING
+	//worker.StartWorker()
 
 	// Init and start the API server
 	c.apiSrv = api.APIServer{
 		Store: c.store,
+		State: c.state,
 	}
 	c.apiSrv.Init()
 	c.apiSrv.Start()

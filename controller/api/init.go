@@ -14,13 +14,14 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package main
+package api
 
-func main() {
-	// Create and initialize the Controller object
-	controller := &Controller{}
-	err := controller.Init()
-	if err != nil {
-		panic(err)
-	}
+import (
+	"math/rand"
+	"time"
+)
+
+func init() {
+	// Seed rand
+	rand.Seed(time.Now().UnixNano())
 }

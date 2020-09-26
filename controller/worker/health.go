@@ -22,7 +22,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/statuscheck"
 )
 
@@ -51,11 +50,6 @@ func startHealthWorker(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
-				err := healthWorker()
-				if err != nil {
-					healthLogger.Println("Worker error:", err)
-				}
-			case <-state.Instance.RefreshHealth:
 				err := healthWorker()
 				if err != nil {
 					healthLogger.Println("Worker error:", err)

@@ -19,6 +19,8 @@ package state
 import (
 	"encoding/json"
 	"io/ioutil"
+	"log"
+	"os"
 
 	"github.com/google/renameio"
 
@@ -27,11 +29,15 @@ import (
 )
 
 type StateStoreFile struct {
-	state *NodeState
+	state  *NodeState
+	logger *log.Logger
 }
 
 // Init initializes the object
 func (s *StateStoreFile) Init() (err error) {
+	// Initialize the logger
+	s.logger = log.New(os.Stdout, "state/file: ", log.Ldate|log.Ltime|log.LUTC)
+
 	// Read the state from disk
 	err = s.ReadState()
 	return
@@ -63,7 +69,7 @@ func (s *StateStoreFile) SetState(state *NodeState) (err error) {
 // WriteState stores the state on disk
 func (s *StateStoreFile) WriteState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
-	logger.Println("Writing state to disk", path)
+	s.logger.Println("Writing state to disk", path)
 
 	// Convert to JSON
 	var data []byte
@@ -80,7 +86,7 @@ func (s *StateStoreFile) WriteState() (err error) {
 // ReadState reads the state from disk
 func (s *StateStoreFile) ReadState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
-	logger.Println("Reading state from disk", path)
+	s.logger.Println("Reading state from disk", path)
 
 	// Check if the file exists
 	var exists bool
@@ -122,23 +128,9 @@ func (s *StateStoreFile) OnStateUpdate(callback func()) {
 	// noop
 }
 
-// ClusterHealth returns the health of all members in the cluster
-func (s *StateStoreFile) ClusterHealth() (map[string]*utils.NodeStatus, error) {
-	// There's only one node in this cluster
-	res := make(map[string]*utils.NodeStatus, 1)
-	res["00000000-0000-0000-0000-000000000000"] = Instance.GetNodeHealth()
-
-	return res, nil
-}
-
-// StoreNodeHealth isn't used with this store
-func (s *StateStoreFile) StoreNodeHealth(health *utils.NodeStatus) error {
-	return nil
-}
-
 // Create a new state file
 func (s *StateStoreFile) createStateFile(path string) (err error) {
-	logger.Println("Will create new state file", path)
+	s.logger.Println("Will create new state file", path)
 
 	// File doesn't exist, so load an empty state
 	sites := make([]SiteState, 0)

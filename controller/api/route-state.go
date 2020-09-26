@@ -21,13 +21,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/state"
-	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/controller/state"
 )
 
 // GetStateHandler is the handler for GET /state, which dumps the state
 func (s *APIServer) GetStateHandler(c *gin.Context) {
-	obj, err := state.Instance.DumpState()
+	obj, err := s.State.DumpState()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -50,15 +49,12 @@ func (s *APIServer) PutStateHandler(c *gin.Context) {
 	}
 
 	// Replace the state
-	if err := state.Instance.ReplaceState(&st); err != nil {
+	if err := s.State.ReplaceState(&st); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
-
-	// Queue a sync
-	sync.QueueRun()
 
 	c.Status(http.StatusNoContent)
 }

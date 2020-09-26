@@ -1,3 +1,5 @@
+// +build e2etests
+
 /*
 Copyright © 2020 Alessandro Segala (@ItalyPaleAle)
 
@@ -14,30 +16,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package state
+// Solution for running e2e tests thanks to Filippo Valsorda:
+// https://blog.cloudflare.com/go-coverage-with-external-tests/
 
-import (
-	"log"
-	"os"
-)
+package main
 
-// Instance is a singleton for Manager
-var Instance *Manager
+import "testing"
 
-// Worker is a singleton for the WorkerController
-var Worker WorkerController
-
-// Logger
-var logger *log.Logger
-
-// Init the singleton
-func init() {
-	// Initialize the logger
-	logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
-
-	// Initialize the singleton
-	Instance = &Manager{}
-	if err := Instance.Init(); err != nil {
-		panic(err)
-	}
+func TestRunMain(t *testing.T) {
+	main()
 }

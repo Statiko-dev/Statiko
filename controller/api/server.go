@@ -31,12 +31,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/fs"
+	"github.com/statiko-dev/statiko/controller/state"
+	"github.com/statiko-dev/statiko/shared/fs"
 )
 
 // APIServer is the API server
 type APIServer struct {
 	Store fs.Fs
+	State *state.Manager
 
 	logger    *log.Logger
 	router    *gin.Engine
@@ -185,8 +187,8 @@ func (s *APIServer) setupRoutes() {
 		group := s.router.Group("/")
 		group.Use(s.Auth(false))
 
-		group.GET("/status", s.StatusHandler)
-		group.GET("/status/:domain", s.StatusHandler)
+		//group.GET("/status", s.StatusHandler)
+		//group.GET("/status/:domain", s.StatusHandler)
 		group.GET("/info", s.InfoHandler)
 	}
 
@@ -203,7 +205,7 @@ func (s *APIServer) setupRoutes() {
 		group.POST("/site/:domain/app", s.DeploySiteHandler)
 		group.PUT("/site/:domain/app", s.DeploySiteHandler) // Alias
 
-		group.GET("/clusterstatus", s.ClusterStatusHandler)
+		//group.GET("/clusterstatus", s.ClusterStatusHandler)
 
 		group.GET("/state", s.GetStateHandler)
 		group.POST("/state", s.PutStateHandler)

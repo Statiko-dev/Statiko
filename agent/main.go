@@ -18,36 +18,20 @@ package main
 
 import (
 	"log"
-	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/statiko-dev/statiko/api"
 	"github.com/statiko-dev/statiko/fs"
-	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/webserver"
-	"github.com/statiko-dev/statiko/worker"
 )
 
 func main() {
-	// Seed rand
-	rand.Seed(time.Now().UnixNano())
-
 	// Store
 	if err := fs.Startup(); err != nil {
 		panic(err)
 	}
-
-	// Init notifications client
-	if err := notifications.InitNotifications(); err != nil {
-		panic(err)
-	}
-
-	// Start all background workers
-	worker.StartWorker()
 
 	// Sync the state
 	// Do this in a synchronous way to ensure the node starts up properly
@@ -62,9 +46,6 @@ func main() {
 
 	// Handle SIGUSR1 signals
 	handleResyncSignal()
-
-	// Start the API server
-	api.Server.Start()
 }
 
 // Listens for SIGUSR1 signals and triggers a new sync
@@ -75,9 +56,6 @@ func handleResyncSignal() {
 		for {
 			<-sigc
 			log.Println("Received SIGUSR1, trigger a re-sync")
-
-			// Restart the API server
-			api.Server.Restart()
 
 			// Force a sync
 			go sync.QueueRun()

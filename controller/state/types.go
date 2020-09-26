@@ -84,7 +84,7 @@ type NodeDHParams struct {
 // SiteHealth represents the health of each site in the node
 type SiteHealth map[string]error
 
-// WorkerController is the interface for the controller
+// WorkerController is the interface for the worker controller
 type WorkerController interface {
 	Init(store StateStore)
 	IsLeader() bool
@@ -104,6 +104,4 @@ type StateStore interface {
 	ReadState() error
 	Healthy() (bool, error)
 	OnStateUpdate(func())
-	ClusterHealth() (map[string]*utils.NodeStatus, error)
-	StoreNodeHealth(health *utils.NodeStatus) error
 }

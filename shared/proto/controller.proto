@@ -33,7 +33,7 @@ syntax = "proto3";
 
 package service;
 
-option go_package = "github.com/statiko-dev/statiko/proto";
+option go_package = "github.com/statiko-dev/statiko/shared/proto";
 
 // Service that manages the state for the cluster and performs all background tasks
 service Controller {

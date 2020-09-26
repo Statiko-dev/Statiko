@@ -22,6 +22,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -32,7 +34,6 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/utils"
 )
 
 // Maximum lock duration, in seconds
@@ -44,6 +45,7 @@ const etcdNodeRegistrationTTL = 30
 type StateStoreEtcd struct {
 	state  *NodeState
 	client *clientv3.Client
+	logger *log.Logger
 
 	stateKey         string
 	dhparamsKey      string
@@ -61,6 +63,9 @@ type StateStoreEtcd struct {
 // Init initializes the object
 func (s *StateStoreEtcd) Init() (err error) {
 	s.lastRevisionPut = 0
+
+	// Initialize the logger
+	s.logger = log.New(os.Stdout, "state/etcd: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Keys and prefixes
 	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
@@ -116,11 +121,12 @@ func (s *StateStoreEtcd) Init() (err error) {
 	}
 
 	// Register the node by storing the node's health (empty for now)
-	err = s.StoreNodeHealth(nil)
+	// TODO: UPDATE THIS
+	//err = s.StoreNodeHealth(nil)
 	if err != nil {
 		return fmt.Errorf("error while registering node: %v", err)
 	}
-	logger.Println("Registered node with etcd, with member ID", s.clusterMemberId)
+	s.logger.Println("Registered node with etcd, with member ID", s.clusterMemberId)
 
 	// Watch for changes
 	go s.watchStateChanges()
@@ -179,11 +185,11 @@ func (s *StateStoreEtcd) watchStateChanges() {
 
 		// Skip if we just stored this value
 		if event.Kv.ModRevision > s.lastRevisionPut {
-			logger.Println("Received new state from etcd: version", event.Kv.ModRevision)
+			s.logger.Println("Received new state from etcd: version", event.Kv.ModRevision)
 			oldState := s.state
 			err := s.unserializeState(event.Kv.Value)
 			if err != nil {
-				logger.Println("Error while parsing state", err)
+				s.logger.Println("Error while parsing state", err)
 				s.state = oldState
 			}
 
@@ -193,7 +199,7 @@ func (s *StateStoreEtcd) watchStateChanges() {
 			}
 		} else if event.Kv.ModRevision < s.lastRevisionPut {
 			// Ignoring the case ==, which means we just received the state we just committed
-			logger.Println("Ignoring an older state received from etcd: version", event.Kv.ModRevision)
+			s.logger.Println("Ignoring an older state received from etcd: version", event.Kv.ModRevision)
 		}
 	}
 
@@ -223,7 +229,7 @@ func (s *StateStoreEtcd) startAuxiliaryKeysWatcher() {
 			// Read the state again
 			if len(resp.Events) > 0 {
 				if err := s.ReadState(); err != nil {
-					logger.Printf("Error while refreshing state from etcd cluster: %v\n", err)
+					s.logger.Printf("Error while refreshing state from etcd cluster: %v\n", err)
 					continue
 				}
 
@@ -258,7 +264,7 @@ func (s *StateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, er
 	// Try to acquire the lock
 	i := EtcdLockDuration * 2
 	for i > 0 {
-		logger.Println("Acquiring lock in etcd:", name)
+		s.logger.Println("Acquiring lock in etcd:", name)
 
 		succeeded, err := s.tryLockAcquisition(s.locksKeyPrefix+name, leaseID)
 		if err != nil {
@@ -271,10 +277,10 @@ func (s *StateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, er
 		} else {
 			// Someone else has a lock, so sleep for 1 second
 			if timeout {
-				logger.Printf("Another node has a lock - waiting (timeout in %d seconds)\n", i)
+				s.logger.Printf("Another node has a lock - waiting (timeout in %d seconds)\n", i)
 				i--
 			} else {
-				logger.Println("Another node has a lock - waiting")
+				s.logger.Println("Another node has a lock - waiting")
 			}
 			time.Sleep(1000 * time.Millisecond)
 		}
@@ -284,14 +290,14 @@ func (s *StateStoreEtcd) AcquireLock(name string, timeout bool) (interface{}, er
 		return leaseID, errors.New("could not obtain a state lock - timeout occurred")
 	}
 
-	logger.Println("Acquired etcd lock with ID:", leaseID)
+	s.logger.Println("Acquired etcd lock with ID:", leaseID)
 
 	return leaseID, nil
 }
 
 // ReleaseLock releases a lock
 func (s *StateStoreEtcd) ReleaseLock(leaseID interface{}) error {
-	logger.Println("Releasing etcd lock with ID:", leaseID)
+	s.logger.Println("Releasing etcd lock with ID:", leaseID)
 
 	// Revoke the lease
 	ctx, cancel := s.GetContext()
@@ -336,7 +342,7 @@ func (s *StateStoreEtcd) SetState(state *NodeState) (err error) {
 
 // WriteState stores the state in etcd
 func (s *StateStoreEtcd) WriteState() (err error) {
-	logger.Println("Writing state in etcd")
+	s.logger.Println("Writing state in etcd")
 
 	// Convert to JSON
 	var data []byte
@@ -357,14 +363,14 @@ func (s *StateStoreEtcd) WriteState() (err error) {
 	// If it has changed
 	if res.Succeeded {
 		s.lastRevisionPut = res.Header.GetRevision()
-		logger.Println("Stored state in etcd: version", s.lastRevisionPut)
+		s.logger.Println("Stored state in etcd: version", s.lastRevisionPut)
 	}
 	return
 }
 
 // ReadState reads the state from etcd
 func (s *StateStoreEtcd) ReadState() (err error) {
-	logger.Println("Reading state from etcd")
+	s.logger.Println("Reading state from etcd")
 
 	// Read the state
 	ctx, cancel := s.GetContext()
@@ -379,7 +385,7 @@ func (s *StateStoreEtcd) ReadState() (err error) {
 		// Parse the JSON from the state
 		err = s.unserializeState(resp.Kvs[0].Value)
 	} else {
-		logger.Println("Will create new state")
+		s.logger.Println("Will create new state")
 
 		// File doesn't exist, so load an empty state
 		sites := make([]SiteState, 0)
@@ -414,97 +420,6 @@ func (s *StateStoreEtcd) Healthy() (healthy bool, err error) {
 // OnStateUpdate stores the callback that is invoked when there's a new state from etcd
 func (s *StateStoreEtcd) OnStateUpdate(callback func()) {
 	s.updateCallback = callback
-}
-
-// ClusterHealth returns the health of all members in the cluster
-func (s *StateStoreEtcd) ClusterHealth() (map[string]*utils.NodeStatus, error) {
-	// Gets all members and their health
-	ctx, cancel := s.GetContext()
-	resp, err := s.client.Get(ctx, s.nodesKeyPrefix, clientv3.WithPrefix())
-	cancel()
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-
-	// Parse the response
-	var res map[string]*utils.NodeStatus
-	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
-		res = make(map[string]*utils.NodeStatus, len(resp.Kvs))
-		for _, kv := range resp.Kvs {
-			// Key
-			key := strings.TrimPrefix(string(kv.Key), s.nodesKeyPrefix)
-
-			// Decode the value
-			val := &utils.NodeStatus{}
-			err := json.Unmarshal(kv.Value, val)
-			if err != nil {
-				return nil, err
-			}
-			res[key] = val
-		}
-	} else {
-		return nil, errors.New("Received empty list of cluster members")
-	}
-
-	return res, nil
-}
-
-// StoreNodeHealth stores the health of this node in etcd
-func (s *StateStoreEtcd) StoreNodeHealth(health *utils.NodeStatus) error {
-	// Get a lease if we don't have it already
-	if s.clusterMemberLease == 0 {
-		ctx, cancel := s.GetContext()
-		lease, err := s.client.Grant(ctx, etcdNodeRegistrationTTL)
-		cancel()
-		if err != nil {
-			return errors.Wrap(err, "")
-		}
-
-		// Maintain the key for as long as the node is up
-		ch, err := s.client.KeepAlive(context.Background(), lease.ID)
-		if err != nil {
-			return errors.Wrap(err, "")
-		}
-		if ch != nil {
-			// Just listen to the keepalive channel and read the messages to avoid the channel to fill up
-			// No need to handle errors, as if the etcd cluster fails, this app crashes
-			go func() {
-				for range ch {
-					// noop
-				}
-				// We're here if the channel was closed
-				logger.Println("Lost lease on node health; a new lease will have to be re-acquired")
-				s.clusterMemberLease = 0
-			}()
-		}
-
-		s.clusterMemberLease = lease.ID
-	}
-
-	// If the health object is nil, store the node name at least
-	if health == nil {
-		health = &utils.NodeStatus{
-			NodeName: appconfig.Config.GetString("nodeName"),
-		}
-	}
-
-	// Serialize the health
-	serialized, err := json.Marshal(health)
-	if err != nil {
-		return err
-	}
-
-	// Store the health
-	_, err = s.setIfDifferent(
-		s.nodesKeyPrefix+s.clusterMemberId,
-		string(serialized),
-		clientv3.WithLease(s.clusterMemberLease),
-	)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Serialize the state to JSON

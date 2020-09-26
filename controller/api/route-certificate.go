@@ -28,8 +28,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/state"
-	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/controller/state"
 )
 
 type certAddRequest struct {
@@ -117,14 +116,11 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 	}
 
 	// Store the certificate
-	err = state.Instance.SetCertificate(state.TLSCertificateImported, []string{data.Name}, []byte(data.Key), []byte(data.Certificate))
+	err = s.State.SetCertificate(state.TLSCertificateImported, []string{data.Name}, []byte(data.Key), []byte(data.Certificate))
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-
-	// We'll trigger a sync in case an existing certificate was updated
-	sync.QueueRun()
 
 	// Respond with "No Content"
 	c.Status(http.StatusNoContent)
@@ -133,7 +129,7 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 // ListCertificateHandler is the handler for GET /certificate, which lists all certificates currently stored (names only)
 func (s *APIServer) ListCertificateHandler(c *gin.Context) {
 	// Get the list of certificates from the state object
-	certs := state.Instance.ListImportedCertificates()
+	certs := s.State.ListImportedCertificates()
 	sort.Strings(certs)
 	c.JSON(http.StatusOK, certs)
 }
@@ -145,7 +141,7 @@ func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 		name = strings.ToLower(name)
 
 		// Check if the certificate exists in the store
-		key, cert, err := state.Instance.GetCertificate(state.TLSCertificateImported, []string{name})
+		key, cert, err := s.State.GetCertificate(state.TLSCertificateImported, []string{name})
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -158,7 +154,7 @@ func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 		}
 
 		// Check if any site is using the certificate
-		sites := state.Instance.GetSites()
+		sites := s.State.GetSites()
 		for _, s := range sites {
 			if s.TLS != nil &&
 				s.TLS.Type == state.TLSCertificateImported &&
@@ -172,7 +168,7 @@ func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 		}
 
 		// Delete the certificate
-		if err := state.Instance.RemoveCertificate(state.TLSCertificateImported, []string{name}); err != nil {
+		if err := s.State.RemoveCertificate(state.TLSCertificateImported, []string{name}); err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}

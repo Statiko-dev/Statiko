@@ -28,8 +28,7 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
-	"github.com/statiko-dev/statiko/state"
-	"github.com/statiko-dev/statiko/sync"
+	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -89,7 +88,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	copy(domains, site.Aliases)
 	domains[len(site.Aliases)] = site.Domain
 	for _, el := range domains {
-		if state.Instance.GetSite(el) != nil {
+		if s.State.GetSite(el) != nil {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
 				"error": "Domain or alias already exists",
 			})
@@ -116,7 +115,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	} else if site.TLS.Type == state.TLSCertificateImported && site.TLS.Certificate != nil && *site.TLS.Certificate != "" {
 		// Imported
 		// Check if the certificate exists
-		key, cert, err := state.Instance.GetCertificate(state.TLSCertificateImported, []string{*site.TLS.Certificate})
+		key, cert, err := s.State.GetCertificate(state.TLSCertificateImported, []string{*site.TLS.Certificate})
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -154,13 +153,10 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	}
 
 	// Add the website to the store
-	if err := state.Instance.AddSite(site); err != nil {
+	if err := s.State.AddSite(site); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-
-	// Queue a sync
-	sync.QueueRun()
 
 	// Respond with the site
 	c.JSON(http.StatusOK, site)
@@ -169,7 +165,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 // ListSiteHandler is the handler for GET /site, which lists all sites
 func (s *APIServer) ListSiteHandler(c *gin.Context) {
 	// Get records from the state object
-	sites := state.Instance.GetSites()
+	sites := s.State.GetSites()
 
 	c.JSON(http.StatusOK, sites)
 }
@@ -196,7 +192,7 @@ func (s *APIServer) ShowSiteHandler(c *gin.Context) {
 		}
 
 		// Get the site from the state object
-		site := state.Instance.GetSite(domain)
+		site := s.State.GetSite(domain)
 		if site == nil {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 				"error": "Domain name not found",
@@ -234,7 +230,7 @@ func (s *APIServer) DeleteSiteHandler(c *gin.Context) {
 		}
 
 		// Get the site from the state object to check if it exists
-		if site := state.Instance.GetSite(domain); site == nil {
+		if site := s.State.GetSite(domain); site == nil {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 				"error": "Domain name not found",
 			})
@@ -242,13 +238,10 @@ func (s *APIServer) DeleteSiteHandler(c *gin.Context) {
 		}
 
 		// Delete the record
-		if err := state.Instance.DeleteSite(domain); err != nil {
+		if err := s.State.DeleteSite(domain); err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-
-		// Queue a sync
-		sync.QueueRun()
 
 		c.Status(http.StatusNoContent)
 	} else {
@@ -288,7 +281,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 	}
 
 	// Get the site from the state object
-	site := state.Instance.GetSite(domain)
+	site := s.State.GetSite(domain)
 	if site == nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error": "Domain name not found",
@@ -348,7 +341,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 					}
 
 					// Check if the certificate exists
-					key, cert, err := state.Instance.GetCertificate(state.TLSCertificateImported, []string{name})
+					key, cert, err := s.State.GetCertificate(state.TLSCertificateImported, []string{name})
 					if err != nil {
 						c.AbortWithError(http.StatusInternalServerError, err)
 						return
@@ -437,7 +430,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 					str := a.(string)
 
 					// Aliases can't be defined somewhere else (but can be defined in this same site!)
-					ok := state.Instance.GetSite(str)
+					ok := s.State.GetSite(str)
 					if ok != nil && ok.Domain != site.Domain {
 						c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 							"error": "Alias " + str + " already exists",
@@ -454,13 +447,10 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 
 	// Update the site object if something has changed
 	if updated {
-		if err := state.Instance.UpdateSite(site, true); err != nil {
+		if err := s.State.UpdateSite(site, true); err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-
-		// Queue a sync
-		sync.QueueRun()
 	}
 
 	// Respond with the site
