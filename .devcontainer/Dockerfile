@@ -32,12 +32,13 @@ RUN bash /tmp/library-scripts/node-debian.sh "${NVM_DIR}" "${NODE_VERSION}" "${U
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends nginx
 
-# Install a set of development tools
+# Install a set of Go development tools
 RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/gobuffalo/packr/packr2@v2.8.0 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/markbates/pkger/cmd/pkger@v0.17.1 | PREFIX=/usr/local/bin sh \
-  && go get -x github.com/matm/gocov-html \
-  && go get -x github.com/axw/gocov/gocov \
+  && su dev -c "go get -x github.com/matm/gocov-html" 2>&1 \
+  && su dev -c "go get -x github.com/axw/gocov/gocov" 2>&1 \
+  # Protobuf compiler
   && export PROTOC_VERSION="3.13.0" \
   && PB_REL="https://github.com/protocolbuffers/protobuf/releases" \
   && curl -LO $PB_REL/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip \
@@ -50,6 +51,9 @@ RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/l
 
 # Install global packages from NPM
 RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
+
+# Enable ZSH plugins
+RUN su dev -c "sed -i 's/plugins=(git)/plugins=(git dotenv)/g' /home/dev/.zshrc"
 
 # Expose ports
 EXPOSE 80 443 2265
