@@ -1,0 +1,99 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 4098 (0x1002)
+    Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C=US, O=ItalyPaleAle Dev, OU=Certs, CN=ItalyPaleAle Dev root CA/emailAddress=noemail@italypaleale
+        Validity
+            Not Before: Feb  9 23:38:13 2020 GMT
+            Not After : Feb  8 23:38:13 2022 GMT
+        Subject: C=US, O=ItalyPaleAle Dev, OU=Certs, CN=statiko.local
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (2048 bit)
+                Modulus:
+                    00:dd:ca:a0:59:85:25:47:e2:db:dc:7f:09:84:8e:
+                    10:03:72:b7:b3:08:e4:02:7f:2c:7a:05:a9:ae:95:
+                    5a:86:c7:46:43:98:8d:d8:c0:33:9b:3e:70:df:b5:
+                    7d:10:88:ef:e6:35:ca:33:54:40:71:37:53:b6:b3:
+                    80:ee:3b:be:86:f0:d6:ac:dc:02:ef:c4:97:66:f9:
+                    a3:63:e3:02:65:b5:ab:2d:54:33:fd:3b:b7:73:f2:
+                    31:2c:fc:f2:9c:f4:f8:4e:f1:c9:27:23:57:fd:5e:
+                    01:74:21:e2:bc:d9:dd:53:e6:c5:ca:1c:08:d9:32:
+                    45:5c:38:cc:1e:f7:e3:8a:3c:fd:ef:3a:68:88:13:
+                    9c:91:4e:51:23:d7:c2:e7:c7:92:39:20:26:78:d2:
+                    23:fa:8e:25:76:aa:ed:33:6b:4a:ee:c5:56:f0:91:
+                    92:77:43:f1:5e:41:38:2a:30:f6:ce:e8:36:9b:8a:
+                    0e:31:bb:9e:07:0a:47:e3:9a:bf:f2:a2:79:9f:9f:
+                    ee:74:06:d4:0c:36:c5:c7:e0:f9:a2:d0:00:2b:a5:
+                    d3:29:b8:92:83:04:df:04:30:0e:24:5f:5f:2b:8c:
+                    23:cb:2b:8f:88:52:bf:d1:7f:9e:a4:8e:bf:fb:fc:
+                    02:da:d4:32:e4:bd:ce:77:61:03:7f:b3:bf:78:4e:
+                    cc:5d
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            X509v3 Key Usage: 
+                Non Repudiation, Key Encipherment, Data Encipherment
+            X509v3 Extended Key Usage: 
+                TLS Web Server Authentication, TLS Web Client Authentication
+            X509v3 Subject Alternative Name: 
+                DNS:statiko.local
+    Signature Algorithm: sha256WithRSAEncryption
+         81:12:be:ad:88:e2:a0:9e:d6:bd:7b:5e:c0:2e:4e:cb:db:7e:
+         8e:09:70:f3:eb:c3:d6:bc:98:0a:ec:f8:3c:ac:e6:da:c0:51:
+         3b:9e:3f:02:e4:29:68:9f:c1:d7:66:75:7a:00:0f:b9:9e:c3:
+         2e:a9:ea:29:57:1f:7c:ed:91:43:18:cf:7e:83:2a:59:cd:dc:
+         7b:b5:58:84:35:09:b1:41:59:b6:74:8c:fa:25:94:e9:62:6f:
+         5f:1a:43:0d:75:83:c9:2b:62:aa:20:45:e6:35:80:00:1c:52:
+         05:a2:d8:31:6f:6f:ea:2c:35:72:4a:c0:ce:c8:f1:67:f6:33:
+         e9:c9:51:f7:57:2d:7f:66:c5:4a:e2:83:19:51:01:18:19:af:
+         e0:80:05:98:4a:4a:91:b3:6e:7e:84:80:2a:c0:0e:67:a9:1e:
+         59:0a:d8:ad:36:6d:5f:33:f1:d5:0c:01:bd:4f:1f:41:75:7e:
+         30:e1:16:4d:38:81:09:02:11:ff:b6:ca:d1:1f:3c:10:9a:08:
+         5a:91:90:bd:ab:bc:27:f4:7b:8c:35:99:e7:36:6a:07:9d:97:
+         15:d7:9c:2e:72:f2:6c:87:49:8b:13:79:9a:71:d2:24:4a:3e:
+         51:0d:0f:27:e2:90:e5:21:4d:6c:f9:a8:3c:10:fb:a6:8d:9b:
+         e3:1c:5f:2e:c0:29:fa:5f:7b:eb:a0:87:35:25:dc:b4:40:41:
+         37:e8:8c:80:eb:3c:97:ec:ba:bd:ea:54:29:84:2f:e0:2f:a3:
+         e0:05:14:86:d5:a1:73:7d:ce:50:29:4b:8d:37:7f:fe:e4:16:
+         a5:5b:0c:b6:92:df:3e:93:e5:87:f3:f8:fa:16:66:af:39:ea:
+         69:70:c4:23:e3:83:a4:c8:1e:98:58:8b:85:f4:98:0a:ab:88:
+         9b:68:63:f8:75:8e:4b:ee:5a:7a:a3:30:05:1c:3b:98:3a:29:
+         55:e7:f0:51:2f:90:ce:e4:c9:75:78:1c:eb:ad:06:e4:36:a0:
+         4f:dc:af:70:9c:84:5b:c7:36:79:d3:fe:3f:96:ae:2f:44:20:
+         69:5b:f4:13:4d:8d:e2:87:09:d5:14:16:68:71:99:81:73:0d:
+         7e:7e:83:df:dd:27:f7:a7:51:34:8b:81:23:1b:b9:e3:95:5d:
+         06:24:e4:83:12:cd:01:21:42:26:11:20:47:35:84:d2:45:1e:
+         c2:46:9b:67:eb:e3:98:7d:33:3c:b0:9d:fc:1a:fc:5e:ce:76:
+         4c:60:99:10:21:bd:d1:57:79:31:59:de:55:b9:82:c0:3e:98:
+         7e:09:f6:d5:fc:59:c0:0f:82:13:52:f3:30:1b:63:32:17:e8:
+         44:45:7c:26:57:a6:5e:1a
+-----BEGIN CERTIFICATE-----
+MIIEoDCCAoigAwIBAgICEAIwDQYJKoZIhvcNAQELBQAwgYAxCzAJBgNVBAYTAlVT
+MRkwFwYDVQQKDBBJdGFseVBhbGVBbGUgRGV2MQ4wDAYDVQQLDAVDZXJ0czEhMB8G
+A1UEAwwYSXRhbHlQYWxlQWxlIERldiByb290IENBMSMwIQYJKoZIhvcNAQkBFhRu
+b2VtYWlsQGl0YWx5cGFsZWFsZTAeFw0yMDAyMDkyMzM4MTNaFw0yMjAyMDgyMzM4
+MTNaMFAxCzAJBgNVBAYTAlVTMRkwFwYDVQQKDBBJdGFseVBhbGVBbGUgRGV2MQ4w
+DAYDVQQLDAVDZXJ0czEWMBQGA1UEAwwNc3RhdGlrby5sb2NhbDCCASIwDQYJKoZI
+hvcNAQEBBQADggEPADCCAQoCggEBAN3KoFmFJUfi29x/CYSOEANyt7MI5AJ/LHoF
+qa6VWobHRkOYjdjAM5s+cN+1fRCI7+Y1yjNUQHE3U7azgO47vobw1qzcAu/El2b5
+o2PjAmW1qy1UM/07t3PyMSz88pz0+E7xyScjV/1eAXQh4rzZ3VPmxcocCNkyRVw4
+zB7344o8/e86aIgTnJFOUSPXwufHkjkgJnjSI/qOJXaq7TNrSu7FVvCRkndD8V5B
+OCow9s7oNpuKDjG7ngcKR+Oav/KieZ+f7nQG1Aw2xcfg+aLQACul0ym4koME3wQw
+DiRfXyuMI8srj4hSv9F/nqSOv/v8AtrUMuS9zndhA3+zv3hOzF0CAwEAAaNTMFEw
+CQYDVR0TBAIwADALBgNVHQ8EBAMCBHAwHQYDVR0lBBYwFAYIKwYBBQUHAwEGCCsG
+AQUFBwMCMBgGA1UdEQQRMA+CDXN0YXRpa28ubG9jYWwwDQYJKoZIhvcNAQELBQAD
+ggIBAIESvq2I4qCe1r17XsAuTsvbfo4JcPPrw9a8mArs+Dys5trAUTuePwLkKWif
+wddmdXoAD7mewy6p6ilXH3ztkUMYz36DKlnN3Hu1WIQ1CbFBWbZ0jPollOlib18a
+Qw11g8krYqogReY1gAAcUgWi2DFvb+osNXJKwM7I8Wf2M+nJUfdXLX9mxUrigxlR
+ARgZr+CABZhKSpGzbn6EgCrADmepHlkK2K02bV8z8dUMAb1PH0F1fjDhFk04gQkC
+Ef+2ytEfPBCaCFqRkL2rvCf0e4w1mec2agedlxXXnC5y8myHSYsTeZpx0iRKPlEN
+DyfikOUhTWz5qDwQ+6aNm+McXy7AKfpfe+ughzUl3LRAQTfojIDrPJfsur3qVCmE
+L+Avo+AFFIbVoXN9zlApS403f/7kFqVbDLaS3z6T5Yfz+PoWZq856mlwxCPjg6TI
+HphYi4X0mAqriJtoY/h1jkvuWnqjMAUcO5g6KVXn8FEvkM7kyXV4HOutBuQ2oE/c
+r3CchFvHNnnT/j+Wri9EIGlb9BNNjeKHCdUUFmhxmYFzDX5+g9/dJ/enUTSLgSMb
+ueOVXQYk5IMSzQEhQiYRIEc1hNJFHsJGm2fr45h9Mzywnfwa/F7OdkxgmRAhvdFX
+eTFZ3lW5gsA+mH4J9tX8WcAPghNS8zAbYzIX6ERFfCZXpl4a
+-----END CERTIFICATE-----
