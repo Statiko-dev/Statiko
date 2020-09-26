@@ -25,11 +25,12 @@ import (
 	"github.com/google/renameio"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
 type StateStoreFile struct {
-	state  *NodeState
+	state  *pb.State
 	logger *log.Logger
 }
 
@@ -56,12 +57,12 @@ func (s *StateStoreFile) ReleaseLock(leaseID interface{}) error {
 }
 
 // GetState returns the full state
-func (s *StateStoreFile) GetState() *NodeState {
+func (s *StateStoreFile) GetState() *pb.State {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *StateStoreFile) SetState(state *NodeState) (err error) {
+func (s *StateStoreFile) SetState(state *pb.State) (err error) {
 	s.state = state
 	return
 }
@@ -108,7 +109,7 @@ func (s *StateStoreFile) ReadState() (err error) {
 			s.createStateFile(path)
 		} else {
 			// Parse JSON
-			s.state = &NodeState{}
+			s.state = &pb.State{}
 			err = json.Unmarshal(data, s.state)
 		}
 	} else {
@@ -133,9 +134,8 @@ func (s *StateStoreFile) createStateFile(path string) (err error) {
 	s.logger.Println("Will create new state file", path)
 
 	// File doesn't exist, so load an empty state
-	sites := make([]SiteState, 0)
-	s.state = &NodeState{
-		Sites: sites,
+	s.state = &pb.State{
+		Sites: make([]*pb.State_Site, 0),
 	}
 
 	// Write the empty state to disk

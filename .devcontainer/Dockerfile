@@ -36,7 +36,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/gobuffalo/packr/packr2@v2.8.0 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/markbates/pkger/cmd/pkger@v0.17.1 | PREFIX=/usr/local/bin sh \
-  && su dev -c "GO111MODULE=off go get github.com/matm/gocov-html github.com/axw/gocov/gocov github.com/golang/protobuf/protoc-gen-go" 2>&1 \
+  && su dev -c "GO111MODULE=off go get -v github.com/matm/gocov-html github.com/axw/gocov/gocov github.com/golang/protobuf/protoc-gen-go github.com/mitchellh/protoc-gen-go-json" 2>&1 \
   # Protobuf compiler
   && export PROTOC_VERSION="3.13.0" \
   && PB_REL="https://github.com/protocolbuffers/protobuf/releases" \

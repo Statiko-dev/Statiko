@@ -21,7 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/controller/state"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // GetStateHandler is the handler for GET /state, which dumps the state
@@ -40,8 +40,8 @@ func (s *APIServer) GetStateHandler(c *gin.Context) {
 // PutStateHandler is the handler for PUT /state (and POST /state), which replaces the state with the input
 func (s *APIServer) PutStateHandler(c *gin.Context) {
 	// Get updated state from the body
-	var st state.NodeState
-	if err := c.Bind(&st); err != nil {
+	st := &pb.State{}
+	if err := c.Bind(st); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body: " + err.Error(),
 		})
@@ -49,7 +49,7 @@ func (s *APIServer) PutStateHandler(c *gin.Context) {
 	}
 
 	// Replace the state
-	if err := s.State.ReplaceState(&st); err != nil {
+	if err := s.State.ReplaceState(st); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})

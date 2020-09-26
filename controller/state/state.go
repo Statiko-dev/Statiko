@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -41,13 +42,11 @@ const (
 
 // Manager is the state manager class
 type Manager struct {
-	RefreshCerts       chan int
 	DHParamsGenerating bool
 	updated            *time.Time
 	store              StateStore
 	storeType          string
-	siteHealth         SiteHealth
-	nodeHealth         *utils.NodeStatus
+	nodeHealth         *pb.NodeHealth
 	logger             *log.Logger
 }
 
@@ -74,10 +73,6 @@ func (m *Manager) Init() (err error) {
 		return err
 	}
 
-	// Init variables
-	m.siteHealth = make(SiteHealth)
-	m.RefreshCerts = make(chan int, 1)
-
 	return
 }
 
@@ -102,12 +97,12 @@ func (m *Manager) ReleaseLock(leaseID interface{}) error {
 }
 
 // DumpState exports the entire state
-func (m *Manager) DumpState() (*NodeState, error) {
+func (m *Manager) DumpState() (*pb.State, error) {
 	return m.store.GetState(), nil
 }
 
 // ReplaceState replaces the full state for the node with the provided one
-func (m *Manager) ReplaceState(state *NodeState) error {
+func (m *Manager) ReplaceState(state *pb.State) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -117,9 +112,9 @@ func (m *Manager) ReplaceState(state *NodeState) error {
 
 	// Ensure that if TLS certs are not imported or from Azure Key Vault, their name and version isn't included
 	for _, s := range state.Sites {
-		if s.TLS != nil && s.TLS.Type != TLSCertificateImported && s.TLS.Type != TLSCertificateAzureKeyVault {
-			s.TLS.Certificate = nil
-			s.TLS.Version = nil
+		if s.Tls != nil && s.Tls.Type != pb.State_Site_TLS_IMPORTED && s.Tls.Type != pb.State_Site_TLS_AZURE_KEY_VAULT {
+			s.Tls.Certificate = ""
+			s.Tls.Version = ""
 		}
 	}
 
@@ -156,7 +151,7 @@ func (m *Manager) LastUpdated() *time.Time {
 }
 
 // GetSites returns the list of all sites
-func (m *Manager) GetSites() []SiteState {
+func (m *Manager) GetSites() []*pb.State_Site {
 	state := m.store.GetState()
 	if state != nil {
 		return state.Sites
@@ -166,19 +161,17 @@ func (m *Manager) GetSites() []SiteState {
 }
 
 // GetSite returns the site object for a specific domain (including aliases)
-func (m *Manager) GetSite(domain string) *SiteState {
-	sites := m.GetSites()
-	for _, s := range sites {
-		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
-			return &s
-		}
+func (m *Manager) GetSite(domain string) *pb.State_Site {
+	state := m.store.GetState()
+	if state != nil {
+		return nil
 	}
 
-	return nil
+	return state.GetSite(domain)
 }
 
 // AddSite adds a site to the store
-func (m *Manager) AddSite(site *SiteState) error {
+func (m *Manager) AddSite(site *pb.State_Site) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -195,7 +188,7 @@ func (m *Manager) AddSite(site *SiteState) error {
 
 	// Add the site
 	state := m.store.GetState()
-	state.Sites = append(state.Sites, *site)
+	state.Sites = append(state.Sites, site)
 	m.setUpdated()
 
 	// Commit the state to the store
@@ -207,7 +200,7 @@ func (m *Manager) AddSite(site *SiteState) error {
 }
 
 // UpdateSite updates a site with the same Domain
-func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
+func (m *Manager) UpdateSite(site *pb.State_Site, setUpdated bool) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -228,7 +221,7 @@ func (m *Manager) UpdateSite(site *SiteState, setUpdated bool) error {
 	for i, s := range state.Sites {
 		if s.Domain == site.Domain {
 			// Replace the element
-			state.Sites[i] = *site
+			state.Sites[i] = site
 
 			found = true
 			break
@@ -306,36 +299,17 @@ func (m *Manager) OnStateUpdate(callback func()) {
 	m.store.OnStateUpdate(callback)
 }
 
-// GetSiteHealth returns the health of a site
-func (m *Manager) GetSiteHealth(domain string) error {
-	return m.siteHealth[domain]
-}
-
-// GetAllSiteHealth returns the health of all objects
-func (m *Manager) GetAllSiteHealth() SiteHealth {
-	// Deep-clone the object
-	r := make(SiteHealth)
-	for k, v := range m.siteHealth {
-		r[k] = v
-	}
-	return r
-}
-
-// SetSiteHealth sets the health of a site
-func (m *Manager) SetSiteHealth(domain string, err error) {
-	m.siteHealth[domain] = err
-}
-
 // GetDHParams returns the PEM-encoded DH parameters and their date
 func (m *Manager) GetDHParams() (string, *time.Time) {
 	// Check if we DH parameters; if not, return the default ones
 	state := m.store.GetState()
-	if state != nil && state.DHParams == nil || state.DHParams.Date == nil || state.DHParams.PEM == "" {
+	if state != nil && state.DhParams == nil || state.DhParams.Date == 0 || state.DhParams.Pem == "" {
 		return defaultDHParams, nil
 	}
 
 	// Return the saved DH parameters
-	return state.DHParams.PEM, state.DHParams.Date
+	date := time.Unix(state.DhParams.Date, 0)
+	return state.DhParams.Pem, &date
 }
 
 // SetDHParams stores new PEM-encoded DH parameters
@@ -364,9 +338,9 @@ func (m *Manager) SetDHParams(val string) error {
 		return errors.New("state not loaded")
 	}
 	now := time.Now()
-	state.DHParams = &NodeDHParams{
-		PEM:  val,
-		Date: &now,
+	state.DhParams = &pb.State_DHParams{
+		Pem:  val,
+		Date: now.Unix(),
 	}
 
 	m.setUpdated()
@@ -582,12 +556,12 @@ func (m *Manager) ListImportedCertificates() (res []string) {
 // certificateSecretKey returns the key of secret for the certificate
 func (m *Manager) certificateSecretKey(typ string, nameOrDomains []string) string {
 	switch typ {
-	case TLSCertificateImported:
+	case pb.State_Site_TLS_IMPORTED.String():
 		if len(nameOrDomains) != 1 || len(nameOrDomains[0]) == 0 {
 			return ""
 		}
 		return "cert/imported/" + nameOrDomains[0]
-	case TLSCertificateACME, TLSCertificateSelfSigned:
+	case pb.State_Site_TLS_ACME.String(), pb.State_Site_TLS_SELF_SIGNED.String():
 		domainKey := utils.SHA256String(strings.Join(nameOrDomains, ","))[:15]
 		return "cert/" + typ + "/" + domainKey
 	default:
@@ -637,17 +611,6 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 }
 
 // GetNodeHealth gets the node status object
-func (m *Manager) GetNodeHealth() *utils.NodeStatus {
+func (m *Manager) GetNodeHealth() *pb.NodeHealth {
 	return m.nodeHealth
-}
-
-// TriggerRefreshCerts triggers a background job that re-checks all certificates and refreshes them
-func (m *Manager) TriggerRefreshCerts() {
-	select {
-	case m.RefreshCerts <- 1:
-		return
-	default:
-		// If the buffer is full, it means there's already one message in the queue, so all good
-		return
-	}
 }

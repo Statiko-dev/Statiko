@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // Maximum lock duration, in seconds
@@ -43,7 +44,7 @@ const EtcdLockDuration = 20
 const etcdNodeRegistrationTTL = 30
 
 type StateStoreEtcd struct {
-	state  *NodeState
+	state  *pb.State
 	client *clientv3.Client
 	logger *log.Logger
 
@@ -330,12 +331,12 @@ func (s *StateStoreEtcd) tryLockAcquisition(lockKey string, leaseID clientv3.Lea
 }
 
 // GetState returns the full state
-func (s *StateStoreEtcd) GetState() *NodeState {
+func (s *StateStoreEtcd) GetState() *pb.State {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *StateStoreEtcd) SetState(state *NodeState) (err error) {
+func (s *StateStoreEtcd) SetState(state *pb.State) (err error) {
 	s.state = state
 	return
 }
@@ -387,10 +388,9 @@ func (s *StateStoreEtcd) ReadState() (err error) {
 	} else {
 		s.logger.Println("Will create new state")
 
-		// File doesn't exist, so load an empty state
-		sites := make([]SiteState, 0)
-		s.state = &NodeState{
-			Sites: sites,
+		// Value doesn't exist, so load an empty state
+		s.state = &pb.State{
+			Sites: make([]*pb.State_Site, 0),
 		}
 
 		// Write the empty state to disk
@@ -427,7 +427,7 @@ func (s *StateStoreEtcd) OnStateUpdate(callback func()) {
 // Store the DH parameters file in a separate etcd key too
 func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 	// Create a copy of the state
-	serialize := NodeState{
+	serialize := pb.State{
 		Sites: s.state.Sites,
 	}
 
@@ -446,9 +446,9 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 	}
 
 	// Check if we have DH params
-	if s.state.DHParams != nil && s.state.DHParams.PEM != "" && s.state.DHParams.Date != nil {
+	if s.state.DhParams != nil && s.state.DhParams.Pem != "" && s.state.DhParams.Date != 0 {
 		// Encode to JSON
-		dhparams, err := json.Marshal(s.state.DHParams)
+		dhparams, err := json.Marshal(s.state.DhParams)
 		if err != nil {
 			return nil, err
 		}
@@ -474,7 +474,7 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 // Additionally, retrieve all elements that were stored separately in etcd
 func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	// First, unserialize the JSON data
-	unserialized := &NodeState{}
+	unserialized := &pb.State{}
 	if err := json.Unmarshal(data, unserialized); err != nil {
 		return err
 	}
@@ -509,8 +509,8 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 		return errors.Wrap(err, "")
 	}
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
-		unserialized.DHParams = &NodeDHParams{}
-		err := json.Unmarshal(resp.Kvs[0].Value, unserialized.DHParams)
+		unserialized.DhParams = &pb.State_DHParams{}
+		err := json.Unmarshal(resp.Kvs[0].Value, unserialized.DhParams)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}

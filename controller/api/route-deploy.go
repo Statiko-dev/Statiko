@@ -21,8 +21,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/controller/state"
+	"github.com/statiko-dev/statiko/utils"
 )
+
+type deployRequest struct {
+	Name string `json:"name" form:"name" binding:"required"`
+}
 
 // DeploySiteHandler is the handler for POST/PUT /site/{domain}/app, which deploys an app
 func (s *APIServer) DeploySiteHandler(c *gin.Context) {
@@ -45,21 +49,22 @@ func (s *APIServer) DeploySiteHandler(c *gin.Context) {
 	}
 
 	// Get the app to deploy from the body
-	var app state.SiteApp
-	if err := c.Bind(&app); err != nil {
+	var req deployRequest
+	if err := c.Bind(&req); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body: " + err.Error(),
 		})
 		return
 	}
-	if !app.Validate() {
+	req.Name = utils.SanitizeAppName(req.Name)
+	if req.Name == "" {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid app name",
 		})
 		return
 	}
 
-	site.App = &app
+	site.App = req.Name
 
 	// Update the app
 	if err := s.State.UpdateSite(site, true); err != nil {

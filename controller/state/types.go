@@ -17,47 +17,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
-	"time"
-
 	"github.com/statiko-dev/statiko/utils"
+
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
-
-const (
-	TLSCertificateImported      = "imported"
-	TLSCertificateAzureKeyVault = "akv"
-	TLSCertificateSelfSigned    = "selfsigned"
-	TLSCertificateACME          = "acme"
-)
-
-// NodeState represents the global state of the node
-type NodeState struct {
-	Sites    []SiteState       `json:"sites"`
-	Secrets  map[string][]byte `json:"secrets,omitempty"`
-	DHParams *NodeDHParams     `json:"dhparams,omitempty"`
-}
-
-// SiteState represents the state of a single site
-type SiteState struct {
-	// Domains: primary and aliases
-	Domain  string   `json:"domain" binding:"ne=_default"`
-	Aliases []string `json:"aliases" binding:"dive,ne=_default"`
-
-	// Temporary site (e.g. for testing)
-	Temporary bool `json:"temporary,omitempty"`
-
-	// TLS configuration
-	TLS *SiteTLS `json:"tls"`
-
-	// App
-	App *SiteApp `json:"app"`
-}
-
-// SiteTLS represents the TLS configuration for the site
-type SiteTLS struct {
-	Type        string  `json:"type"`
-	Certificate *string `json:"cert,omitempty"`
-	Version     *string `json:"ver,omitempty"`
-}
 
 // SiteApp represents the state of an app deployed or being deployed
 type SiteApp struct {
@@ -75,15 +38,6 @@ func (a *SiteApp) Validate() bool {
 	return a.Name != ""
 }
 
-// NodeDHParams represents the DH Parameters file (PEM-encoded) and their age
-type NodeDHParams struct {
-	Date *time.Time `json:"time"`
-	PEM  string     `json:"pem"`
-}
-
-// SiteHealth represents the health of each site in the node
-type SiteHealth map[string]error
-
 // WorkerController is the interface for the worker controller
 type WorkerController interface {
 	Init(store StateStore)
@@ -98,8 +52,8 @@ type StateStore interface {
 	Init() error
 	AcquireLock(name string, timeout bool) (interface{}, error)
 	ReleaseLock(leaseID interface{}) error
-	GetState() *NodeState
-	SetState(*NodeState) error
+	GetState() *pb.State
+	SetState(*pb.State) error
 	WriteState() error
 	ReadState() error
 	Healthy() (bool, error)

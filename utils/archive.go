@@ -51,7 +51,7 @@ type archiveHeader struct {
 
 // ArchiveTypeByExtension returns the type of the archive by the file's extension
 // Note: this function assumes that the file was already validated to contain one of the valid extensions
-// Ensure to use the SiteApp.Validate() method first
+// Ensure to use the utils.SanitizeAppName() method first
 func ArchiveTypeByExtension(name string) int {
 	// Get the last 4 characters
 	// This is safe since we know the extension is one of those in the list
