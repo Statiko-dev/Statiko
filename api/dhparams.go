@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"net/http"
@@ -37,7 +37,7 @@ type dhParamsResponse struct {
 }
 
 // DHParamsSetHandler is the handler for POST /dhparams, which stores new DH parameters (PEM-encoded)
-func DHParamsSetHandler(c *gin.Context) {
+func (s *APIServer) DHParamsSetHandler(c *gin.Context) {
 	// Get data from the form body
 	data := &dhParamsRequest{}
 	if err := c.Bind(data); err != nil {
@@ -90,7 +90,7 @@ func DHParamsSetHandler(c *gin.Context) {
 
 // DHParamsGetHandler is the handler for GET /dhparams, which returns wether DH parameters exist or are being re-generated
 // The response type is "builtin" when the cluster is using the built-in DH parameters, and "cluster" when it's using DH parameters generated for the cluster
-func DHParamsGetHandler(c *gin.Context) {
+func (s *APIServer) DHParamsGetHandler(c *gin.Context) {
 	// Get the current DH params's age
 	_, date := state.Instance.GetDHParams()
 

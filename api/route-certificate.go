@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"crypto/x509"
@@ -39,12 +39,12 @@ type certAddRequest struct {
 	Force       bool   `json:"force" form:"force"`
 }
 
-var certNameRegEx *regexp.Regexp
+var certNameRegEx *regexp.Regexp = regexp.MustCompile("^([a-z][a-z0-9\\.\\-]*)$")
 
 // ImportCertificateHandler is the handler for POST /certificate, which stores a new certificate
 // Certificate must be an object with a key and a certificate, both PEM-encoded
 // Certificate name must be a lowercase string with letters, numbers, dashes and dots only, and must begin with a letter
-func ImportCertificateHandler(c *gin.Context) {
+func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 	// Get data from the form body
 	data := &certAddRequest{}
 	if err := c.Bind(data); err != nil {
@@ -61,9 +61,6 @@ func ImportCertificateHandler(c *gin.Context) {
 	}
 
 	// Validate the name
-	if certNameRegEx == nil {
-		certNameRegEx = regexp.MustCompile("^([a-z][a-z0-9\\.\\-]*)$")
-	}
 	data.Name = strings.ToLower(data.Name)
 	if !certNameRegEx.MatchString(data.Name) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -134,7 +131,7 @@ func ImportCertificateHandler(c *gin.Context) {
 }
 
 // ListCertificateHandler is the handler for GET /certificate, which lists all certificates currently stored (names only)
-func ListCertificateHandler(c *gin.Context) {
+func (s *APIServer) ListCertificateHandler(c *gin.Context) {
 	// Get the list of certificates from the state object
 	certs := state.Instance.ListImportedCertificates()
 	sort.Strings(certs)
@@ -143,7 +140,7 @@ func ListCertificateHandler(c *gin.Context) {
 
 // DeleteCertificateHandler is the handler for DELETE /certificate/{name}, which removes a certificate from the store
 // Only certificates not used by any site can be deleted
-func DeleteCertificateHandler(c *gin.Context) {
+func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 	if name := c.Param("name"); len(name) > 0 {
 		name = strings.ToLower(name)
 

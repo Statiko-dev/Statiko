@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"net/http"
@@ -28,7 +28,7 @@ import (
 )
 
 // StatusHandler is the handler for GET /status (with an optional domain as in /status/:domain), which returns the status and health of the node
-func StatusHandler(c *gin.Context) {
+func (s *APIServer) StatusHandler(c *gin.Context) {
 	isAuthenticated := c.GetBool("authenticated")
 
 	// Check if the state is healthy

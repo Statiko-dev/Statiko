@@ -22,19 +22,7 @@ import (
 	"fmt"
 	"io"
 	"time"
-
-	"github.com/statiko-dev/statiko/appconfig"
 )
-
-// Singleton
-var Instance Fs
-
-// Startup initializes the singleton
-func Startup() (err error) {
-	typ := appconfig.Config.GetString("repo.type")
-	Instance, err = Get(typ)
-	return
-}
 
 // Get returns a store for the given type
 func Get(typ string) (store Fs, err error) {

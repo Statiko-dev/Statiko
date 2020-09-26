@@ -19,30 +19,18 @@ package main
 import (
 	"math/rand"
 	"time"
-
-	"github.com/statiko-dev/statiko/api"
-	"github.com/statiko-dev/statiko/fs"
-	"github.com/statiko-dev/statiko/notifications"
-	"github.com/statiko-dev/statiko/worker"
 )
 
-func main() {
+func init() {
 	// Seed rand
 	rand.Seed(time.Now().UnixNano())
+}
 
-	// Store
-	if err := fs.Startup(); err != nil {
+func main() {
+	// Create and initialize the Controller object
+	controller := &Controller{}
+	err := controller.Init()
+	if err != nil {
 		panic(err)
 	}
-
-	// Init notifications client
-	if err := notifications.InitNotifications(); err != nil {
-		panic(err)
-	}
-
-	// Start all background workers
-	worker.StartWorker()
-
-	// Start the API server
-	api.Server.Start()
 }

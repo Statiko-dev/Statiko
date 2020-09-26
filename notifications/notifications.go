@@ -24,52 +24,48 @@ import (
 	"github.com/statiko-dev/statiko/appconfig"
 )
 
-var notifier notificationSender
-var logger *log.Logger
+// Notifications is the object that can be used to send notifications
+type Notifications struct {
+	sender notificationSender
+	logger *log.Logger
+}
 
-// InitNotifications creates the right object that will send notifications
-func InitNotifications() error {
+// Init the right object that will send notifications
+func (n *Notifications) Init() error {
 	// Init the logger
-	logger = log.New(os.Stdout, "notifications: ", log.Ldate|log.Ltime|log.LUTC)
+	n.logger = log.New(os.Stdout, "notifications: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Init the notifier object
-	method := notificationsMethod()
-	method = strings.ToLower(method)
-	if method == "" || method == "off" {
-		logger.Println("Notifications are off")
+	method := strings.ToLower(n.notificationsMethod())
+	if method == "" {
+		n.logger.Println("Notifications are off")
 		return nil
 	}
 
-	var obj notificationSender = nil
 	switch method {
 	case "webhook":
-		obj = &NotificationWebhook{}
-		if err := obj.Init(); err != nil {
+		n.sender = &NotificationWebhook{}
+		if err := n.sender.Init(); err != nil {
 			return err
 		}
 	default:
-		logger.Println("Invalid notification method")
+		n.logger.Println("Invalid notification method")
 	}
 
-	notifier = obj
 	return nil
 }
 
 // SendNotification sends a notification to the admin
 // This function is meant to be run asynchronously (`go SendNotification(...)`), so it doesn't return any error
 // Instead, errors are printed on the console
-func SendNotification(message string) {
-	if notifier == nil {
-		return
-	}
-
-	if err := notifier.SendNotification(message); err != nil {
-		logger.Println("[Error] SendNotification returned an error:", err)
+func (n *Notifications) SendNotification(message string) {
+	if err := n.sender.SendNotification(message); err != nil {
+		n.logger.Println("[Error] SendNotification returned an error:", err)
 	}
 }
 
 // Returns the method used for notifications
-func notificationsMethod() string {
+func (n *Notifications) notificationsMethod() string {
 	method := strings.ToLower(appconfig.Config.GetString("notifications.method"))
 
 	// Check if notifications are enabled

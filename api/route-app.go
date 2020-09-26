@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"net/http"
@@ -28,7 +28,7 @@ import (
 // AppUploadHandler is the handler for POST /app, which is used to upload new app bundles
 // The request body must be a multipart/form-data with a "file" field containing the bundle, a "name" field containing the name, and a "type" one containing the type (file extension)
 // Optionally, pass a "signature" and/or "hash" fielld
-func AppUploadHandler(c *gin.Context) {
+func (s *APIServer) AppUploadHandler(c *gin.Context) {
 	// Get the file from the body
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -91,7 +91,7 @@ func AppUploadHandler(c *gin.Context) {
 	}
 
 	// Store the file
-	err = fs.Instance.SetWithContext(c.Request.Context(), name, in, metadata)
+	err = s.Store.SetWithContext(c.Request.Context(), name, in, metadata)
 	if err != nil {
 		if err == fs.ErrExist {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
@@ -113,7 +113,7 @@ type appUpdateRequest struct {
 
 // AppUpdateHandler is the handler for POST /app/:name, which updates the signature of a file
 // The request may contain a "signature" field or a "hash" onne
-func AppUpdateHandler(c *gin.Context) {
+func (s *APIServer) AppUpdateHandler(c *gin.Context) {
 	// Get the app to update
 	name := c.Param("name")
 	name = utils.SanitizeAppName(name)
@@ -134,7 +134,7 @@ func AppUpdateHandler(c *gin.Context) {
 	}
 
 	// Get the current metadata
-	metadata, err := fs.Instance.GetMetadata(name)
+	metadata, err := s.Store.GetMetadata(name)
 	if err != nil {
 		if err == fs.ErrNotExist {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
@@ -174,7 +174,7 @@ func AppUpdateHandler(c *gin.Context) {
 	}
 
 	// Update the metadata
-	err = fs.Instance.SetMetadata(name, metadata)
+	err = s.Store.SetMetadata(name, metadata)
 	if err != nil {
 		if err == fs.ErrNotExist {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
@@ -191,9 +191,9 @@ func AppUpdateHandler(c *gin.Context) {
 }
 
 // AppListHandler is the handler for GET /app which returns the list of apps
-func AppListHandler(c *gin.Context) {
+func (s *APIServer) AppListHandler(c *gin.Context) {
 	// Get the list
-	list, err := fs.Instance.ListWithContext(c.Request.Context())
+	list, err := s.Store.ListWithContext(c.Request.Context())
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -204,7 +204,7 @@ func AppListHandler(c *gin.Context) {
 }
 
 // AppDeleteHandler is the handler for DELETE /app/:name which removes an app from the storage
-func AppDeleteHandler(c *gin.Context) {
+func (s *APIServer) AppDeleteHandler(c *gin.Context) {
 	// Get the app to delete
 	name := c.Param("name")
 	name = utils.SanitizeAppName(name)
@@ -216,7 +216,7 @@ func AppDeleteHandler(c *gin.Context) {
 	}
 
 	// Delete the app
-	err := fs.Instance.Delete(name)
+	err := s.Store.Delete(name)
 	if err != nil {
 		if err == fs.ErrNotExist {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{

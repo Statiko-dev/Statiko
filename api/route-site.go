@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"fmt"
@@ -34,7 +34,7 @@ import (
 )
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site
-func CreateSiteHandler(c *gin.Context) {
+func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	// Get data from the form body
 	site := &state.SiteState{}
 	if err := c.Bind(site); err != nil {
@@ -167,7 +167,7 @@ func CreateSiteHandler(c *gin.Context) {
 }
 
 // ListSiteHandler is the handler for GET /site, which lists all sites
-func ListSiteHandler(c *gin.Context) {
+func (s *APIServer) ListSiteHandler(c *gin.Context) {
 	// Get records from the state object
 	sites := state.Instance.GetSites()
 
@@ -175,7 +175,7 @@ func ListSiteHandler(c *gin.Context) {
 }
 
 // ShowSiteHandler is the handler for GET /site/:domain, which shows a site
-func ShowSiteHandler(c *gin.Context) {
+func (s *APIServer) ShowSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
 		// If we're getting a temporary site, add the domain automatically
 		if utils.IsTruthy(c.Query("temporary")) {
@@ -213,7 +213,7 @@ func ShowSiteHandler(c *gin.Context) {
 }
 
 // DeleteSiteHandler is the handler for DELETE /site/:domain, which deletes a site
-func DeleteSiteHandler(c *gin.Context) {
+func (s *APIServer) DeleteSiteHandler(c *gin.Context) {
 	if domain := c.Param("domain"); len(domain) > 0 {
 		// If we're getting a temporary site, add the domain automatically
 		if utils.IsTruthy(c.Query("temporary")) {
@@ -259,7 +259,7 @@ func DeleteSiteHandler(c *gin.Context) {
 }
 
 // PatchSiteHandler is the handler for PATCH /site/:domain, which replaces a site
-func PatchSiteHandler(c *gin.Context) {
+func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 	// Get the site to update (domain name)
 	domain := c.Param("domain")
 	if len(domain) == 0 {

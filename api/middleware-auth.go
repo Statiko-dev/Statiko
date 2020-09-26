@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package middlewares
+package api
 
 import (
 	"crypto/rsa"
@@ -57,7 +57,7 @@ type jwksKey struct {
 }
 
 // Auth middleware that checks the Authorization header in the request
-func Auth(required bool) gin.HandlerFunc {
+func (s *APIServer) Auth(required bool) gin.HandlerFunc {
 	// Check if an authentication provider is allowed; we can only support one at a time
 	auth0Enabled := appconfig.Config.GetBool("auth.auth0.enabled")
 	azureADEnabled := appconfig.Config.GetBool("auth.azureAD.enabled")
@@ -70,11 +70,11 @@ func Auth(required bool) gin.HandlerFunc {
 	var validateClaimFunc func(jwt.MapClaims) bool
 	switch {
 	case auth0Enabled:
-		tokenKeyFunc = tokenKeyFuncGenerator("auth0")
-		validateClaimFunc = validateClaimFuncGenerator("auth0")
+		tokenKeyFunc = s.tokenKeyFuncGenerator("auth0")
+		validateClaimFunc = s.validateClaimFuncGenerator("auth0")
 	case azureADEnabled:
-		tokenKeyFunc = tokenKeyFuncGenerator("azuread")
-		validateClaimFunc = validateClaimFuncGenerator("azuread")
+		tokenKeyFunc = s.tokenKeyFuncGenerator("azuread")
+		validateClaimFunc = s.validateClaimFuncGenerator("azuread")
 	}
 
 	return func(c *gin.Context) {
@@ -122,7 +122,7 @@ func Auth(required bool) gin.HandlerFunc {
 }
 
 // Validate claims for a specific provider
-func validateClaimFuncGenerator(provider string) func(jwt.MapClaims) bool {
+func (s *APIServer) validateClaimFuncGenerator(provider string) func(jwt.MapClaims) bool {
 	switch provider {
 	case "auth0":
 		return func(claims jwt.MapClaims) bool {
@@ -151,7 +151,7 @@ func validateClaimFuncGenerator(provider string) func(jwt.MapClaims) bool {
 }
 
 // Function used to return the key used to sign the tokens
-func tokenKeyFuncGenerator(provider string) jwt.Keyfunc {
+func (s *APIServer) tokenKeyFuncGenerator(provider string) jwt.Keyfunc {
 	return func(token *jwt.Token) (interface{}, error) {
 		// Azure AD tokens are signed with RS256 method
 		if token.Method.Alg() != "RS256" {
@@ -159,13 +159,13 @@ func tokenKeyFuncGenerator(provider string) jwt.Keyfunc {
 		}
 
 		// Get the signing key
-		key, err := getTokenSigningKey(token.Header["kid"].(string), provider)
+		key, err := s.getTokenSigningKey(token.Header["kid"].(string), provider)
 		if err != nil {
-			logger.Println("[Error] Error while requesting token signing key:", err)
+			s.logger.Println("[Error] Error while requesting token signing key:", err)
 			return nil, err
 		}
 		if key == nil {
-			logger.Println("[Error] Key not found in the key store")
+			s.logger.Println("[Error] Key not found in the key store")
 			return nil, errors.New("key not found")
 		}
 		return key, nil
@@ -173,7 +173,7 @@ func tokenKeyFuncGenerator(provider string) jwt.Keyfunc {
 }
 
 // Get the token signing keys
-func getTokenSigningKey(kid string, provider string) (key *rsa.PublicKey, err error) {
+func (s *APIServer) getTokenSigningKey(kid string, provider string) (key *rsa.PublicKey, err error) {
 	// Check if we have the key in memory
 	if keyCache == nil {
 		keyCache = make(map[string]*rsa.PublicKey)
@@ -186,7 +186,7 @@ func getTokenSigningKey(kid string, provider string) (key *rsa.PublicKey, err er
 
 	// Do not request keys again if it's been less than N minutes
 	if time.Now().Before(jwksLastFetch.Add(jwksFetchInterval)) {
-		logger.Println("Key not found in JWKS cache, but last fetch was too recent")
+		s.logger.Println("Key not found in JWKS cache, but last fetch was too recent")
 		// Just return a "not found"
 		key = nil
 		return
@@ -204,7 +204,7 @@ func getTokenSigningKey(kid string, provider string) (key *rsa.PublicKey, err er
 		issuer = strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
 		url = strings.Replace(azureADJWKS, "{tenant}", tenant, 1)
 	}
-	logger.Println("Fetching JWKS from " + url)
+	s.logger.Println("Fetching JWKS from " + url)
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -235,7 +235,7 @@ func getTokenSigningKey(kid string, provider string) (key *rsa.PublicKey, err er
 			return nil, err
 		}
 		// Add to cache
-		logger.Println("Received JWKS key " + el.Kid)
+		s.logger.Println("Received JWKS key " + el.Kid)
 		keyCache[el.Kid] = k
 	}
 

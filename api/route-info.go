@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package routes
+package api
 
 import (
 	"fmt"
@@ -44,7 +44,7 @@ type openIDInfoResponse struct {
 }
 
 // InfoHandler is the handler for GET /info, which returns information about the agent running
-func InfoHandler(c *gin.Context) {
+func (s *APIServer) InfoHandler(c *gin.Context) {
 	// Check auth info
 	authMethods := make([]string, 0)
 	var azureADInfo, auth0Info *openIDInfoResponse

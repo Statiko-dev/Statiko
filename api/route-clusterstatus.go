@@ -14,22 +14,36 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package middlewares
+package api
 
 import (
-	"github.com/statiko-dev/statiko/appconfig"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/statiko-dev/statiko/state"
 )
 
-// NodeName middleware that adds the "X-STK-Node" header containing the node name
-func NodeName() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		hostname := appconfig.Config.GetString("nodeName")
-		if len(hostname) == 0 {
-			return
-		}
-
-		c.Header("X-STK-Node", hostname)
+// ClusterStatusHandler is the handler for GET /clusterstatus, which returns the status of the entire cluster
+func (s *APIServer) ClusterStatusHandler(c *gin.Context) {
+	// Get cluster status
+	health, err := state.Instance.ClusterHealth()
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	}
+
+	// Iterate through the result to clean it
+	for i := range health {
+		for j := range health[i].Health {
+			el := health[i].Health[j]
+			healthy := el.IsHealthy()
+			el.Healthy = &healthy
+			el.StatusCode = nil
+			el.ResponseSize = nil
+			health[i].Health[j] = el
+		}
+	}
+
+	c.JSON(http.StatusOK, health)
 }

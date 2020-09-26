@@ -19,6 +19,7 @@ package api
 import (
 	"context"
 	"crypto/tls"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -29,21 +30,27 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/api/middlewares"
-	"github.com/statiko-dev/statiko/api/routes"
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/fs"
 )
 
 // APIServer is the API server
 type APIServer struct {
+	Store fs.Fs
+
+	logger    *log.Logger
 	router    *gin.Engine
 	srv       *http.Server
 	restartCh chan int
 	running   bool
 }
 
+// Init the object
 func (s *APIServer) Init() {
 	s.running = false
+
+	// Initialize the logger
+	s.logger = log.New(os.Stdout, "api: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Channel used to restart the server
 	s.restartCh = make(chan int)
@@ -70,6 +77,7 @@ func (s *APIServer) IsRunning() bool {
 }
 
 // Start the API server
+// This panics in case of error
 func (s *APIServer) Start() {
 	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
 	sigCh := make(chan os.Signal, 1)
@@ -100,7 +108,7 @@ func (s *APIServer) Start() {
 			s.running = true
 
 			if appconfig.Config.GetBool("tls.node.enabled") {
-				logger.Printf("Starting server on https://%s\n", s.srv.Addr)
+				s.logger.Printf("Starting server on https://%s\n", s.srv.Addr)
 				tlsCertFile := appRoot + "misc/node.cert.pem"
 				tlsKeyFile := appRoot + "misc/node.key.pem"
 				tlsConfig := &tls.Config{
@@ -112,7 +120,7 @@ func (s *APIServer) Start() {
 				}
 			} else {
 				s.srv.TLSConfig = nil
-				logger.Printf("Starting server on http://%s\n", s.srv.Addr)
+				s.logger.Printf("Starting server on http://%s\n", s.srv.Addr)
 				if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
 					panic(err)
 				}
@@ -122,17 +130,17 @@ func (s *APIServer) Start() {
 		select {
 		case <-sigCh:
 			// We received an interrupt signal, shut down for good
-			logger.Println("Received signal to terminate the app; shutting down the API server")
+			s.logger.Println("Received signal to terminate the app; shutting down the API server")
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := s.srv.Shutdown(ctx); err != nil {
-				logger.Printf("HTTP server shutdown error: %v\n", err)
+				s.logger.Printf("HTTP server shutdown error: %v\n", err)
 			}
 			s.running = false
 			return
 		case <-s.restartCh:
 			// We received a signal to restart the server
-			logger.Println("Restarting the API server")
+			s.logger.Println("Restarting the API server")
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			if err := s.srv.Shutdown(ctx); err != nil {
@@ -166,53 +174,51 @@ func (s *APIServer) enableCORS() {
 // Sets up the routes
 func (s *APIServer) setupRoutes() {
 	// Add middlewares
-	s.router.Use(middlewares.NodeName())
+	s.router.Use(s.NodeName())
 
 	// ACME challenge
-	s.router.GET("/.well-known/acme-challenge/:token", routes.ACMEChallengeHandler)
+	//s.router.GET("/.well-known/acme-challenge/:token", routes.ACMEChallengeHandler)
 
 	// Add routes that don't require authentication
 	// The middleware still checks for authentication, but it's optional
 	{
 		group := s.router.Group("/")
-		group.Use(middlewares.Auth(false))
+		group.Use(s.Auth(false))
 
-		group.GET("/status", routes.StatusHandler)
-		group.GET("/status/:domain", routes.StatusHandler)
-		group.GET("/info", routes.InfoHandler)
+		group.GET("/status", s.StatusHandler)
+		group.GET("/status/:domain", s.StatusHandler)
+		group.GET("/info", s.InfoHandler)
 	}
 
 	// Routes that require authorization
 	{
 		group := s.router.Group("/")
-		group.Use(middlewares.Auth(true))
-		group.POST("/site", routes.CreateSiteHandler)
-		group.GET("/site", routes.ListSiteHandler)
-		group.GET("/site/:domain", routes.ShowSiteHandler)
-		group.DELETE("/site/:domain", routes.DeleteSiteHandler)
-		group.PATCH("/site/:domain", routes.PatchSiteHandler)
+		group.Use(s.Auth(true))
+		group.POST("/site", s.CreateSiteHandler)
+		group.GET("/site", s.ListSiteHandler)
+		group.GET("/site/:domain", s.ShowSiteHandler)
+		group.DELETE("/site/:domain", s.DeleteSiteHandler)
+		group.PATCH("/site/:domain", s.PatchSiteHandler)
 
-		group.POST("/site/:domain/app", routes.DeploySiteHandler)
-		group.PUT("/site/:domain/app", routes.DeploySiteHandler) // Alias
+		group.POST("/site/:domain/app", s.DeploySiteHandler)
+		group.PUT("/site/:domain/app", s.DeploySiteHandler) // Alias
 
-		group.GET("/clusterstatus", routes.ClusterStatusHandler)
+		group.GET("/clusterstatus", s.ClusterStatusHandler)
 
-		group.GET("/state", routes.GetStateHandler)
-		group.POST("/state", routes.PutStateHandler)
-		group.PUT("/state", routes.PutStateHandler) // Alias
+		group.GET("/state", s.GetStateHandler)
+		group.POST("/state", s.PutStateHandler)
+		group.PUT("/state", s.PutStateHandler) // Alias
 
-		group.GET("/app", routes.AppListHandler)
-		group.POST("/app", routes.AppUploadHandler)
-		group.POST("/app/:name", routes.AppUpdateHandler)
-		group.DELETE("/app/:name", routes.AppDeleteHandler)
+		group.GET("/app", s.AppListHandler)
+		group.POST("/app", s.AppUploadHandler)
+		group.POST("/app/:name", s.AppUpdateHandler)
+		group.DELETE("/app/:name", s.AppDeleteHandler)
 
-		group.POST("/certificate", routes.ImportCertificateHandler)
-		group.GET("/certificate", routes.ListCertificateHandler)
-		group.DELETE("/certificate/:name", routes.DeleteCertificateHandler)
+		group.POST("/certificate", s.ImportCertificateHandler)
+		group.GET("/certificate", s.ListCertificateHandler)
+		group.DELETE("/certificate/:name", s.DeleteCertificateHandler)
 
-		group.GET("/dhparams", routes.DHParamsGetHandler)
-		group.POST("/dhparams", routes.DHParamsSetHandler)
-
-		group.POST("/sync", routes.SyncHandler)
+		group.GET("/dhparams", s.DHParamsGetHandler)
+		group.POST("/dhparams", s.DHParamsSetHandler)
 	}
 }

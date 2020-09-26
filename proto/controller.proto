@@ -21,21 +21,19 @@ Build with:
 protoc \
   controller.proto \
   --go_out=plugins=grpc:. \
-  --go-json_out=. \
   --go_opt=paths=source_relative
 ```
 
 Requires:
 
 - github.com/golang/protobuf/protoc-gen-go
-- github.com/mitchellh/protoc-gen-go-json
 */
 
 syntax = "proto3";
 
 package service;
 
-option go_package = "github.com/statiko-dev/statiko/shared/service";
+option go_package = "github.com/statiko-dev/statiko/proto";
 
 // Service that manages the state for the cluster and performs all background tasks
 service Controller {
@@ -112,13 +110,13 @@ message State {
         // Null value (should not be used)
         NULL = 0;
         // Imported external certificate
-        IMPORTED = 1;
+        IMPORTED = 0x1;
         // Self-signed certificate
-        SELF_SIGNED = 2;
+        SELF_SIGNED = 0x2;
         // ACME (Let's Encrypt)
-        ACME = 3;
+        ACME = 0x10;
         // Stored in Azure Key Vault
-        AZURE_KEY_VAULT = 4;
+        AZURE_KEY_VAULT = 0x11;
       }
       Type type = 1;
 
