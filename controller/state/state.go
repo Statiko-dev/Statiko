@@ -46,14 +46,17 @@ type Manager struct {
 	updated            *time.Time
 	store              StateStore
 	storeType          string
-	nodeHealth         *pb.NodeHealth
 	logger             *log.Logger
+	signaler           *utils.Signaler
 }
 
 // Init loads the state from the store
 func (m *Manager) Init() (err error) {
 	// Initialize the logger
 	m.logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
+
+	// Initialize the signaler
+	m.signaler = &utils.Signaler{}
 
 	// Get store type
 	typ := appconfig.Config.GetString("state.store")
@@ -72,6 +75,9 @@ func (m *Manager) Init() (err error) {
 	if err != nil {
 		return err
 	}
+	m.store.OnReceive(func() {
+		m.setUpdated()
+	})
 
 	return
 }
@@ -139,10 +145,13 @@ func (m *Manager) ReplaceState(state *pb.State) error {
 	return nil
 }
 
-// setUpdated sets the updated time in the object
+// setUpdated sets the updated time in the object and broadcasts the message
 func (m *Manager) setUpdated() {
 	now := time.Now()
 	m.updated = &now
+
+	// Broadcast the update
+	m.signaler.Broadcast()
 }
 
 // LastUpdated returns the time the state was updated last
@@ -150,20 +159,30 @@ func (m *Manager) LastUpdated() *time.Time {
 	return m.updated
 }
 
+// Subscribe will add a channel as a subscriber to when new state is availalble
+func (m *Manager) Subscribe(ch chan int) {
+	m.signaler.Subscribe(ch)
+}
+
+// Unsubscribe removes a channel from the list of subscribers to the state
+func (m *Manager) Unsubscribe(ch chan int) {
+	m.signaler.Unsubscribe(ch)
+}
+
 // GetSites returns the list of all sites
 func (m *Manager) GetSites() []*pb.State_Site {
 	state := m.store.GetState()
-	if state != nil {
-		return state.Sites
+	if state == nil {
+		return nil
 	}
 
-	return nil
+	return state.Sites
 }
 
 // GetSite returns the site object for a specific domain (including aliases)
 func (m *Manager) GetSite(domain string) *pb.State_Site {
 	state := m.store.GetState()
-	if state != nil {
+	if state == nil {
 		return nil
 	}
 
@@ -292,11 +311,6 @@ func (m *Manager) DeleteSite(domain string) error {
 // StoreHealth returns true if the store is healthy
 func (m *Manager) StoreHealth() (healthy bool, err error) {
 	return m.store.Healthy()
-}
-
-// OnStateUpdate stores the callback to invoke if the state is updated because of an external event
-func (m *Manager) OnStateUpdate(callback func()) {
-	m.store.OnStateUpdate(callback)
 }
 
 // GetDHParams returns the PEM-encoded DH parameters and their date
@@ -608,9 +622,4 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 	}
 
 	return encKey, nil
-}
-
-// GetNodeHealth gets the node status object
-func (m *Manager) GetNodeHealth() *pb.NodeHealth {
-	return m.nodeHealth
 }

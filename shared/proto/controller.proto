@@ -40,7 +40,7 @@ option go_package = "github.com/statiko-dev/statiko/shared/proto";
 // Service that manages the state for the cluster and performs all background tasks
 service Controller {
   // Bi-directional stream that is used by the server to request the health of a node
-  rpc HealthUpdate(stream NodeHealth) returns (stream NodeHealthPing);
+  rpc HealthChannel(stream NodeHealth) returns (stream NodeHealthPing);
 
   // Requests the desired state
   rpc GetState(GetStateRequest) returns (State);

@@ -124,8 +124,8 @@ func (s *StateStoreFile) Healthy() (bool, error) {
 	return true, nil
 }
 
-// OnStateUpdate isn't used with this store
-func (s *StateStoreFile) OnStateUpdate(callback func()) {
+// OnReceive isn't used (or necessary) with this store
+func (s *StateStoreFile) OnReceive(callback func()) {
 	// noop
 }
 

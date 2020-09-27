@@ -43,6 +43,7 @@ type APIServer struct {
 	srv       *http.Server
 	stopCh    chan int
 	restartCh chan int
+	doneCh    chan int
 	running   bool
 }
 
@@ -56,6 +57,7 @@ func (s *APIServer) Init() {
 	// Channel used to stop and restart the server
 	s.stopCh = make(chan int)
 	s.restartCh = make(chan int)
+	s.doneCh = make(chan int)
 
 	// Create the router object
 	// If we're in production mode, set Gin to "release" mode
@@ -130,6 +132,7 @@ func (s *APIServer) Start() {
 				s.logger.Printf("HTTP server shutdown error: %v\n", err)
 			}
 			s.running = false
+			s.doneCh <- 1
 			return
 		case <-s.restartCh:
 			// We received a signal to restart the server
@@ -139,6 +142,7 @@ func (s *APIServer) Start() {
 			if err := s.srv.Shutdown(ctx); err != nil {
 				panic(err)
 			}
+			s.doneCh <- 1
 			// Do not return, let the for loop repeat
 		}
 	}
@@ -148,6 +152,7 @@ func (s *APIServer) Start() {
 func (s *APIServer) Restart() {
 	if s.running {
 		s.restartCh <- 1
+		<-s.doneCh
 	}
 }
 
@@ -155,6 +160,7 @@ func (s *APIServer) Restart() {
 func (s *APIServer) Stop() {
 	if s.running {
 		s.stopCh <- 1
+		<-s.doneCh
 	}
 }
 

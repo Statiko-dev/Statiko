@@ -16,7 +16,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package proto
 
-import "github.com/statiko-dev/statiko/utils"
+import (
+	"github.com/statiko-dev/statiko/utils"
+)
 
 // This file contains additional methods added to the protobuf object
 

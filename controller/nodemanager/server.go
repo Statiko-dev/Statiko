@@ -19,25 +19,30 @@ package nodemanager
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // RPCServer is the gRPC server that is used to communicate with nodes
 type RPCServer struct {
 	State *state.Manager
 
-	logger    *log.Logger
-	stopCh    chan int
-	restartCh chan int
-	running   bool
+	logger        *log.Logger
+	stopCh        chan int
+	restartCh     chan int
+	doneCh        chan int
+	runningCtx    context.Context
+	runningCancel context.CancelFunc
+	running       bool
+	healthReq     *utils.Signaler
 }
 
 // Init the gRPC server
@@ -45,19 +50,29 @@ func (s *RPCServer) Init() {
 	s.running = false
 
 	// Initialize the logger
-	s.logger = log.New(os.Stdout, "rpc: ", log.Ldate|log.Ltime|log.LUTC)
+	s.logger = log.New(os.Stdout, "grpc: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Channel used to stop and restart the server
+	// Channels used to stop and restart the server
 	s.stopCh = make(chan int)
 	s.restartCh = make(chan int)
+	s.doneCh = make(chan int)
+
+	// Channel used to request node health
+	s.healthReq = &utils.Signaler{}
 }
 
 // Start the gRPC server; must be run in a goroutine with `go s.Start()`
 func (s *RPCServer) Start() {
 	for {
+		// Create the context
+		s.runningCtx, s.runningCancel = context.WithCancel(context.Background())
+
 		// Create the server
 		grpcServer := grpc.NewServer()
 		pb.RegisterControllerServer(grpcServer, s)
+
+		// Register reflection service on gRPC server
+		reflection.Register(grpcServer)
 
 		// Start the server in another channel
 		go func() {
@@ -75,13 +90,17 @@ func (s *RPCServer) Start() {
 		case <-s.stopCh:
 			// We received an interrupt signal, shut down for good
 			s.logger.Println("Shutting down the gRCP server")
+			s.runningCancel()
 			grpcServer.GracefulStop()
 			s.running = false
+			s.doneCh <- 1
 			return
 		case <-s.restartCh:
 			// We received a signal to restart the server
 			s.logger.Println("Restarting the gRCP server")
+			s.runningCancel()
 			grpcServer.GracefulStop()
+			s.doneCh <- 1
 			// Do not return, let the for loop repeat
 		}
 	}
@@ -91,6 +110,7 @@ func (s *RPCServer) Start() {
 func (s *RPCServer) Restart() {
 	if s.running {
 		s.restartCh <- 1
+		<-s.doneCh
 	}
 }
 
@@ -98,34 +118,6 @@ func (s *RPCServer) Restart() {
 func (s *RPCServer) Stop() {
 	if s.running {
 		s.stopCh <- 1
+		<-s.doneCh
 	}
-}
-
-// GetState is a simple RPC that returns the current state object
-func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.State, error) {
-	return s.State.DumpState()
-}
-
-// HealthUpdate is a bi-directional stream that is used by the server to request the health of a node
-func (s *RPCServer) HealthUpdate(stream pb.Controller_HealthUpdateServer) error {
-	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		fmt.Println(in)
-	}
-}
-
-// WatchState is a stream that notifies clients of state updates
-func (s *RPCServer) WatchState(req *pb.WatchStateRequest, stream pb.Controller_WatchStateServer) error {
-	fmt.Println(req)
-	stream.Send(&pb.State{
-		Secrets: map[string][]byte{"hello": []byte("world")},
-	})
-	return nil
 }

@@ -57,5 +57,5 @@ type StateStore interface {
 	WriteState() error
 	ReadState() error
 	Healthy() (bool, error)
-	OnStateUpdate(func())
+	OnReceive(func())
 }
