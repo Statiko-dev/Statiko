@@ -105,7 +105,7 @@ message State {
     // Temporary site (e.g. for testing)
     bool temporary = 3;
 
-    // TLS configuration
+    // TLS configuration (optional)
     message TLS {
       // Certificate type
       enum Type {
@@ -128,8 +128,12 @@ message State {
     }
     TLS tls = 4;
 
-    // App name (optional)
-    string app = 5;
+    // App (optional)
+    message App {
+      // App name
+      string name = 1;
+    }
+    App app = 5;
   }
   repeated Site sites = 1;
 

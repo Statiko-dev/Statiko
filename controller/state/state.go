@@ -471,7 +471,7 @@ func (m *Manager) DeleteSecret(key string) error {
 }
 
 // GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
-func (m *Manager) GetCertificate(typ string, nameOrDomains []string) (key []byte, cert []byte, err error) {
+func (m *Manager) GetCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []string) (key []byte, cert []byte, err error) {
 	// Key of the secret
 	secretKey := m.certificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
@@ -498,7 +498,7 @@ func (m *Manager) GetCertificate(typ string, nameOrDomains []string) (key []byte
 }
 
 // SetCertificate stores a PEM-encoded certificate pair (key and certificate) as a secret
-func (m *Manager) SetCertificate(typ string, nameOrDomains []string, key []byte, cert []byte) (err error) {
+func (m *Manager) SetCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []string, key []byte, cert []byte) (err error) {
 	// Key of the secret
 	secretKey := m.certificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
@@ -530,7 +530,7 @@ func (m *Manager) SetCertificate(typ string, nameOrDomains []string, key []byte,
 }
 
 // RemoveCertificate removes a certificate from the store
-func (m *Manager) RemoveCertificate(typ string, nameOrDomains []string) (err error) {
+func (m *Manager) RemoveCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []string) (err error) {
 	// Key of the secret
 	secretKey := m.certificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
@@ -554,16 +554,16 @@ func (m *Manager) ListImportedCertificates() (res []string) {
 }
 
 // certificateSecretKey returns the key of secret for the certificate
-func (m *Manager) certificateSecretKey(typ string, nameOrDomains []string) string {
+func (m *Manager) certificateSecretKey(typ pb.State_Site_TLS_Type, nameOrDomains []string) string {
 	switch typ {
-	case pb.State_Site_TLS_IMPORTED.String():
+	case pb.State_Site_TLS_IMPORTED:
 		if len(nameOrDomains) != 1 || len(nameOrDomains[0]) == 0 {
 			return ""
 		}
-		return "cert/imported/" + nameOrDomains[0]
-	case pb.State_Site_TLS_ACME.String(), pb.State_Site_TLS_SELF_SIGNED.String():
+		return "cert/" + pb.State_Site_TLS_IMPORTED.String() + "/" + nameOrDomains[0]
+	case pb.State_Site_TLS_ACME, pb.State_Site_TLS_SELF_SIGNED:
 		domainKey := utils.SHA256String(strings.Join(nameOrDomains, ","))[:15]
-		return "cert/" + typ + "/" + domainKey
+		return "cert/" + typ.String() + "/" + domainKey
 	default:
 		return ""
 	}

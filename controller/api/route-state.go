@@ -41,7 +41,7 @@ func (s *APIServer) GetStateHandler(c *gin.Context) {
 func (s *APIServer) PutStateHandler(c *gin.Context) {
 	// Get updated state from the body
 	st := &pb.State{}
-	if err := c.Bind(st); err != nil {
+	if err := c.BindJSON(st); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body: " + err.Error(),
 		})
