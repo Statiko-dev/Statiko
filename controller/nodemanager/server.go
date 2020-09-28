@@ -22,13 +22,13 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
 )
 
 // RPCServer is the gRPC server that is used to communicate with nodes
@@ -42,7 +42,7 @@ type RPCServer struct {
 	runningCtx    context.Context
 	runningCancel context.CancelFunc
 	running       bool
-	healthReq     *utils.Signaler
+	nodeChs       *sync.Map
 }
 
 // Init the gRPC server
@@ -57,8 +57,8 @@ func (s *RPCServer) Init() {
 	s.restartCh = make(chan int)
 	s.doneCh = make(chan int)
 
-	// Channel used to request node health
-	s.healthReq = &utils.Signaler{}
+	// List of nodes currently registered, and their channels to request state
+	s.nodeChs = &sync.Map{}
 }
 
 // Start the gRPC server; must be run in a goroutine with `go s.Start()`

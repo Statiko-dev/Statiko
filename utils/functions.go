@@ -30,6 +30,7 @@ import (
 	"math/big"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/statiko-dev/statiko/appconfig"
@@ -156,4 +157,36 @@ func SanitizeAppName(name string) string {
 // IsTruthy returns true if a string (e.g. a querystring parameter) is a truthy value, as a string
 func IsTruthy(val string) bool {
 	return val == "1" || val == "true" || val == "t" || val == "y" || val == "yes"
+}
+
+// StringSliceDiff returns the difference between two string slices
+func StringSliceDiff(a, b []string) []string {
+	var result []string
+
+	// For this algorithm to work, the slices must be sorted
+	sort.Strings(a)
+	sort.Strings(b)
+
+	// Look for elements that are different
+	i := 0
+	j := 0
+	for i < len(a) && j < len(b) {
+		c := strings.Compare(a[i], b[j])
+		if c == 0 {
+			i++
+			j++
+		} else if c < 0 {
+			result = append(result, a[i])
+			i++
+		} else {
+			result = append(result, b[j])
+			j++
+		}
+	}
+
+	// Append whatever is left
+	result = append(result, a[i:]...)
+	result = append(result, b[j:]...)
+
+	return result
 }

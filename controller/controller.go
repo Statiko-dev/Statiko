@@ -91,8 +91,9 @@ func (c *Controller) Init() (err error) {
 
 	// Init and start the API server
 	c.apiSrv = &api.APIServer{
-		Store: c.store,
-		State: c.state,
+		Store:       c.store,
+		State:       c.state,
+		NodeManager: c.rcpSrv,
 	}
 	c.apiSrv.Init()
 	go c.apiSrv.Start()

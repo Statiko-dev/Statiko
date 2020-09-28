@@ -32,17 +32,23 @@ func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.
 // HealthChannel is a bi-directional stream that is used by the server to request the health of a node
 func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) error {
 	ctx, cancel := context.WithCancel(stream.Context())
-	ch := make(chan int)
-	s.healthReq.Subscribe(ch)
+
+	// Register the node
+	nodeId, ch, err := s.registerNode()
 	defer func() {
-		s.healthReq.Unsubscribe(ch)
-		close(ch)
 		cancel()
+		if ch != nil {
+			close(ch)
+		}
 	}()
+	if err != nil {
+		return err
+	}
 
 	// Send a ping to request the health
+	var responseCh chan *NodeHealthResponse
 	go func() {
-		for range ch {
+		for responseCh = range ch {
 			err := stream.Send(&pb.NodeHealthPing{})
 			if err != nil {
 				s.logger.Println("Error while sending health request:", err)
@@ -69,7 +75,25 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 				return err
 			}
 
-			fmt.Println(in)
+			// If there's no response channel, ignore this
+			if responseCh == nil {
+				continue
+			}
+
+			in.Reset()
+			// Send the response back to the channel, if any
+			res := &NodeHealthResponse{
+				NodeHealth: in,
+				NodeId:     nodeId,
+			}
+
+			// Try sending the response if the channel exist
+			select {
+			case responseCh <- res:
+				responseCh = nil
+			default:
+				responseCh = nil
+			}
 		}
 	}
 }
@@ -80,7 +104,7 @@ func (s *RPCServer) WatchState(req *pb.WatchStateRequest, stream pb.Controller_W
 	stateCh := make(chan int)
 	s.State.Subscribe(stateCh)
 	defer func() {
-		s.healthReq.Unsubscribe(stateCh)
+		s.State.Unsubscribe(stateCh)
 		close(stateCh)
 	}()
 
