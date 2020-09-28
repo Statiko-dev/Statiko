@@ -17,21 +17,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
-	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/binary"
 	"errors"
-	"io"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/shared/defaults"
 	pb "github.com/statiko-dev/statiko/shared/proto"
+	common "github.com/statiko-dev/statiko/shared/state"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -42,6 +36,8 @@ const (
 
 // Manager is the state manager class
 type Manager struct {
+	common.StateCommon
+
 	DHParamsGenerating bool
 	updated            *time.Time
 	store              StateStore
@@ -317,8 +313,8 @@ func (m *Manager) StoreHealth() (healthy bool, err error) {
 func (m *Manager) GetDHParams() (string, *time.Time) {
 	// Check if we DH parameters; if not, return the default ones
 	state := m.store.GetState()
-	if state != nil && state.DhParams == nil || state.DhParams.Date == 0 || state.DhParams.Pem == "" {
-		return defaultDHParams, nil
+	if state != nil && (state.DhParams == nil || state.DhParams.Date == 0 || state.DhParams.Pem == "") {
+		return defaults.DefaultDHParams, nil
 	}
 
 	// Return the saved DH parameters
@@ -328,7 +324,7 @@ func (m *Manager) GetDHParams() (string, *time.Time) {
 
 // SetDHParams stores new PEM-encoded DH parameters
 func (m *Manager) SetDHParams(val string) error {
-	if val == "" || val == defaultDHParams {
+	if val == "" || val == defaults.DefaultDHParams {
 		return errors.New("val is empty or invalid")
 	}
 
@@ -382,38 +378,17 @@ func (m *Manager) GetSecret(key string) ([]byte, error) {
 		return nil, nil
 	}
 
-	// Get the cipher
-	aesgcm, err := m.getSecretsCipher()
-	if err != nil {
-		return nil, err
-	}
-
 	// Decrypt the secret
-	// First 12 bytes of the value are the nonce
-	value, err := aesgcm.Open(nil, encValue[0:12], encValue[12:], nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return value, nil
+	return m.DecryptSecret(encValue)
 }
 
 // SetSecret sets the value for a secret (encrypted in the state)
 func (m *Manager) SetSecret(key string, value []byte) error {
-	// Get the cipher
-	aesgcm, err := m.getSecretsCipher()
+	// Encrypt the secret
+	encValue, err := m.EncryptSecret(value)
 	if err != nil {
 		return err
 	}
-
-	// Get a nonce
-	nonce := make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return err
-	}
-
-	// Encrypt the secret
-	encValue := aesgcm.Seal(nil, nonce, value, nil)
 
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
@@ -437,7 +412,7 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	if state.Secrets == nil {
 		state.Secrets = make(map[string][]byte)
 	}
-	state.Secrets[key] = append(nonce, encValue...)
+	state.Secrets[key] = encValue
 
 	m.setUpdated()
 
@@ -487,7 +462,7 @@ func (m *Manager) DeleteSecret(key string) error {
 // GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
 func (m *Manager) GetCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []string) (key []byte, cert []byte, err error) {
 	// Key of the secret
-	secretKey := m.certificateSecretKey(typ, nameOrDomains)
+	secretKey := m.CertificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
 		return nil, nil, errors.New("invalid name or domains")
 	}
@@ -499,42 +474,25 @@ func (m *Manager) GetCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []str
 	}
 
 	// Un-serialize the secret
-	keyLen := binary.LittleEndian.Uint32(serialized[0:4])
-	certLen := binary.LittleEndian.Uint32(serialized[4:8])
-	if keyLen < 1 || certLen < 1 || len(serialized) != int(8+keyLen+certLen) {
-		return nil, nil, errors.New("invalid serialized data")
-	}
-
-	key = serialized[8:(keyLen + 8)]
-	cert = serialized[(keyLen + 8):]
-	err = nil
-	return
+	return m.UnserializeCertificate(serialized)
 }
 
 // SetCertificate stores a PEM-encoded certificate pair (key and certificate) as a secret
 func (m *Manager) SetCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []string, key []byte, cert []byte) (err error) {
 	// Key of the secret
-	secretKey := m.certificateSecretKey(typ, nameOrDomains)
+	secretKey := m.CertificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
 		return errors.New("invalid name or domains")
 	}
 
 	// Serialize the certificates
-	if len(key) > 204800 || len(cert) > 204800 {
-		return errors.New("key and/or certificate are too long")
+	serialized, err := m.SerializeCertificate(key, cert)
+	if err != nil {
+		return err
 	}
-	keyLen := make([]byte, 4)
-	certLen := make([]byte, 4)
-	binary.LittleEndian.PutUint32(keyLen, uint32(len(key)))
-	binary.LittleEndian.PutUint32(certLen, uint32(len(cert)))
-	serialized := bytes.Buffer{}
-	serialized.Write(keyLen)
-	serialized.Write(certLen)
-	serialized.Write(key)
-	serialized.Write(cert)
 
 	// Store the secret
-	err = m.SetSecret(secretKey, serialized.Bytes())
+	err = m.SetSecret(secretKey, serialized)
 	if err != nil {
 		return err
 	}
@@ -546,7 +504,7 @@ func (m *Manager) SetCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []str
 // RemoveCertificate removes a certificate from the store
 func (m *Manager) RemoveCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []string) (err error) {
 	// Key of the secret
-	secretKey := m.certificateSecretKey(typ, nameOrDomains)
+	secretKey := m.CertificateSecretKey(typ, nameOrDomains)
 	if secretKey == "" {
 		return errors.New("invalid name or domains")
 	}
@@ -556,70 +514,9 @@ func (m *Manager) RemoveCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []
 
 // ListImportedCertificates returns a list of the names of all imported certificates
 func (m *Manager) ListImportedCertificates() (res []string) {
-	res = make([]string, 0)
-	// Iterate through all secrets looking for those starting with "cert/imported/"
 	state := m.store.GetState()
-	for k := range state.Secrets {
-		if strings.HasPrefix(k, "cert/imported/") {
-			res = append(res, strings.TrimPrefix(k, "cert/imported/"))
-		}
+	if state == nil {
+		return []string{}
 	}
-	return
-}
-
-// certificateSecretKey returns the key of secret for the certificate
-func (m *Manager) certificateSecretKey(typ pb.State_Site_TLS_Type, nameOrDomains []string) string {
-	switch typ {
-	case pb.State_Site_TLS_IMPORTED:
-		if len(nameOrDomains) != 1 || len(nameOrDomains[0]) == 0 {
-			return ""
-		}
-		return "cert/" + pb.State_Site_TLS_IMPORTED.String() + "/" + nameOrDomains[0]
-	case pb.State_Site_TLS_ACME, pb.State_Site_TLS_SELF_SIGNED:
-		domainKey := utils.SHA256String(strings.Join(nameOrDomains, ","))[:15]
-		return "cert/" + typ.String() + "/" + domainKey
-	default:
-		return ""
-	}
-}
-
-// Returns a cipher for AES-GCM-128 initialized
-func (m *Manager) getSecretsCipher() (cipher.AEAD, error) {
-	// Get the symmetric encryption key
-	encKey, err := m.getSecretsEncryptionKey()
-	if err != nil {
-		return nil, err
-	}
-
-	// Init the AES-GCM cipher
-	block, err := aes.NewCipher(encKey)
-	if err != nil {
-		return nil, err
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	return aesgcm, nil
-}
-
-// Returns the value of the secrets symmetric encryption key from the configuration file
-func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
-	// Get the key
-	encKeyB64 := appconfig.Config.GetString("secretsEncryptionKey")
-	if len(encKeyB64) != 24 {
-		return nil, errors.New("empty or invalid 'secretsEncryptionKey' value in configuration file")
-	}
-
-	// Decode base64
-	encKey, err := base64.StdEncoding.DecodeString(encKeyB64)
-	if err != nil {
-		return nil, err
-	}
-	if len(encKey) != 16 {
-		return nil, errors.New("invalid length of 'secretsEncryptionKey'")
-	}
-
-	return encKey, nil
+	return m.ListImportedCertificates_Internal(state.Secrets)
 }

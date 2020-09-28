@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package managerclient
+package client
 
 import (
 	"context"
@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -39,6 +40,8 @@ const keepaliveInterval = 600
 
 // RPCClient is the gRPC client for communicating with the cluster manager
 type RPCClient struct {
+	AgentState *state.AgentState
+
 	client     pb.ControllerClient
 	connection *grpc.ClientConn
 	logger     *log.Logger
@@ -133,7 +136,9 @@ func (c *RPCClient) startStateWatcher() {
 			c.logger.Println("Error caught from the gRPC server while watching for state:", err)
 			break
 		}
-		log.Println(state)
+
+		// Update the state in the manager
+		c.AgentState.ReplaceState(state)
 	}
 }
 

@@ -23,7 +23,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/statiko-dev/statiko/agent/managerclient"
+	"github.com/statiko-dev/statiko/agent/appmanager"
+	"github.com/statiko-dev/statiko/agent/client"
+	"github.com/statiko-dev/statiko/agent/state"
+	"github.com/statiko-dev/statiko/agent/sync"
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/fs"
@@ -31,10 +34,13 @@ import (
 
 // Agent is the class that manages the agent app
 type Agent struct {
-	store     fs.Fs
-	notifier  *notifications.Notifications
-	logger    *log.Logger
-	rpcClient *managerclient.RPCClient
+	store      fs.Fs
+	agentState *state.AgentState
+	notifier   *notifications.Notifications
+	logger     *log.Logger
+	rpcClient  *client.RPCClient
+	syncClient *sync.Sync
+	appManager *appmanager.Manager
 }
 
 // Run the agent app
@@ -46,23 +52,49 @@ func (a *Agent) Run() (err error) {
 		return err
 	}
 
+	// Init the state object
+	a.agentState = &state.AgentState{}
+	a.agentState.Init()
+
 	// Init and start the gRPC client
-	a.rpcClient = &managerclient.RPCClient{}
+	a.rpcClient = &client.RPCClient{
+		AgentState: a.agentState,
+	}
 	a.rpcClient.Init()
 	err = a.rpcClient.Connect()
 	if err != nil {
 		return err
 	}
 
+	// Request the initial state
+	state, err := a.rpcClient.GetState()
+	if err != nil {
+		return err
+	}
+	a.agentState.ReplaceState(state)
+
+	// Init the app manager object
+	a.appManager = &appmanager.Manager{
+		AgentState: a.agentState,
+		Fs:         a.store,
+	}
+	a.appManager.Init()
+
+	// Init the sync client
+	a.syncClient = &sync.Sync{
+		AgentState: a.agentState,
+	}
+	a.syncClient.Init()
+
+	// Perform an initial state sync
+	// Do this in a synchronous way to ensure the node starts up properly
+	if err := a.syncClient.Run(); err != nil {
+		panic(err)
+	}
+
 	time.Sleep(2 * time.Hour)
 
 	/*
-		// Sync the state
-		// Do this in a synchronous way to ensure the node starts up properly
-		if err := sync.Run(); err != nil {
-			panic(err)
-		}
-
 		// Ensure Nginx is running
 		if err := webserver.Instance.EnsureServerRunning(); err != nil {
 			panic(err)
@@ -83,8 +115,8 @@ func (a *Agent) handleResyncSignal() {
 		for range sigc {
 			log.Println("Received SIGUSR1, trigger a re-sync")
 
-			// Force a sync
-			//go sync.QueueRun()
+			// Force a sync, asynchronously
+			go a.syncClient.QueueRun()
 		}
 	}()
 }

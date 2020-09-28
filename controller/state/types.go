@@ -22,22 +22,6 @@ import (
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
-// SiteApp represents the state of an app deployed or being deployed
-type SiteApp struct {
-	// App details
-	Name string `json:"name" binding:"required"`
-
-	// App manifest (for internal use)
-	Manifest *utils.AppManifest `json:"-"`
-}
-
-// Validate returns true if the app object is valid
-func (a *SiteApp) Validate() bool {
-	// Sanitize and validate
-	a.Name = utils.SanitizeAppName(a.Name)
-	return a.Name != ""
-}
-
 // WorkerController is the interface for the worker controller
 type WorkerController interface {
 	Init(store StateStore)
