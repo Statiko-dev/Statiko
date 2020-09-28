@@ -27,24 +27,15 @@ import (
 )
 
 // Timeout for health requests in seconds
-const healthRequestTimeout = 10
-
-// NodeHealthResponse is the object part of the response containing the health of a single node
-// It extends pb.NodeHealth by adding the NodeId and an error
-type NodeHealthResponse struct {
-	*pb.NodeHealth
-
-	NodeId string `json:"nodeId"`
-	Error  string `json:"error,omitempty"`
-}
+const healthRequestTimeout = 15
 
 // ClusterHealthResponse is the health of every node in the cluster
-type ClusterHealthResponse []*NodeHealthResponse
+type ClusterHealthResponse []*pb.NodeHealth
 
 // RequestClusterHealth requests each node in the cluster to return their health
 func (s *RPCServer) RequestClusterHealth() ClusterHealthResponse {
 	// Channel to collect responses
-	responseCh := make(chan *NodeHealthResponse)
+	responseCh := make(chan *pb.NodeHealth)
 
 	// Send a message to every channel in the map
 	nodes := []string{}
@@ -57,7 +48,7 @@ func (s *RPCServer) RequestClusterHealth() ClusterHealthResponse {
 		nodes = append(nodes, nodeId)
 
 		// Send the message
-		ch, ok := value.(chan chan *NodeHealthResponse)
+		ch, ok := value.(chan chan *pb.NodeHealth)
 		if !ok {
 			return true
 		}
@@ -90,7 +81,7 @@ func (s *RPCServer) RequestClusterHealth() ClusterHealthResponse {
 		resultKeys := make([]string, len(nodes)-i)
 		diff := utils.StringSliceDiff(nodes, resultKeys)
 		for _, nodeId := range diff {
-			result[i] = &NodeHealthResponse{
+			result[i] = &pb.NodeHealth{
 				NodeId: nodeId,
 				Error:  ctx.Err().Error(),
 			}
@@ -102,10 +93,10 @@ func (s *RPCServer) RequestClusterHealth() ClusterHealthResponse {
 }
 
 // Used internally to register a node
-func (s *RPCServer) registerNode() (string, chan chan *NodeHealthResponse, error) {
+func (s *RPCServer) registerNode() (string, chan chan *pb.NodeHealth, error) {
 	// Create a channel that will trigger a ping
 	// This is a "chan chan", or a channel that is used to pass a response channel
-	ch := make(chan chan *NodeHealthResponse)
+	ch := make(chan chan *pb.NodeHealth)
 
 	// Register the node
 	nodeIdUUID, err := uuid.NewRandom()
@@ -118,6 +109,8 @@ func (s *RPCServer) registerNode() (string, chan chan *NodeHealthResponse, error
 	// Store the node in the map
 	s.nodeChs.Store(nodeId, ch)
 
+	s.logger.Println("Node registered:", nodeId)
+
 	return nodeId, ch, nil
 }
 
@@ -126,8 +119,9 @@ func (s *RPCServer) unregisterNode(nodeId string) {
 	// Remove the node from the map
 	loaded, ok := s.nodeChs.LoadAndDelete(nodeId)
 	if ok && loaded != nil {
+		s.logger.Println("Node un-registered:", nodeId)
 		// Close the channel
-		ch, ok := loaded.(chan chan *NodeHealthResponse)
+		ch, ok := loaded.(chan chan *pb.NodeHealth)
 		if ok {
 			close(ch)
 		}

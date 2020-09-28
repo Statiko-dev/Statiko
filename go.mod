@@ -30,7 +30,7 @@ require (
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.etcd.io/etcd/v3 v3.3.0-rc.0.0.20200524195553-747ff75c96df
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	google.golang.org/grpc v1.29.1
+	google.golang.org/grpc v1.32.0
 	google.golang.org/protobuf v1.23.0
 	gopkg.in/yaml.v2 v2.3.0
 )

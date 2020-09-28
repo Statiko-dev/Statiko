@@ -17,9 +17,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 func main() {
-	// Create and initialize the Controller object
+	// Create and run the Controller object
 	controller := &Controller{}
-	err := controller.Init()
+	err := controller.Run()
 	if err != nil {
 		panic(err)
 	}

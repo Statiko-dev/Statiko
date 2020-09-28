@@ -41,8 +41,8 @@ type Controller struct {
 	logger   *log.Logger
 }
 
-// Init the controller object
-func (c *Controller) Init() (err error) {
+// Run the controller app
+func (c *Controller) Run() (err error) {
 	// Initialize the logger
 	c.logger = log.New(os.Stdout, "controller: ", log.Ldate|log.Ltime|log.LUTC)
 

@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -43,6 +44,7 @@ type RPCServer struct {
 	runningCancel context.CancelFunc
 	running       bool
 	nodeChs       *sync.Map
+	grpcServer    *grpc.Server
 }
 
 // Init the gRPC server
@@ -68,22 +70,23 @@ func (s *RPCServer) Start() {
 		s.runningCtx, s.runningCancel = context.WithCancel(context.Background())
 
 		// Create the server
-		grpcServer := grpc.NewServer()
-		pb.RegisterControllerServer(grpcServer, s)
+		s.grpcServer = grpc.NewServer()
+		pb.RegisterControllerServer(s.grpcServer, s)
 
 		// Register reflection service on gRPC server
-		reflection.Register(grpcServer)
+		reflection.Register(s.grpcServer)
 
 		// Start the server in another channel
 		go func() {
 			// Listen
 			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", 2300))
 			if err != nil {
+				s.runningCancel()
 				panic(err)
 			}
 			s.logger.Printf("Starting gRPC server on port %d\n", 2300)
 			s.running = true
-			grpcServer.Serve(listener)
+			s.grpcServer.Serve(listener)
 		}()
 
 		select {
@@ -91,7 +94,7 @@ func (s *RPCServer) Start() {
 			// We received an interrupt signal, shut down for good
 			s.logger.Println("Shutting down the gRCP server")
 			s.runningCancel()
-			grpcServer.GracefulStop()
+			s.gracefulStop()
 			s.running = false
 			s.doneCh <- 1
 			return
@@ -99,7 +102,7 @@ func (s *RPCServer) Start() {
 			// We received a signal to restart the server
 			s.logger.Println("Restarting the gRCP server")
 			s.runningCancel()
-			grpcServer.GracefulStop()
+			s.gracefulStop()
 			s.doneCh <- 1
 			// Do not return, let the for loop repeat
 		}
@@ -120,4 +123,33 @@ func (s *RPCServer) Stop() {
 		s.stopCh <- 1
 		<-s.doneCh
 	}
+}
+
+// Internal function that gracefully stops the gRPC server, with a timeout
+func (s *RPCServer) gracefulStop() {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Try gracefulling closing the gRPC server
+	closed := make(chan int)
+	go func() {
+		s.grpcServer.GracefulStop()
+		if closed != nil {
+			closed <- 1
+		}
+	}()
+
+	select {
+	// Closed - all good
+	case <-closed:
+		close(closed)
+	// Timeout
+	case <-ctx.Done():
+		// Force close
+		s.logger.Println("Shutdown timeout reached - force shutdown")
+		s.grpcServer.Stop()
+		close(closed)
+		closed = nil
+	}
+	s.logger.Println("gRPC server shut down")
 }

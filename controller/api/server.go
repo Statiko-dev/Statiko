@@ -133,6 +133,7 @@ func (s *APIServer) Start() {
 			if err := s.srv.Shutdown(ctx); err != nil {
 				s.logger.Printf("HTTP server shutdown error: %v\n", err)
 			}
+			s.logger.Println("API server shut down")
 			s.running = false
 			s.doneCh <- 1
 			return

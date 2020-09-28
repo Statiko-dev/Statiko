@@ -18,7 +18,6 @@ package nodemanager
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -32,23 +31,19 @@ func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.
 // HealthChannel is a bi-directional stream that is used by the server to request the health of a node
 func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) error {
 	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
 
 	// Register the node
 	nodeId, ch, err := s.registerNode()
-	defer func() {
-		cancel()
-		if ch != nil {
-			close(ch)
-		}
-	}()
 	if err != nil {
 		return err
 	}
+	defer s.unregisterNode(nodeId)
 
-	// Send a ping to request the health
-	var responseCh chan *NodeHealthResponse
+	var responseCh chan *pb.NodeHealth
 	go func() {
 		for responseCh = range ch {
+			// Send a ping to request the health
 			err := stream.Send(&pb.NodeHealthPing{})
 			if err != nil {
 				s.logger.Println("Error while sending health request:", err)
@@ -56,7 +51,6 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 				return
 			}
 		}
-		fmt.Println("Returning from internal goroutine")
 	}()
 
 	// Read incoming messages
@@ -65,6 +59,10 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 		// Exit if context is done
 		case <-ctx.Done():
 			return ctx.Err()
+		// The server is shutting down
+		case <-s.runningCtx.Done():
+			return nil
+		// Receive a message
 		default:
 			// Receive a message (the next call is blocking)
 			in, err := stream.Recv()
@@ -80,16 +78,12 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 				continue
 			}
 
-			in.Reset()
 			// Send the response back to the channel, if any
-			res := &NodeHealthResponse{
-				NodeHealth: in,
-				NodeId:     nodeId,
-			}
+			in.NodeId = nodeId
 
 			// Try sending the response if the channel exist
 			select {
-			case responseCh <- res:
+			case responseCh <- in:
 				responseCh = nil
 			default:
 				responseCh = nil
@@ -111,14 +105,17 @@ func (s *RPCServer) WatchState(req *pb.WatchStateRequest, stream pb.Controller_W
 	// Send updates when requested
 	for {
 		select {
+		// RPC done
 		case <-ctx.Done():
 			return nil
+		// Send the new state to the clients
 		case <-stateCh:
 			state, err := s.State.DumpState()
 			if err != nil {
 				return err
 			}
 			stream.Send(state)
+		// The server is shutting down
 		case <-s.runningCtx.Done():
 			return nil
 		}
