@@ -20,50 +20,66 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
-	"reflect"
-	"sort"
-	"time"
+	"log"
+	"os"
 
+	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
-	"github.com/statiko-dev/statiko/state"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
+// Certificates is the class that manages TLS certificates
+type Certificates struct {
+	AgentState *state.AgentState
+
+	logger *log.Logger
+}
+
+// Init the object
+func (c *Certificates) Init() {
+	// Initialize the logger
+	c.logger = log.New(os.Stdout, "certificates: ", log.Ldate|log.Ltime|log.LUTC)
+}
+
 // GetCertificate returns the certificate for the site (with key and certificate PEM-encoded)
-func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) {
+func (c *Certificates) GetCertificate(site *pb.State_Site) (key []byte, cert []byte, err error) {
+	if site == nil || site.Tls == nil {
+		return nil, nil, errors.New("empty TLS configuration")
+	}
+
 	var certObj *x509.Certificate
 
 	// Check the type of the TLS certificate
-	switch site.TLS.Type {
-	case state.TLSCertificateAzureKeyVault:
+	switch site.Tls.Type {
+	case pb.State_Site_TLS_AZURE_KEY_VAULT:
 		// Get the certificate
-		key, cert, certObj, err = GetAKVCertificate(site)
+		key, cert, certObj, err = c.GetAKVCertificate(site)
 		if err != nil {
 			return
 		}
 
 		// Inspect the certificate, but consider errors as warnings only
 		if insp := InspectCertificate(site, certObj); insp != nil {
-			logger.Printf("[Warn] %v\n", insp)
+			c.logger.Printf("[Warn] %v\n", insp)
 		}
 		return
-	case state.TLSCertificateImported:
+	case pb.State_Site_TLS_IMPORTED:
 		// Get the certificate
-		key, cert, certObj, err = GetImportedCertificate(site)
+		key, cert, certObj, err = c.GetImportedCertificate(site)
 		if err != nil {
 			return
 		}
 
 		// Inspect the certificate, but consider errors as warnings only
 		if insp := InspectCertificate(site, certObj); insp != nil {
-			logger.Printf("[Warn] %v\n", insp)
+			c.logger.Printf("[Warn] %v\n", insp)
 		}
 		return
-	case state.TLSCertificateSelfSigned:
-		key, cert, err = GetSelfSignedCertificate(site)
+	case pb.State_Site_TLS_SELF_SIGNED:
+		key, cert, err = c.GetSelfSignedCertificate(site)
 		return
-	case state.TLSCertificateACME:
-		key, cert, err = GetACMECertificate(site)
+	case pb.State_Site_TLS_ACME:
+		key, cert, err = c.GetACMECertificate(site)
 		return
 	default:
 		err = errors.New("invalid TLS certificate type")
@@ -72,13 +88,13 @@ func GetCertificate(site *state.SiteState) (key []byte, cert []byte, err error) 
 }
 
 // GetImportedCertificate returns a certificate stored in the state store
-func GetImportedCertificate(site *state.SiteState) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
-	if site.TLS == nil || site.TLS.Certificate == nil || *site.TLS.Certificate == "" {
+func (c *Certificates) GetImportedCertificate(site *pb.State_Site) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
+	if site == nil || site.Tls == nil || site.Tls.Certificate == "" {
 		return nil, nil, nil, errors.New("empty TLS certificate name")
 	}
 
 	// Get the certificate from the store
-	key, cert, err = state.Instance.GetCertificate(state.TLSCertificateImported, []string{*site.TLS.Certificate})
+	key, cert, err = c.AgentState.GetCertificate(pb.State_Site_TLS_IMPORTED, []string{site.Tls.Certificate})
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -94,51 +110,18 @@ func GetImportedCertificate(site *state.SiteState) (key []byte, cert []byte, cer
 }
 
 // GetAKVCertificate returns a certificate from Azure Key Vault
-func GetAKVCertificate(site *state.SiteState) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
+func (c *Certificates) GetAKVCertificate(site *pb.State_Site) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
 	var name, version string
-	if site.TLS.Certificate == nil || *site.TLS.Certificate == "" {
+	if site.Tls.Certificate == "" {
 		err = errors.New("certificate name is empty")
 		return
 	}
-	name = *site.TLS.Certificate
-	if site.TLS.Version != nil && *site.TLS.Version != "" {
-		version = *site.TLS.Version
-	}
-	version, cert, key, certObj, err = azurekeyvault.GetInstance().GetCertificate(name, version)
+	version, cert, key, certObj, err = azurekeyvault.GetInstance().GetCertificate(site.Tls.Certificate, site.Tls.Version)
 	if err != nil {
 		return
 	}
 
-	logger.Printf("Retrieved TLS certificate from AKV: %s (%s)\n", name, version)
+	c.logger.Printf("Retrieved TLS certificate from AKV: %s (%s)\n", name, version)
 
 	return
-}
-
-// InspectCertificate loads a X.509 certificate and checks its details, such as expiration
-func InspectCertificate(site *state.SiteState, cert *x509.Certificate) error {
-	now := time.Now()
-
-	// Check "NotAfter" (require at least 12 hours)
-	if cert.NotAfter.Before(now.Add(12 * time.Hour)) {
-		return fmt.Errorf("certificate has expired or has less than 12 hours of validity: %v", cert.NotAfter)
-	}
-
-	// Check "NotBefore"
-	if !cert.NotBefore.Before(now) {
-		return fmt.Errorf("certificate's NotBefore is in the future: %v", cert.NotBefore)
-	}
-
-	// Check if the list of domains matches, but only for self-signed or ACME certificates
-	// We're not checking this for imported certificates because they might have wildcards and be valid for more domains
-	if site.TLS.Type == state.TLSCertificateACME || site.TLS.Type == state.TLSCertificateSelfSigned {
-		domains := append([]string{site.Domain}, site.Aliases...)
-		sort.Strings(domains)
-		certDomains := append(make([]string, 0), cert.DNSNames...)
-		sort.Strings(certDomains)
-		if !reflect.DeepEqual(domains, certDomains) {
-			return fmt.Errorf("list of domains in certificate does not match: %v", certDomains)
-		}
-	}
-
-	return nil
 }

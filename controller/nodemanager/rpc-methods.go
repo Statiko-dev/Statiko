@@ -18,6 +18,7 @@ package nodemanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -34,9 +35,6 @@ func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.
 
 // HealthChannel is a bi-directional stream that is used by the server to request the health of a node
 func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) error {
-	ctx, cancel := context.WithCancel(stream.Context())
-	defer cancel()
-
 	// Register the node
 	nodeId, ch, err := s.registerNode()
 	if err != nil {
@@ -46,51 +44,49 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 
 	var responseCh chan *pb.NodeHealth
 	go func() {
-		for responseCh = range ch {
-			// Send a ping to request the health
-			err := stream.Send(&pb.NodeHealthPing{})
-			if err != nil {
-				s.logger.Println("Error while sending health request:", err)
-				cancel()
-				return
-			}
-		}
-	}()
-
-	// Read incoming messages
-	for {
-		select {
-		// Exit if context is done
-		case <-ctx.Done():
-			return ctx.Err()
-		// The server is shutting down
-		case <-s.runningCtx.Done():
-			return nil
-		// Receive a message
-		default:
-			// Receive a message (the next call is blocking)
+		// Receive messages in background
+		for {
+			// This call is blocking
 			in, err := stream.Recv()
 			if err == io.EOF {
-				return nil
+				break
 			}
 			if err != nil {
-				return err
+				s.logger.Println("Error while reading health message:", err)
+				break
 			}
 
-			// If there's no response channel, ignore this
+			// If there's no response channel, ignore this message
 			if responseCh == nil {
 				continue
 			}
 
-			// Send the response back to the channel, if any
+			// Try sending the response if the channel is not closed
 			in.NodeId = nodeId
-
-			// Try sending the response if the channel exist
 			select {
 			case responseCh <- in:
-				responseCh = nil
 			default:
-				responseCh = nil
+			}
+			responseCh = nil
+		}
+	}()
+
+	for {
+		select {
+		// Exit if context is done
+		case <-stream.Context().Done():
+			fmt.Println("stream.Context().Done()")
+			return nil
+		// The server is shutting down
+		case <-s.runningCtx.Done():
+			fmt.Println("runningCtx.Done()")
+			return nil
+		// Need to send a ping to request the health
+		case responseCh = <-ch:
+			err := stream.Send(&pb.NodeHealthPing{})
+			if err != nil {
+				s.logger.Println("Error while sending health request:", err)
+				return err
 			}
 		}
 	}

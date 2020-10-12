@@ -36,7 +36,7 @@ import (
 	"github.com/go-acme/lego/v3/registration"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/state"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -45,17 +45,17 @@ const ACMEMinDays = 21
 
 // GetACMECertificate returns a certificate issued by ACME (e.g. Let's Encrypt), with key and certificate PEM-encoded
 // If the ACME provider hasn't issued a certificate yet, this will return a self-signed TLS certificate, until the ACME one is available
-func GetACMECertificate(site *state.SiteState) (key []byte, cert []byte, err error) {
+func (c *Certificates) GetACMECertificate(site *pb.State_Site) (key []byte, cert []byte, err error) {
 	// List of domains
 	domains := append([]string{site.Domain}, site.Aliases...)
 
 	// Check if we have a certificate issued by the ACME provider already
-	key, cert, err = state.Instance.GetCertificate(state.TLSCertificateACME, domains)
+	key, cert, err = c.AgentState.GetCertificate(pb.State_Site_TLS_ACME, domains)
 	if err != nil {
 		return nil, nil, err
 	}
 	if key != nil && len(key) > 0 && cert != nil && len(cert) > 0 {
-		// If the certificate has expired, still return it, but in the meanwhile trigger a refresh job
+		// If the cersztificate has expired, still return it, but in the meanwhile trigger a refresh job
 		block, _ := pem.Decode(cert)
 		if block == nil {
 			err = errors.New("invalid certificate PEM block")
@@ -66,7 +66,7 @@ func GetACMECertificate(site *state.SiteState) (key []byte, cert []byte, err err
 			return nil, nil, err
 		}
 		if certErr := InspectCertificate(site, certObj); certErr != nil {
-			logger.Printf("Certificate from ACME provider for site %s has an error; requesting a new one: %v\n", site.Domain, certErr)
+			c.logger.Printf("Certificate from ACME provider for site %s has an error; requesting a new one: %v\n", site.Domain, certErr)
 			state.Instance.TriggerRefreshCerts()
 		}
 
@@ -76,13 +76,13 @@ func GetACMECertificate(site *state.SiteState) (key []byte, cert []byte, err err
 
 	// No certificate yet
 	// Triggering a background job to generate it, and for now returning a self-signed certificate
-	logger.Println("Requesting certificate from ACME provider for site", site.Domain)
+	c.logger.Println("Requesting certificate from ACME provider for site", site.Domain)
 	state.Instance.TriggerRefreshCerts()
-	return GetSelfSignedCertificate(site)
+	return c.GetSelfSignedCertificate(site)
 }
 
 // GenerateACMECertificate requests a new certificate from the ACME provider
-func GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, err error) {
+func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, err error) {
 	// Ensure we have at least 1 domain
 	if len(domains) < 1 {
 		err = errors.New("need to specify at least one domain name")
@@ -96,7 +96,7 @@ func GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, 
 	}
 
 	// Get the private key, or generate one if doesn't exist
-	privateKey, err := acmePrivateKey(email)
+	privateKey, err := c.acmePrivateKey(email)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -121,7 +121,7 @@ func GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, 
 	}
 
 	// New users will need to register
-	reg, err := acmeRegistration(email, client)
+	reg, err := c.acmeRegistration(email, client)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -156,10 +156,10 @@ func GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, 
 }
 
 // Returns the private key for ACME
-func acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
+func (c *Certificates) acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	// Check if we have a key stored
 	storePath := "acme/keys/" + utils.SHA256String(email)[:15] + ".pem"
-	data, err := state.Instance.GetSecret(storePath)
+	data, err := c.AgentState.GetSecret(storePath)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = state.Instance.SetSecret(storePath, data)
+	err = c.AgentState.SetSecret(storePath, data)
 	if err != nil {
 		return nil, err
 	}
@@ -184,16 +184,16 @@ func acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 }
 
 // Returns the registration object for ACME
-func acmeRegistration(email string, client *lego.Client) (*registration.Resource, error) {
+func (c *Certificates) acmeRegistration(email string, client *lego.Client) (*registration.Resource, error) {
 	// Check if the user has registered already
 	storePath := "acme/registrations/" + utils.SHA256String(email)[:15] + ".pem"
-	data, err := state.Instance.GetSecret(storePath)
+	data, err := c.AgentState.GetSecret(storePath)
 	if err != nil {
 		return nil, err
 	}
 	if data == nil || len(data) == 0 {
 		// No data, register a new user
-		return acmeNewRegistration(email, client)
+		return c.acmeNewRegistration(email, client)
 	}
 
 	// Decode JSON
@@ -205,14 +205,14 @@ func acmeRegistration(email string, client *lego.Client) (*registration.Resource
 
 	if reg == nil || reg.URI == "" || !reg.Body.TermsOfServiceAgreed {
 		// Register a new user
-		return acmeNewRegistration(email, client)
+		return c.acmeNewRegistration(email, client)
 	}
 
 	return reg, nil
 }
 
 // Registers a new user for ACME
-func acmeNewRegistration(email string, client *lego.Client) (*registration.Resource, error) {
+func (c *Certificates) acmeNewRegistration(email string, client *lego.Client) (*registration.Resource, error) {
 	// Register the user
 	reg, err := client.Registration.Register(registration.RegisterOptions{
 		TermsOfServiceAgreed: true,
@@ -227,7 +227,7 @@ func acmeNewRegistration(email string, client *lego.Client) (*registration.Resou
 		return nil, err
 	}
 	storePath := "acme/registrations/" + utils.SHA256String(email)[:15] + ".pem"
-	err = state.Instance.SetSecret(storePath, data)
+	err = c.AgentState.SetSecret(storePath, data)
 	if err != nil {
 		return nil, err
 	}

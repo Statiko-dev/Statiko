@@ -60,6 +60,7 @@ type Manager struct {
 	codeSignKey *rsa.PublicKey
 	log         *log.Logger
 	box         *packr.Box
+	manifests   map[string]*utils.AppManifest
 }
 
 // Init the object
@@ -239,6 +240,9 @@ func (m *Manager) SyncSiteFolders(sites []*pb.State_Site) (bool, error) {
 
 // SyncApps ensures that we have the correct apps
 func (m *Manager) SyncApps(sites []*pb.State_Site) error {
+	// Init/reset the manifest list
+	m.manifests = make(map[string]*utils.AppManifest)
+
 	// Channels used by the worker pool to fetch apps in parallel
 	jobs := make(chan *pb.State_Site, 4)
 	res := make(chan int, len(sites))
@@ -336,17 +340,12 @@ func (m *Manager) SyncApps(sites []*pb.State_Site) error {
 				if err != nil {
 					return err
 				}
-				// Get the index of the item in the slice to update
-				i, ok := appIndexes[name]
-				if !ok {
-					return errors.New("Cannot find index for app " + name)
-				}
 				manifest := &utils.AppManifest{}
 				err = yaml.Unmarshal(readBytes, manifest)
-				sites[i].App.Manifest = manifest
 				if err != nil {
 					return err
 				}
+				m.manifests[name] = manifest
 			}
 		} else {
 			// There shouldn't be any file; delete extraneous stuff
@@ -841,4 +840,9 @@ func (m *Manager) FetchBundle(bundle string) error {
 	}
 
 	return nil
+}
+
+// ManifestForApp returns the manifest for an app, if anys
+func (m *Manager) ManifestForApp(name string) *utils.AppManifest {
+	return m.manifests[name]
 }
