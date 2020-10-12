@@ -93,7 +93,6 @@ func (s *RPCServer) Start() {
 		case <-s.stopCh:
 			// We received an interrupt signal, shut down for good
 			s.logger.Println("Shutting down the gRCP server")
-			s.runningCancel()
 			s.gracefulStop()
 			s.running = false
 			s.doneCh <- 1
@@ -101,7 +100,6 @@ func (s *RPCServer) Start() {
 		case <-s.restartCh:
 			// We received a signal to restart the server
 			s.logger.Println("Restarting the gRCP server")
-			s.runningCancel()
 			s.gracefulStop()
 			s.doneCh <- 1
 			// Do not return, let the for loop repeat
@@ -127,15 +125,23 @@ func (s *RPCServer) Stop() {
 
 // Internal function that gracefully stops the gRPC server, with a timeout
 func (s *RPCServer) gracefulStop() {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	const shutdownTimeout = 15
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(shutdownTimeout)*time.Second)
 	defer cancel()
+
+	// Cancel the context
+	s.runningCancel()
 
 	// Try gracefulling closing the gRPC server
 	closed := make(chan int)
 	go func() {
 		s.grpcServer.GracefulStop()
 		if closed != nil {
-			closed <- 1
+			// Use a select just in case the channel was closed
+			select {
+			case closed <- 1:
+			default:
+			}
 		}
 	}()
 
@@ -146,7 +152,7 @@ func (s *RPCServer) gracefulStop() {
 	// Timeout
 	case <-ctx.Done():
 		// Force close
-		s.logger.Println("Shutdown timeout reached - force shutdown")
+		s.logger.Printf("Shutdown timeout of %d seconds reached - force shutdown\n", shutdownTimeout)
 		s.grpcServer.Stop()
 		close(closed)
 		closed = nil
