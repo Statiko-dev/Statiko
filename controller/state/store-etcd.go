@@ -44,16 +44,15 @@ const EtcdLockDuration = 20
 const etcdNodeRegistrationTTL = 30
 
 type StateStoreEtcd struct {
-	state  *pb.State
+	state  *pb.StateStore
 	client *clientv3.Client
 	logger *log.Logger
 
 	stateKey         string
 	dhparamsKey      string
 	locksKeyPrefix   string
-	nodesKeyPrefix   string
-	healthKeyPrefix  string
 	secretsKeyPrefix string
+	certsKeyPrefix   string
 
 	clusterMemberId    string
 	clusterMemberLease clientv3.LeaseID
@@ -73,9 +72,8 @@ func (s *StateStoreEtcd) Init() (err error) {
 	s.stateKey = keyPrefix + "/state"
 	s.dhparamsKey = keyPrefix + "/dhparams"
 	s.locksKeyPrefix = keyPrefix + "/locks/"
-	s.nodesKeyPrefix = keyPrefix + "/nodes/"
-	s.healthKeyPrefix = keyPrefix + "/health/"
 	s.secretsKeyPrefix = keyPrefix + "/secrets/"
+	s.certsKeyPrefix = keyPrefix + "/certs/"
 
 	// Random ID for this cluster member
 	s.clusterMemberId = uuid.New().String()
@@ -331,12 +329,12 @@ func (s *StateStoreEtcd) tryLockAcquisition(lockKey string, leaseID clientv3.Lea
 }
 
 // GetState returns the full state
-func (s *StateStoreEtcd) GetState() *pb.State {
+func (s *StateStoreEtcd) GetState() *pb.StateStore {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *StateStoreEtcd) SetState(state *pb.State) (err error) {
+func (s *StateStoreEtcd) SetState(state *pb.StateStore) (err error) {
 	s.state = state
 	return
 }
@@ -389,8 +387,10 @@ func (s *StateStoreEtcd) ReadState() (err error) {
 		s.logger.Println("Will create new state")
 
 		// Value doesn't exist, so load an empty state
-		s.state = &pb.State{
-			Sites: make([]*pb.State_Site, 0),
+		s.state = &pb.StateStore{
+			Sites:        make([]*pb.Site, 0),
+			Certificates: make(map[string]*pb.TLSCertificate),
+			Secrets:      make(map[string][]byte),
 		}
 
 		// Write the empty state to disk
@@ -427,18 +427,42 @@ func (s *StateStoreEtcd) OnStateUpdate(callback func()) {
 // Store the DH parameters file in a separate etcd key too
 func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 	// Create a copy of the state
-	serialize := pb.State{
-		Sites: s.state.Sites,
+	certificates := make(map[string]*pb.TLSCertificate, len(s.state.Certificates))
+	serialize := pb.StateStore{
+		Sites:        s.state.Sites,
+		Certificates: certificates,
+	}
+
+	// Populate the certificates object
+	if len(s.state.Certificates) > 0 {
+		for k, v := range s.state.Certificates {
+			// If there's a data object, store it as a separate key
+			if len(v.Data) > 0 {
+				// Encode the value to b64
+				encoded := base64.StdEncoding.EncodeToString(v.Data)
+
+				// Store the value if different
+				_, err := s.setIfDifferent(s.certsKeyPrefix+k, encoded)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			// Copy the value and remove the data
+			certificates[k] = &pb.TLSCertificate{}
+			*certificates[k] = *v
+			certificates[k].Data = nil
+		}
 	}
 
 	// Check if we have any secret
 	if s.state.Secrets != nil && len(s.state.Secrets) > 0 {
 		for k, v := range s.state.Secrets {
 			// Encode the value to b64
-			secretData := base64.StdEncoding.EncodeToString(v)
+			encoded := base64.StdEncoding.EncodeToString(v)
 
 			// Store the secret if different
-			_, err := s.setIfDifferent(s.secretsKeyPrefix+k, secretData)
+			_, err := s.setIfDifferent(s.secretsKeyPrefix+k, encoded)
 			if err != nil {
 				return nil, err
 			}
@@ -473,15 +497,45 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 // Unserialize the state from JSON
 // Additionally, retrieve all elements that were stored separately in etcd
 func (s *StateStoreEtcd) unserializeState(data []byte) error {
+	var (
+		err    error
+		resp   *clientv3.GetResponse
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+
 	// First, unserialize the JSON data
-	unserialized := &pb.State{}
+	unserialized := &pb.StateStore{}
 	if err := json.Unmarshal(data, unserialized); err != nil {
 		return err
 	}
 
+	// Retrieve the list of certificates
+	ctx, cancel = s.GetContext()
+	resp, err = s.client.Get(ctx, s.certsKeyPrefix, clientv3.WithPrefix())
+	cancel()
+	if err != nil {
+		return errors.Wrap(err, "")
+	}
+	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
+		for _, kv := range resp.Kvs {
+			if kv.Value != nil && len(kv.Value) > 0 {
+				// Decode the value from base64
+				data, err := base64.StdEncoding.DecodeString(string(kv.Value))
+				if err != nil {
+					return err
+				}
+				key := strings.TrimPrefix(string(kv.Key), s.certsKeyPrefix)
+				if el, ok := unserialized.Certificates[key]; ok && el != nil {
+					unserialized.Certificates[key].Data = data
+				}
+			}
+		}
+	}
+
 	// Retrieve the list of secrets
-	ctx, cancel := s.GetContext()
-	resp, err := s.client.Get(ctx, s.secretsKeyPrefix, clientv3.WithPrefix())
+	ctx, cancel = s.GetContext()
+	resp, err = s.client.Get(ctx, s.secretsKeyPrefix, clientv3.WithPrefix())
 	cancel()
 	if err != nil {
 		return errors.Wrap(err, "")
@@ -509,7 +563,7 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 		return errors.Wrap(err, "")
 	}
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
-		unserialized.DhParams = &pb.State_DHParams{}
+		unserialized.DhParams = &pb.DHParams{}
 		err := json.Unmarshal(resp.Kvs[0].Value, unserialized.DhParams)
 		if err != nil {
 			return errors.Wrap(err, "")

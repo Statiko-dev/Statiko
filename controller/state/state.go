@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -27,12 +26,13 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -46,7 +46,6 @@ type Manager struct {
 	updated            *time.Time
 	store              StateStore
 	storeType          string
-	nodeHealth         *pb.NodeHealth
 	logger             *log.Logger
 }
 
@@ -97,12 +96,12 @@ func (m *Manager) ReleaseLock(leaseID interface{}) error {
 }
 
 // DumpState exports the entire state
-func (m *Manager) DumpState() (*pb.State, error) {
+func (m *Manager) DumpState() (*pb.StateStore, error) {
 	return m.store.GetState(), nil
 }
 
 // ReplaceState replaces the full state for the node with the provided one
-func (m *Manager) ReplaceState(state *pb.State) error {
+func (m *Manager) ReplaceState(state *pb.StateStore) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -110,12 +109,14 @@ func (m *Manager) ReplaceState(state *pb.State) error {
 		return err
 	}
 
-	// Ensure that if TLS certs are not imported or from Azure Key Vault, their name and version isn't included
-	for _, s := range state.Sites {
-		if s.Tls != nil && s.Tls.Type != pb.State_Site_TLS_IMPORTED && s.Tls.Type != pb.State_Site_TLS_AZURE_KEY_VAULT {
-			s.Tls.Certificate = ""
-			s.Tls.Version = ""
+	// Validate TLS certs
+	certs := make(map[string]*pb.TLSCertificate)
+	for k, e := range state.Certificates {
+		// Validate the certificate; note that the Validate method might modify the object
+		if e == nil || !e.Validate() {
+			continue
 		}
+		certs[k] = e
 	}
 
 	// Lock
@@ -151,7 +152,7 @@ func (m *Manager) LastUpdated() *time.Time {
 }
 
 // GetSites returns the list of all sites
-func (m *Manager) GetSites() []*pb.State_Site {
+func (m *Manager) GetSites() []*pb.Site {
 	state := m.store.GetState()
 	if state != nil {
 		return state.Sites
@@ -161,7 +162,7 @@ func (m *Manager) GetSites() []*pb.State_Site {
 }
 
 // GetSite returns the site object for a specific domain (including aliases)
-func (m *Manager) GetSite(domain string) *pb.State_Site {
+func (m *Manager) GetSite(domain string) *pb.Site {
 	state := m.store.GetState()
 	if state != nil {
 		return nil
@@ -171,7 +172,7 @@ func (m *Manager) GetSite(domain string) *pb.State_Site {
 }
 
 // AddSite adds a site to the store
-func (m *Manager) AddSite(site *pb.State_Site) error {
+func (m *Manager) AddSite(site *pb.Site) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -186,8 +187,17 @@ func (m *Manager) AddSite(site *pb.State_Site) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Add the site
+	// Get the current state
 	state := m.store.GetState()
+
+	// Ensure that the TLS certificate referenced exists
+	if site.Tls != "" {
+		if _, ok := state.Certificates[site.Tls]; !ok {
+			return errors.New("the site references a TLS certificate that doesn't exist")
+		}
+	}
+
+	// Add the site
 	state.Sites = append(state.Sites, site)
 	m.setUpdated()
 
@@ -200,7 +210,7 @@ func (m *Manager) AddSite(site *pb.State_Site) error {
 }
 
 // UpdateSite updates a site with the same Domain
-func (m *Manager) UpdateSite(site *pb.State_Site, setUpdated bool) error {
+func (m *Manager) UpdateSite(site *pb.Site, setUpdated bool) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -215,9 +225,18 @@ func (m *Manager) UpdateSite(site *pb.State_Site, setUpdated bool) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
+	// Get the current state
+	state := m.store.GetState()
+
+	// Ensure that the TLS certificate referenced exists
+	if site.Tls != "" {
+		if _, ok := state.Certificates[site.Tls]; !ok {
+			return errors.New("the site references a TLS certificate that doesn't exist")
+		}
+	}
+
 	// Replace in the memory state
 	found := false
-	state := m.store.GetState()
 	for i, s := range state.Sites {
 		if s.Domain == site.Domain {
 			// Replace the element
@@ -266,6 +285,14 @@ func (m *Manager) DeleteSite(domain string) error {
 	state := m.store.GetState()
 	for i, s := range state.Sites {
 		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
+			// If the TLS certificate is self-signed or from ACME, remove it too
+			if s.Tls != "" {
+				cert := state.Certificates[s.Tls]
+				if cert != nil && (cert.Type == pb.TLSCertificate_SELF_SIGNED || cert.Type == pb.TLSCertificate_ACME) {
+					delete(state.Certificates, s.Tls)
+				}
+			}
+
 			// Remove the element
 			state.Sites[i] = state.Sites[len(state.Sites)-1]
 			state.Sites = state.Sites[:len(state.Sites)-1]
@@ -338,7 +365,7 @@ func (m *Manager) SetDHParams(val string) error {
 		return errors.New("state not loaded")
 	}
 	now := time.Now()
-	state.DhParams = &pb.State_DHParams{
+	state.DhParams = &pb.DHParams{
 		Pem:  val,
 		Date: now.Unix(),
 	}
@@ -470,103 +497,187 @@ func (m *Manager) DeleteSecret(key string) error {
 	return nil
 }
 
-// GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
-func (m *Manager) GetCertificate(typ string, nameOrDomains []string) (key []byte, cert []byte, err error) {
-	// Key of the secret
-	secretKey := m.certificateSecretKey(typ, nameOrDomains)
-	if secretKey == "" {
-		return nil, nil, errors.New("invalid name or domains")
+// GetCertificate returns a certificate object; for certs with data in the state, this returns the key and certificate too, decrypted and PEM-encoded
+func (m *Manager) GetCertificate(domain string) (obj *pb.TLSCertificate, key []byte, cert []byte, err error) {
+	// Get the state
+	state := m.store.GetState()
+	if state == nil {
+		return nil, nil, nil, errors.New("state not loaded")
 	}
 
-	// Retrieve the secret
-	serialized, err := m.GetSecret(secretKey)
-	if err != nil || serialized == nil || len(serialized) < 8 {
-		return nil, nil, err
+	// Get the site and ensure it has a TLS certificate
+	site := state.GetSite(domain)
+	if site == nil {
+		return nil, nil, nil, errors.New("site not found")
+	}
+	if site.Tls == "" {
+		return nil, nil, nil, errors.New("site does not have a TLS certificate")
 	}
 
-	// Un-serialize the secret
-	keyLen := binary.LittleEndian.Uint32(serialized[0:4])
-	certLen := binary.LittleEndian.Uint32(serialized[4:8])
-	if keyLen < 1 || certLen < 1 || len(serialized) != int(8+keyLen+certLen) {
-		return nil, nil, errors.New("invalid serialized data")
+	// Retrieve the certificate
+	obj = state.GetTlsCertificate(site.Tls)
+	if obj == nil {
+		return nil, nil, nil, errors.New("TLS certificate not found")
 	}
 
-	key = serialized[8:(keyLen + 8)]
-	cert = serialized[(keyLen + 8):]
-	err = nil
-	return
+	// Check if we have the certificate data in the object; if so, decrypt it
+	key, cert, err = m.decryptCertificate(obj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return obj, key, cert, nil
 }
 
-// SetCertificate stores a PEM-encoded certificate pair (key and certificate) as a secret
-func (m *Manager) SetCertificate(typ string, nameOrDomains []string, key []byte, cert []byte) (err error) {
-	// Key of the secret
-	secretKey := m.certificateSecretKey(typ, nameOrDomains)
-	if secretKey == "" {
-		return errors.New("invalid name or domains")
-	}
-
-	// Serialize the certificates
-	if len(key) > 204800 || len(cert) > 204800 {
-		return errors.New("key and/or certificate are too long")
-	}
-	keyLen := make([]byte, 4)
-	certLen := make([]byte, 4)
-	binary.LittleEndian.PutUint32(keyLen, uint32(len(key)))
-	binary.LittleEndian.PutUint32(certLen, uint32(len(cert)))
-	serialized := bytes.Buffer{}
-	serialized.Write(keyLen)
-	serialized.Write(certLen)
-	serialized.Write(key)
-	serialized.Write(cert)
-
-	// Store the secret
-	err = m.SetSecret(secretKey, serialized.Bytes())
-	if err != nil {
+// SetCertificate sets a certificate in the state
+// If the ID parameter is set, it will replace existing certificates with the same ID; otherwise, a new ID will be generated
+// Additionally, if a key and certificate are passed, they will be encrypted
+func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []byte, cert []byte) (err error) {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
 		return err
 	}
 
-	m.logger.Printf("Stored %s certificate for %v with key %s\n", typ, nameOrDomains, secretKey)
+	// Ensure that we have a certificate object
+	if obj == nil {
+		return errors.New("certificate object is empty")
+	}
+
+	// If we don't have a certificate ID, generate a new one
+	if certId == "" {
+		u, err := uuid.NewRandom()
+		if err != nil {
+			return err
+		}
+		certId = u.String()
+	}
+
+	// If we have a key and certificate, enncrypt them
+	if key != nil && len(key) > 0 && cert != nil && len(cert) > 0 {
+		// Serialize the certificates
+		if len(key) > 204800 || len(cert) > 204800 {
+			return errors.New("key and/or certificate are too long")
+		}
+		keyLen := make([]byte, 4)
+		certLen := make([]byte, 4)
+		binary.LittleEndian.PutUint32(keyLen, uint32(len(key)))
+		binary.LittleEndian.PutUint32(certLen, uint32(len(cert)))
+		// Add 8 because of the 2 lengths that are 32-bit ints
+		serialized := make([]byte, 8+len(key)+len(cert))
+		copy(serialized[0:4], keyLen)
+		copy(serialized[4:8], certLen)
+		copy(serialized[8:(8+len(key))], key)
+		copy(serialized[(8+len(key)):(8+len(key)+len(cert))], cert)
+
+		// Get the cipher
+		aesgcm, err := m.getSecretsCipher()
+		if err != nil {
+			return err
+		}
+
+		// Get a nonce
+		nonce := make([]byte, 12)
+		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+			return err
+		}
+
+		// Encrypt the secret
+		obj.Data = aesgcm.Seal(nil, nonce, serialized, nil)
+	}
+
+	// Now, validate the object (we first had to generate the data if needed)
+	if !obj.Validate() {
+		return errors.New("invalid TLS certificate object passed")
+	}
+
+	// Lock
+	leaseID, err := m.store.AcquireLock("state", true)
+	if err != nil {
+		return err
+	}
+	defer m.store.ReleaseLock(leaseID)
+
+	// Update the state
+	state := m.store.GetState()
+	if state == nil {
+		return errors.New("state not loaded")
+	}
+	if state.Certificates == nil {
+		state.Certificates = make(map[string]*pb.TLSCertificate)
+	}
+	state.Certificates[certId] = obj
+
+	m.setUpdated()
+
+	// Commit the state to the store
+	if err := m.store.WriteState(); err != nil {
+		return err
+	}
+
+	m.logger.Printf("Stored certificate %s\n", certId)
 	return nil
 }
 
-// RemoveCertificate removes a certificate from the store
-func (m *Manager) RemoveCertificate(typ string, nameOrDomains []string) (err error) {
-	// Key of the secret
-	secretKey := m.certificateSecretKey(typ, nameOrDomains)
-	if secretKey == "" {
-		return errors.New("invalid name or domains")
+// DeleteCertificate deletes a certificate object
+func (m *Manager) DeleteCertificate(certId string) (err error) {
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
 	}
 
-	return m.DeleteSecret(secretKey)
-}
+	// Lock
+	leaseID, err := m.store.AcquireLock("state", true)
+	if err != nil {
+		return err
+	}
+	defer m.store.ReleaseLock(leaseID)
 
-// ListImportedCertificates returns a list of the names of all imported certificates
-func (m *Manager) ListImportedCertificates() (res []string) {
-	res = make([]string, 0)
-	// Iterate through all secrets looking for those starting with "cert/imported/"
+	// Get the state and check if the certificate is in use by any site
 	state := m.store.GetState()
-	for k := range state.Secrets {
-		if strings.HasPrefix(k, "cert/imported/") {
-			res = append(res, strings.TrimPrefix(k, "cert/imported/"))
+	if state == nil {
+		return errors.New("state not loaded")
+	}
+	for _, s := range state.Sites {
+		if s.Tls == certId {
+			return errors.New("certificate is in use by a site and cannot be deleted")
 		}
 	}
-	return
+
+	// Delete the certificate
+	if state.Certificates != nil {
+		delete(state.Certificates, certId)
+	}
+
+	m.setUpdated()
+
+	// Commit the state to the store
+	if err := m.store.WriteState(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// certificateSecretKey returns the key of secret for the certificate
-func (m *Manager) certificateSecretKey(typ string, nameOrDomains []string) string {
-	switch typ {
-	case pb.State_Site_TLS_IMPORTED.String():
-		if len(nameOrDomains) != 1 || len(nameOrDomains[0]) == 0 {
-			return ""
-		}
-		return "cert/imported/" + nameOrDomains[0]
-	case pb.State_Site_TLS_ACME.String(), pb.State_Site_TLS_SELF_SIGNED.String():
-		domainKey := utils.SHA256String(strings.Join(nameOrDomains, ","))[:15]
-		return "cert/" + typ + "/" + domainKey
-	default:
-		return ""
+// ListCertificates returns a list of all certificates' IDs
+func (m *Manager) ListCertificates() []string {
+	state := m.store.GetState()
+	if state == nil {
+		return nil
 	}
+
+	// Get the keys
+	res := make([]string, len(state.Certificates))
+	i := 0
+	for k, _ := range state.Certificates {
+		res[i] = k
+		i++
+	}
+
+	return res
 }
 
 // Returns a cipher for AES-GCM-128 initialized
@@ -610,7 +721,38 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 	return encKey, nil
 }
 
-// GetNodeHealth gets the node status object
-func (m *Manager) GetNodeHealth() *pb.NodeHealth {
-	return m.nodeHealth
+// Decrypts the certificate data from the object
+func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert []byte, err error) {
+	// If there's no data, just return
+	if obj.Data == nil || len(obj.Data) < 13 {
+		return nil, nil, nil
+	}
+
+	// Get the cipher
+	aesgcm, err := m.getSecretsCipher()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Decrypt the secret
+	// First 12 bytes of the value are the nonce
+	serialized, err := aesgcm.Open(nil, obj.Data[0:12], obj.Data[12:], nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if serialized == nil || len(serialized) < 13 {
+		return nil, nil, errors.New("invalid decrypted data")
+	}
+
+	// Un-serialize the secret
+	keyLen := binary.LittleEndian.Uint32(serialized[0:4])
+	certLen := binary.LittleEndian.Uint32(serialized[4:8])
+	if keyLen < 1 || certLen < 1 || len(serialized) != int(8+keyLen+certLen) {
+		return nil, nil, errors.New("invalid serialized data")
+	}
+
+	key = serialized[8:(keyLen + 8)]
+	cert = serialized[(keyLen + 8):]
+
+	return key, cert, nil
 }

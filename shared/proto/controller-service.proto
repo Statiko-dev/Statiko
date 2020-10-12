@@ -1,0 +1,57 @@
+/*
+Copyright © 2020 Alessandro Segala (@ItalyPaleAle)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+syntax = "proto3";
+
+package statiko;
+
+option go_package = "github.com/statiko-dev/statiko/shared/proto";
+
+import "node-health.proto";
+import "state-message.proto";
+import "tls-message.proto";
+
+// Service that manages the state for the cluster and performs all background tasks
+service Controller {
+  // Bi-directional stream that is used by the server to request the health of a node
+  rpc HealthUpdate(stream NodeHealth) returns (stream NodeHealthPing);
+
+  // Notifies clients of state updates
+  rpc WatchState(WatchStateRequest) returns (stream StateMessage);
+
+  // Requests the desired state
+  rpc GetState(GetStateRequest) returns (StateMessage);
+
+  // Requests a TLS certificate
+  rpc GetTLSCertificate(TLSCertificateRequest) returns (TLSCertificateMessage);
+}
+
+// Message sent from the server when requesting the health of a node
+// This is currently an empty message
+message NodeHealthPing {}
+
+// Argument for the GetState RPC
+// This is currently an empty message
+message GetStateRequest {}
+
+// Argument for the WatchState RPC
+// This is currently an empty message
+message WatchStateRequest {}
+
+// Message for requesting a TLS certificate
+message TLSCertificateRequest {
+  string name = 1;
+}

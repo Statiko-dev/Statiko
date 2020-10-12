@@ -52,8 +52,8 @@ type StateStore interface {
 	Init() error
 	AcquireLock(name string, timeout bool) (interface{}, error)
 	ReleaseLock(leaseID interface{}) error
-	GetState() *pb.State
-	SetState(*pb.State) error
+	GetState() *pb.StateStore
+	SetState(*pb.StateStore) error
 	WriteState() error
 	ReadState() error
 	Healthy() (bool, error)

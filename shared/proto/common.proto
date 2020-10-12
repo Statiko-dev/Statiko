@@ -14,24 +14,23 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package proto
+syntax = "proto3";
 
-import "github.com/statiko-dev/statiko/utils"
+package statiko;
 
-// This file contains additional methods added to the protobuf object
+option go_package = "github.com/statiko-dev/statiko/shared/proto";
 
-// GetSite searches the list of sites to return the one matching the requested domain (including aliases)
-func (x *State) GetSite(domain string) *State_Site {
-	sites := x.GetSites()
-	if sites == nil {
-		return nil
-	}
+message Site {
+  // Domains: primary and aliases
+  string domain = 1;
+  repeated string aliases = 2;
 
-	for _, s := range sites {
-		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
-			return s
-		}
-	}
+  // Temporary site (e.g. for testing)
+  bool temporary = 3;
 
-	return nil
+  // TLS certificate ID
+  string tls = 4;
+
+  // App name (optional)
+  string app = 5;
 }
