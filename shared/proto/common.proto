@@ -31,6 +31,10 @@ message Site {
   // TLS certificate ID
   string tls = 4;
 
-  // App name (optional)
-  string app = 5;
+  // App (optional)
+  message App {
+    // App name
+    string name = 1;
+  }
+  App app = 5;
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -64,7 +65,9 @@ func (s *APIServer) DeploySiteHandler(c *gin.Context) {
 		return
 	}
 
-	site.App = req.Name
+	site.App = &pb.State_Site_App{
+		Name: req.Name,
+	}
 
 	// Update the app
 	if err := s.State.UpdateSite(site, true); err != nil {

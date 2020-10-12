@@ -27,7 +27,7 @@ import "tls-message.proto";
 // Service that manages the state for the cluster and performs all background tasks
 service Controller {
   // Bi-directional stream that is used by the server to request the health of a node
-  rpc HealthUpdate(stream NodeHealth) returns (stream NodeHealthPing);
+  rpc HealthChannel(stream NodeHealth) returns (stream NodeHealthPing);
 
   // Notifies clients of state updates
   rpc WatchState(WatchStateRequest) returns (stream StateMessage);

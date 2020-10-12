@@ -16,49 +16,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package main
 
-import (
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"github.com/statiko-dev/statiko/fs"
-	"github.com/statiko-dev/statiko/sync"
-	"github.com/statiko-dev/statiko/webserver"
-)
-
 func main() {
-	// Store
-	if err := fs.Startup(); err != nil {
+	// Create and run the Agent object
+	controller := &Agent{}
+	err := controller.Run()
+	if err != nil {
 		panic(err)
 	}
-
-	// Sync the state
-	// Do this in a synchronous way to ensure the node starts up properly
-	if err := sync.Run(); err != nil {
-		panic(err)
-	}
-
-	// Ensure Nginx is running
-	if err := webserver.Instance.EnsureServerRunning(); err != nil {
-		panic(err)
-	}
-
-	// Handle SIGUSR1 signals
-	handleResyncSignal()
-}
-
-// Listens for SIGUSR1 signals and triggers a new sync
-func handleResyncSignal() {
-	sigc := make(chan os.Signal, 2)
-	signal.Notify(sigc, syscall.SIGUSR1)
-	go func() {
-		for {
-			<-sigc
-			log.Println("Received SIGUSR1, trigger a re-sync")
-
-			// Force a sync
-			go sync.QueueRun()
-		}
-	}()
 }

@@ -14,11 +14,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package state
+package defaults
 
 // Default DH parameters, 4096-bit
 // Used before the cluster generates a new set
-const defaultDHParams = `-----BEGIN DH PARAMETERS-----
+const DefaultDHParams = `-----BEGIN DH PARAMETERS-----
 MIICCAKCAgEAgq8P1hFXHmK0tP/bEQITgXZpV7//46F9HSIMyYNXpx3WNMzOa2tu
 XPKOHapNHb2Hk3XTDlVvisozSGhE8L9aFYjcilsVvI7o9iaz/YkcQHoo1xdHeojg
 Vfeb7QuGxp2VV6GhdOmf3STsoYgZy4BfxQ8c0TGaA7/fXirU/pwWCNQbvIABfAlW

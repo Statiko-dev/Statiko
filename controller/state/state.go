@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/shared/defaults"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 
@@ -47,12 +48,16 @@ type Manager struct {
 	store              StateStore
 	storeType          string
 	logger             *log.Logger
+	signaler           *utils.Signaler
 }
 
 // Init loads the state from the store
 func (m *Manager) Init() (err error) {
 	// Initialize the logger
 	m.logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
+
+	// Initialize the signaler
+	m.signaler = &utils.Signaler{}
 
 	// Get store type
 	typ := appconfig.Config.GetString("state.store")
@@ -71,6 +76,9 @@ func (m *Manager) Init() (err error) {
 	if err != nil {
 		return err
 	}
+	m.store.OnReceive(func() {
+		m.setUpdated()
+	})
 
 	return
 }
@@ -149,6 +157,16 @@ func (m *Manager) setUpdated() {
 // LastUpdated returns the time the state was updated last
 func (m *Manager) LastUpdated() *time.Time {
 	return m.updated
+}
+
+// Subscribe will add a channel as a subscriber to when new state is availalble
+func (m *Manager) Subscribe(ch chan int) {
+	m.signaler.Subscribe(ch)
+}
+
+// Unsubscribe removes a channel from the list of subscribers to the state
+func (m *Manager) Unsubscribe(ch chan int) {
+	m.signaler.Unsubscribe(ch)
 }
 
 // GetSites returns the list of all sites
@@ -321,17 +339,12 @@ func (m *Manager) StoreHealth() (healthy bool, err error) {
 	return m.store.Healthy()
 }
 
-// OnStateUpdate stores the callback to invoke if the state is updated because of an external event
-func (m *Manager) OnStateUpdate(callback func()) {
-	m.store.OnStateUpdate(callback)
-}
-
 // GetDHParams returns the PEM-encoded DH parameters and their date
 func (m *Manager) GetDHParams() (string, *time.Time) {
 	// Check if we DH parameters; if not, return the default ones
 	state := m.store.GetState()
-	if state != nil && state.DhParams == nil || state.DhParams.Date == 0 || state.DhParams.Pem == "" {
-		return defaultDHParams, nil
+	if state != nil && (state.DhParams == nil || state.DhParams.Date == 0 || state.DhParams.Pem == "") {
+		return defaults.DefaultDHParams, nil
 	}
 
 	// Return the saved DH parameters
@@ -341,7 +354,7 @@ func (m *Manager) GetDHParams() (string, *time.Time) {
 
 // SetDHParams stores new PEM-encoded DH parameters
 func (m *Manager) SetDHParams(val string) error {
-	if val == "" || val == defaultDHParams {
+	if val == "" || val == defaults.DefaultDHParams {
 		return errors.New("val is empty or invalid")
 	}
 

@@ -28,15 +28,15 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
-	"github.com/statiko-dev/statiko/controller/state"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site
 func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	// Get data from the form body
-	site := &state.SiteState{}
-	if err := c.Bind(site); err != nil {
+	site := &pb.State_Site{}
+	if err := c.BindJSON(site); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body: " + err.Error(),
 		})
@@ -66,7 +66,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 			return
 		}
 		// Temporary domains cannot use TLS certificates from ACME, to avoid rate limiting
-		if site.TLS != nil && site.TLS.Type == state.TLSCertificateACME {
+		if site.Tls != nil && site.Tls.Type == pb.State_Site_TLS_ACME {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 				"error": "Temporary sites cannot request TLS certificates from ACME",
 			})
@@ -96,26 +96,28 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 		}
 	}
 
-	// Self-signed TLS certificates are default when no value is specified
-	// If the value is "acme", request a certificate from ACME
-	if site.TLS == nil || site.TLS.Type == "" || site.TLS.Type == state.TLSCertificateSelfSigned {
-		// Self-signed
-		site.TLS = &state.SiteTLS{
-			Type:        state.TLSCertificateSelfSigned,
-			Certificate: nil,
-			Version:     nil,
-		}
-	} else if site.TLS.Type == state.TLSCertificateACME {
+	tlsType := pb.State_Site_TLS_NULL
+	if site.Tls != nil {
+		tlsType = site.Tls.GetType()
+	}
+	switch tlsType {
+	case pb.State_Site_TLS_ACME:
 		// ACME
-		site.TLS = &state.SiteTLS{
-			Type:        state.TLSCertificateACME,
-			Certificate: nil,
-			Version:     nil,
+		site.Tls = &pb.State_Site_TLS{
+			Type:        pb.State_Site_TLS_ACME,
+			Certificate: "",
+			Version:     "",
 		}
-	} else if site.TLS.Type == state.TLSCertificateImported && site.TLS.Certificate != nil && *site.TLS.Certificate != "" {
+	case pb.State_Site_TLS_IMPORTED:
 		// Imported
+		if site.Tls.Certificate == "" {
+			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+				"error": "Missing name for imported TLS certificate",
+			})
+			return
+		}
 		// Check if the certificate exists
-		key, cert, err := s.State.GetCertificate(state.TLSCertificateImported, []string{*site.TLS.Certificate})
+		key, cert, err := s.State.GetCertificate(pb.State_Site_TLS_IMPORTED, []string{site.Tls.Certificate})
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -126,10 +128,16 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 			})
 			return
 		}
-	} else if site.TLS.Type == state.TLSCertificateAzureKeyVault && site.TLS.Certificate != nil && *site.TLS.Certificate != "" {
+	case pb.State_Site_TLS_AZURE_KEY_VAULT:
 		// Azure Key Vault
+		if site.Tls.Certificate == "" {
+			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+				"error": "Missing name for TLS certificate from Azure Key Vault",
+			})
+			return
+		}
 		// Check if the certificate exists
-		exists, err := azurekeyvault.GetInstance().CertificateExists(*site.TLS.Certificate)
+		exists, err := azurekeyvault.GetInstance().CertificateExists(site.Tls.Certificate)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -140,16 +148,18 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 			})
 			return
 		}
-	} else {
+	case pb.State_Site_TLS_NULL, pb.State_Site_TLS_SELF_SIGNED:
+		// Self-signed TLS certificates are default when no value is specified
+		site.Tls = &pb.State_Site_TLS{
+			Type:        pb.State_Site_TLS_SELF_SIGNED,
+			Certificate: "",
+			Version:     "",
+		}
+	default:
 		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
 			"error": "Invalid TLS configuration",
 		})
 		return
-	}
-
-	// Ensure an empty version is stored as nil
-	if site.TLS != nil && site.TLS.Version != nil && *site.TLS.Version == "" {
-		site.TLS.Version = nil
 	}
 
 	// Add the website to the store
@@ -315,21 +325,21 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 					return
 				}
 				switch certType {
-				case state.TLSCertificateACME:
+				case pb.State_Site_TLS_ACME.String():
 					if site.Temporary {
 						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 							"error": "Temporary sites cannot request TLS certificates from ACME",
 						})
 						return
 					}
-					site.TLS = &state.SiteTLS{
-						Type: state.TLSCertificateACME,
+					site.Tls = &pb.State_Site_TLS{
+						Type: pb.State_Site_TLS_ACME,
 					}
-				case state.TLSCertificateSelfSigned:
-					site.TLS = &state.SiteTLS{
-						Type: certType,
+				case pb.State_Site_TLS_SELF_SIGNED.String():
+					site.Tls = &pb.State_Site_TLS{
+						Type: pb.State_Site_TLS_SELF_SIGNED,
 					}
-				case state.TLSCertificateImported:
+				case pb.State_Site_TLS_IMPORTED.String():
 					// Imported certificate
 					// Get the certificate name
 					name, ok := vMap["cert"].(string)
@@ -341,7 +351,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 					}
 
 					// Check if the certificate exists
-					key, cert, err := s.State.GetCertificate(state.TLSCertificateImported, []string{name})
+					key, cert, err := s.State.GetCertificate(pb.State_Site_TLS_IMPORTED, []string{name})
 					if err != nil {
 						c.AbortWithError(http.StatusInternalServerError, err)
 						return
@@ -352,11 +362,11 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 						})
 						return
 					}
-					site.TLS = &state.SiteTLS{
-						Type:        state.TLSCertificateImported,
-						Certificate: &name,
+					site.Tls = &pb.State_Site_TLS{
+						Type:        pb.State_Site_TLS_IMPORTED,
+						Certificate: name,
 					}
-				case state.TLSCertificateAzureKeyVault:
+				case pb.State_Site_TLS_AZURE_KEY_VAULT.String():
 					// Certificate stored in Azure Key Vault
 					// Get the certificate name
 					name, ok := vMap["cert"].(string)
@@ -385,12 +395,10 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 						})
 						return
 					}
-					site.TLS = &state.SiteTLS{
-						Type:        state.TLSCertificateAzureKeyVault,
-						Certificate: &name,
-					}
-					if version != "" {
-						site.TLS.Version = &version
+					site.Tls = &pb.State_Site_TLS{
+						Type:        pb.State_Site_TLS_AZURE_KEY_VAULT,
+						Certificate: name,
+						Version:     version,
 					}
 				default:
 					c.AbortWithStatusJSON(http.StatusConflict, gin.H{

@@ -17,8 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/api"
+	"github.com/statiko-dev/statiko/controller/nodemanager"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/fs"
@@ -29,12 +35,17 @@ import (
 type Controller struct {
 	store    fs.Fs
 	state    *state.Manager
-	notifier notifications.Notifications
-	apiSrv   api.APIServer
+	notifier *notifications.Notifications
+	apiSrv   *api.APIServer
+	rcpSrv   *nodemanager.RPCServer
+	logger   *log.Logger
 }
 
-// Init the controller object
-func (c *Controller) Init() (err error) {
+// Run the controller app
+func (c *Controller) Run() (err error) {
+	// Initialize the logger
+	c.logger = log.New(os.Stdout, "controller: ", log.Ldate|log.Ltime|log.LUTC)
+
 	// Init the store
 	fsType := appconfig.Config.GetString("repo.type")
 	c.store, err = fs.Get(fsType)
@@ -50,7 +61,7 @@ func (c *Controller) Init() (err error) {
 	}
 
 	// Init the notifications client
-	c.notifier = notifications.Notifications{}
+	c.notifier = &notifications.Notifications{}
 	err = c.notifier.Init()
 	if err != nil {
 		return err
@@ -60,13 +71,38 @@ func (c *Controller) Init() (err error) {
 	// TODO: NEEDS UPDATING
 	//worker.StartWorker()
 
-	// Init and start the API server
-	c.apiSrv = api.APIServer{
-		Store: c.store,
+	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+
+	// Init and start the gRPC server
+	c.rcpSrv = &nodemanager.RPCServer{
 		State: c.state,
 	}
+	c.rcpSrv.Init()
+	go c.rcpSrv.Start()
+	if err != nil {
+		return err
+	}
+
+	// Init and start the API server
+	c.apiSrv = &api.APIServer{
+		Store:       c.store,
+		State:       c.state,
+		NodeManager: c.rcpSrv,
+	}
 	c.apiSrv.Init()
-	c.apiSrv.Start()
+	go c.apiSrv.Start()
+
+	// Wait for the shutdown signal then stop the servers
+	<-sigCh
+	c.logger.Println("Received signal to terminate the app")
+	c.apiSrv.Stop()
+	c.rcpSrv.Stop()
 
 	return nil
 }

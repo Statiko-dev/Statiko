@@ -22,28 +22,30 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/controller/nodemanager"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/shared/fs"
 )
 
 // APIServer is the API server
 type APIServer struct {
-	Store fs.Fs
-	State *state.Manager
+	Store       fs.Fs
+	State       *state.Manager
+	NodeManager *nodemanager.RPCServer
 
 	logger    *log.Logger
 	router    *gin.Engine
 	srv       *http.Server
+	stopCh    chan int
 	restartCh chan int
+	doneCh    chan int
 	running   bool
 }
 
@@ -54,8 +56,10 @@ func (s *APIServer) Init() {
 	// Initialize the logger
 	s.logger = log.New(os.Stdout, "api: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Channel used to restart the server
+	// Channel used to stop and restart the server
+	s.stopCh = make(chan int)
 	s.restartCh = make(chan int)
+	s.doneCh = make(chan int)
 
 	// Create the router object
 	// If we're in production mode, set Gin to "release" mode
@@ -78,24 +82,15 @@ func (s *APIServer) IsRunning() bool {
 	return s.running
 }
 
-// Start the API server
-// This panics in case of error
+// Start the API server; must be run in a goroutine with `go s.Start()`
 func (s *APIServer) Start() {
-	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
-
 	appRoot := appconfig.Config.GetString("appRoot")
 	if !strings.HasSuffix(appRoot, "/") {
 		appRoot += "/"
 	}
 
 	for {
-		// Start the server in background
+		// Start the server in another channel
 		go func() {
 			// HTTP Server
 			s.srv = &http.Server{
@@ -110,7 +105,7 @@ func (s *APIServer) Start() {
 			s.running = true
 
 			if appconfig.Config.GetBool("tls.node.enabled") {
-				s.logger.Printf("Starting server on https://%s\n", s.srv.Addr)
+				s.logger.Printf("Starting API server on https://%s\n", s.srv.Addr)
 				tlsCertFile := appRoot + "misc/node.cert.pem"
 				tlsKeyFile := appRoot + "misc/node.key.pem"
 				tlsConfig := &tls.Config{
@@ -122,7 +117,7 @@ func (s *APIServer) Start() {
 				}
 			} else {
 				s.srv.TLSConfig = nil
-				s.logger.Printf("Starting server on http://%s\n", s.srv.Addr)
+				s.logger.Printf("Starting API server on http://%s\n", s.srv.Addr)
 				if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
 					panic(err)
 				}
@@ -130,15 +125,17 @@ func (s *APIServer) Start() {
 		}()
 
 		select {
-		case <-sigCh:
+		case <-s.stopCh:
 			// We received an interrupt signal, shut down for good
-			s.logger.Println("Received signal to terminate the app; shutting down the API server")
+			s.logger.Println("Shutting down the API server")
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := s.srv.Shutdown(ctx); err != nil {
 				s.logger.Printf("HTTP server shutdown error: %v\n", err)
 			}
+			s.logger.Println("API server shut down")
 			s.running = false
+			s.doneCh <- 1
 			return
 		case <-s.restartCh:
 			// We received a signal to restart the server
@@ -148,6 +145,7 @@ func (s *APIServer) Start() {
 			if err := s.srv.Shutdown(ctx); err != nil {
 				panic(err)
 			}
+			s.doneCh <- 1
 			// Do not return, let the for loop repeat
 		}
 	}
@@ -157,6 +155,15 @@ func (s *APIServer) Start() {
 func (s *APIServer) Restart() {
 	if s.running {
 		s.restartCh <- 1
+		<-s.doneCh
+	}
+}
+
+// Stop the server
+func (s *APIServer) Stop() {
+	if s.running {
+		s.stopCh <- 1
+		<-s.doneCh
 	}
 }
 
@@ -205,7 +212,7 @@ func (s *APIServer) setupRoutes() {
 		group.POST("/site/:domain/app", s.DeploySiteHandler)
 		group.PUT("/site/:domain/app", s.DeploySiteHandler) // Alias
 
-		//group.GET("/clusterstatus", s.ClusterStatusHandler)
+		group.GET("/clusterstatus", s.ClusterStatusHandler)
 
 		group.GET("/state", s.GetStateHandler)
 		group.POST("/state", s.PutStateHandler)

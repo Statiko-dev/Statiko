@@ -24,17 +24,20 @@ import "common.proto";
 
 // Represents the node's state
 message StateStore {
+  // State version
+  uint64 version = 1;
+
   // List of sites
-  repeated Site sites = 1;
+  repeated Site sites = 2;
 
   // List of TLS certificates, mapped by their ID
-  map<string,TLSCertificate> certificates = 2;
+  map<string,TLSCertificate> certificates = 3;
 
   // Other secrets (encrypted)
-  map<string,bytes> secrets = 3;
+  map<string,bytes> secrets = 4;
 
   // DH parameters
-  DHParams dh_params = 4;
+  DHParams dh_params = 5;
 }
 
 // Configuration for a TLS certificate

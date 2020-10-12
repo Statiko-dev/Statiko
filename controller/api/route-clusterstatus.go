@@ -20,30 +20,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/statiko-dev/statiko/state"
 )
 
 // ClusterStatusHandler is the handler for GET /clusterstatus, which returns the status of the entire cluster
 func (s *APIServer) ClusterStatusHandler(c *gin.Context) {
 	// Get cluster status
-	health, err := state.Instance.ClusterHealth()
-	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	// Iterate through the result to clean it
-	for i := range health {
-		for j := range health[i].Health {
-			el := health[i].Health[j]
-			healthy := el.IsHealthy()
-			el.Healthy = &healthy
-			el.StatusCode = nil
-			el.ResponseSize = nil
-			health[i].Health[j] = el
-		}
-	}
+	health := s.NodeManager.RequestClusterHealth()
 
 	c.JSON(http.StatusOK, health)
 }

@@ -38,15 +38,21 @@ import (
 	"github.com/google/renameio"
 	"gopkg.in/yaml.v2"
 
+	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/certificates"
-	"github.com/statiko-dev/statiko/fs"
-	"github.com/statiko-dev/statiko/state"
+	"github.com/statiko-dev/statiko/shared/fs"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
 // Manager contains helper functions to manage apps and sites
 type Manager struct {
+	// State object
+	AgentState *state.AgentState
+	// Fs object
+	Fs fs.Fs
+
 	// Root folder for the platform
 	appRoot string
 
@@ -79,7 +85,7 @@ func (m *Manager) Init() error {
 }
 
 // SyncState ensures that the state of the filesystem matches the desired one
-func (m *Manager) SyncState(sites []state.SiteState) (updated bool, restartServer bool, err error) {
+func (m *Manager) SyncState(sites []*pb.State_Site) (updated bool, restartServer bool, err error) {
 	updated = false
 
 	// To start, ensure the basic folders exist
@@ -118,26 +124,8 @@ func (m *Manager) SyncState(sites []state.SiteState) (updated bool, restartServe
 	return
 }
 
-// Creates a folder if it doesn't exist already
-func ensureFolderWithUpdated(path string) (updated bool, err error) {
-	updated = false
-	exists := false
-	exists, err = utils.FolderExists(path)
-	if err != nil {
-		return
-	}
-	if !exists {
-		err = utils.EnsureFolder(path)
-		if err != nil {
-			return
-		}
-		updated = true
-	}
-	return
-}
-
 // SyncSiteFolders ensures that we have the correct folders in the site directory, and TLS certificates are present
-func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
+func (m *Manager) SyncSiteFolders(sites []*pb.State_Site) (bool, error) {
 	updated := false
 
 	var u bool
@@ -162,7 +150,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 	expectFolders[0] = "_default"
 	for _, s := range sites {
 		// If the app failed to deploy, skip this
-		if state.Instance.GetSiteHealth(s.Domain) != nil {
+		if m.AgentState.GetSiteHealth(s.Domain) != nil {
 			m.log.Println("Skipping because of unhealthy site:", s.Domain)
 			continue
 		}
@@ -171,7 +159,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
 		if err != nil {
 			m.log.Println("Error while creating folder for site:", s.Domain, err)
-			state.Instance.SetSiteHealth(s.Domain, err)
+			m.AgentState.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
@@ -181,7 +169,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		u, err = ensureFolderWithUpdated(pathTLS)
 		if err != nil {
 			m.log.Println("Error while creating tls folder for site:", s.Domain, err)
-			state.Instance.SetSiteHealth(s.Domain, err)
+			m.AgentState.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
@@ -192,12 +180,12 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		keyPEM, certPEM, err := certificates.GetCertificate(&s)
 		if err != nil {
 			m.log.Println("Error while getting TLS certificate for site:", s.Domain, err)
-			state.Instance.SetSiteHealth(s.Domain, err)
+			m.AgentState.SetSiteHealth(s.Domain, err)
 			continue
 		}
-		u, err = m.writeFileIfChanged(pathKey, keyPEM)
+		u, err = writeFileIfChanged(pathKey, keyPEM)
 		updated = updated || u
-		u, err = m.writeFileIfChanged(pathCert, certPEM)
+		u, err = writeFileIfChanged(pathCert, certPEM)
 		updated = updated || u
 
 		// Deploy the app; do this every time, regardless, since it doesn't disrupt the running server
@@ -209,7 +197,7 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 		}
 		if err := m.ActivateApp(bundle, s.Domain); err != nil {
 			m.log.Println("Error while activating app for site:", s.Domain, err)
-			state.Instance.SetSiteHealth(s.Domain, err)
+			m.AgentState.SetSiteHealth(s.Domain, err)
 			continue
 		}
 
@@ -250,9 +238,9 @@ func (m *Manager) SyncSiteFolders(sites []state.SiteState) (bool, error) {
 }
 
 // SyncApps ensures that we have the correct apps
-func (m *Manager) SyncApps(sites []state.SiteState) error {
+func (m *Manager) SyncApps(sites []*pb.State_Site) error {
 	// Channels used by the worker pool to fetch apps in parallel
-	jobs := make(chan state.SiteState, 4)
+	jobs := make(chan *pb.State_Site, 4)
 	res := make(chan int, len(sites))
 
 	// Spin up 3 backround workers
@@ -268,7 +256,7 @@ func (m *Manager) SyncApps(sites []state.SiteState) error {
 	fetchAppsList := make(map[string]int)
 	for i, s := range sites {
 		// Reset the error
-		state.Instance.SetSiteHealth(s.Domain, nil)
+		m.AgentState.SetSiteHealth(s.Domain, nil)
 
 		// Check if the jobs channel is full
 		for len(jobs) == cap(jobs) {
@@ -449,8 +437,8 @@ func (m *Manager) SyncMiscFiles() (bool, bool, error) {
 	restartServer := false
 
 	// Get the latest DH parameters and compare them with the ones on disk
-	pem, _ := state.Instance.GetDHParams()
-	u, err := m.writeFileIfChanged(m.appRoot+"misc/dhparams.pem", []byte(pem))
+	pem, _ := m.AgentState.GetDHParams()
+	u, err := writeFileIfChanged(m.appRoot+"misc/dhparams.pem", []byte(pem))
 	if err != nil {
 		return false, false, err
 	}
@@ -500,16 +488,18 @@ func (m *Manager) SyncMiscFiles() (bool, bool, error) {
 		// If we're using ACME and a certificate hasn't been requested yet, it will be requested later
 		if certData == nil || keyData == nil {
 			// Type
-			typ := state.TLSCertificateSelfSigned
+			typ := pb.State_Site_TLS_SELF_SIGNED
 			if appconfig.Config.GetBool("tls.node.acme") {
-				typ = state.TLSCertificateACME
+				typ = pb.State_Site_TLS_ACME
 			}
 
 			// Request the certificate
-			s := state.SiteState{
+			s := &pb.State_Site{
 				Domain:  utils.NodeAddress(),
 				Aliases: []string{},
-				TLS:     &state.SiteTLS{Type: typ},
+				Tls: &pb.State_Site_TLS{
+					Type: typ,
+				},
 			}
 			keyData, certData, err = certificates.GetCertificate(&s)
 			if err != nil {
@@ -518,13 +508,13 @@ func (m *Manager) SyncMiscFiles() (bool, bool, error) {
 		}
 
 		// Write the certificate and key if they're different
-		u, err = m.writeFileIfChanged(m.appRoot+"misc/node.cert.pem", certData)
+		u, err = writeFileIfChanged(m.appRoot+"misc/node.cert.pem", certData)
 		if err != nil {
 			return false, false, err
 		}
 		restartServer = restartServer || u
 		updated = updated || u
-		u, err = m.writeFileIfChanged(m.appRoot+"misc/node.key.pem", keyData)
+		u, err = writeFileIfChanged(m.appRoot+"misc/node.key.pem", keyData)
 		if err != nil {
 			return false, false, err
 		}
@@ -533,29 +523,6 @@ func (m *Manager) SyncMiscFiles() (bool, bool, error) {
 	}
 
 	return updated, restartServer, nil
-}
-
-// Writes a file on disk if its content differ from val
-// Returns true if the file has been updated
-func (m *Manager) writeFileIfChanged(filename string, val []byte) (bool, error) {
-	// Read the existing file
-	read, err := ioutil.ReadFile(filename)
-	if err != nil && !os.IsNotExist(err) {
-		return false, err
-	}
-	if len(read) > 0 && bytes.Compare(read, val) == 0 {
-		// Nothing to do here
-		return false, nil
-	}
-
-	// Write the updated file
-	err = ioutil.WriteFile(filename, val, 0644)
-	if err != nil {
-		return false, err
-	}
-
-	// File has been updated
-	return true, nil
 }
 
 // ActivateApp points a site to an app, by creating the symbolic link
@@ -740,7 +707,7 @@ func (m *Manager) StageApp(bundle string) error {
 }
 
 // Background worker for the StageApp function
-func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<- int) {
+func (m *Manager) workerStageApp(id int, jobs <-chan *pb.State_Site, res chan<- int) {
 	for j := range jobs {
 		m.log.Println("Worker", id, "started staging app "+j.App.Name)
 		err := m.StageApp(j.App.Name)
@@ -751,7 +718,7 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 			m.log.Println("Error staging app "+j.App.Name+":", err)
 
 			// Store the error
-			state.Instance.SetSiteHealth(j.Domain, err)
+			m.AgentState.SetSiteHealth(j.Domain, err)
 		}
 		res <- 1
 	}
@@ -760,7 +727,7 @@ func (m *Manager) workerStageApp(id int, jobs <-chan state.SiteState, res chan<-
 // FetchBundle downloads the application's bundle
 func (m *Manager) FetchBundle(bundle string) error {
 	// Get the archive
-	found, data, metadata, err := fs.Instance.Get(bundle)
+	found, data, metadata, err := m.Fs.Get(bundle)
 	if err != nil {
 		return err
 	}
@@ -874,43 +841,4 @@ func (m *Manager) FetchBundle(bundle string) error {
 	}
 
 	return nil
-}
-
-// Creates a symbolic link dst pointing to src, if it doesn't exist or if it's pointing to the wrong destination
-func createLinkIfNeeded(src string, dst string) (updated bool, err error) {
-	err = nil
-	updated = false
-
-	// First, check if dst exists
-	var exists bool
-	exists, err = utils.PathExists(dst)
-	if err != nil {
-		return
-	}
-
-	if exists {
-		// Check if the link points to the right place
-		var link string
-		link, err = os.Readlink(dst)
-		if err != nil {
-			return
-		}
-
-		if link != src {
-			updated = true
-		} else {
-			// Nothing to do
-			return
-		}
-	} else {
-		updated = true
-	}
-
-	// If we need to create a link
-	if updated {
-		err = renameio.Symlink(src, dst)
-		// No need to return on error; that will happen right away anyways
-	}
-
-	return
 }

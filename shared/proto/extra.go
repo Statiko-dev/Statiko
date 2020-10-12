@@ -20,6 +20,14 @@ import "github.com/statiko-dev/statiko/utils"
 
 // This file contains additional methods added to the protobuf object
 
+// StateMessage returns the StateMessage object from a given StateStore
+func (x *StateStore) StateMessage() *StateMessage {
+	return &StateMessage{
+		Version: x.Version,
+		Sites:   x.Sites,
+	}
+}
+
 // GetSite searches the list of sites to return the one matching the requested domain (including aliases)
 func (x *StateStore) GetSite(domain string) *Site {
 	sites := x.GetSites()

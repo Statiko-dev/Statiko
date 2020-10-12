@@ -57,7 +57,7 @@ type StateStoreEtcd struct {
 	clusterMemberId    string
 	clusterMemberLease clientv3.LeaseID
 	lastRevisionPut    int64
-	updateCallback     func()
+	receiveCallback    func()
 }
 
 // Init initializes the object
@@ -193,8 +193,8 @@ func (s *StateStoreEtcd) watchStateChanges() {
 			}
 
 			// Invoke the callback as the state has been replaced
-			if s.updateCallback != nil {
-				s.updateCallback()
+			if s.receiveCallback != nil {
+				s.receiveCallback()
 			}
 		} else if event.Kv.ModRevision < s.lastRevisionPut {
 			// Ignoring the case ==, which means we just received the state we just committed
@@ -233,8 +233,8 @@ func (s *StateStoreEtcd) startAuxiliaryKeysWatcher() {
 				}
 
 				// Check if we need to invoke the callback
-				if invokeCallbackOnChanges && s.updateCallback != nil {
-					s.updateCallback()
+				if invokeCallbackOnChanges && s.receiveCallback != nil {
+					s.receiveCallback()
 				}
 			}
 		}
@@ -417,9 +417,9 @@ func (s *StateStoreEtcd) Healthy() (healthy bool, err error) {
 	return
 }
 
-// OnStateUpdate stores the callback that is invoked when there's a new state from etcd
-func (s *StateStoreEtcd) OnStateUpdate(callback func()) {
-	s.updateCallback = callback
+// OnReceive stores the callback that is invoked when there's a new state from etcd
+func (s *StateStoreEtcd) OnReceive(callback func()) {
+	s.receiveCallback = callback
 }
 
 // Serialize the state to JSON
