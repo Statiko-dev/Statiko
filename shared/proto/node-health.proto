@@ -16,6 +16,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 syntax = "proto3";
 
+package statiko;
+
 option go_package = "github.com/statiko-dev/statiko/shared/proto";
 
 // Message containing the health of a node

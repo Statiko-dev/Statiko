@@ -25,8 +25,12 @@ import (
 )
 
 // GetState is a simple RPC that returns the current state object
-func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.State, error) {
-	return s.State.DumpState()
+func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.StateMessage, error) {
+	state, err := s.State.DumpState()
+	if err != nil {
+		return nil, err
+	}
+	return state.StateMessage(), nil
 }
 
 // HealthChannel is a bi-directional stream that is used by the server to request the health of a node
@@ -110,10 +114,15 @@ func (s *RPCServer) WatchState(req *pb.WatchStateRequest, stream pb.Controller_W
 			if err != nil {
 				return err
 			}
-			stream.Send(state)
+			stream.Send(state.StateMessage())
 		// The server is shutting down
 		case <-s.runningCtx.Done():
 			return nil
 		}
 	}
+}
+
+// GetTLSCertificate is a simple RPC that returns a TLS certificate
+func (s *RPCServer) GetTLSCertificate(ctx context.Context, in *pb.TLSCertificateRequest) (*pb.TLSCertificateMessage, error) {
+	return nil, nil
 }

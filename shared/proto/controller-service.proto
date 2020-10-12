@@ -16,21 +16,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 syntax = "proto3";
 
+package statiko;
+
 option go_package = "github.com/statiko-dev/statiko/shared/proto";
 
 import "node-health.proto";
-import "state.proto";
+import "state-message.proto";
+import "tls-message.proto";
 
 // Service that manages the state for the cluster and performs all background tasks
 service Controller {
   // Bi-directional stream that is used by the server to request the health of a node
   rpc HealthChannel(stream NodeHealth) returns (stream NodeHealthPing);
 
-  // Requests the desired state
-  rpc GetState(GetStateRequest) returns (State);
-
   // Notifies clients of state updates
-  rpc WatchState(WatchStateRequest) returns (stream State);
+  rpc WatchState(WatchStateRequest) returns (stream StateMessage);
+
+  // Requests the desired state
+  rpc GetState(GetStateRequest) returns (StateMessage);
+
+  // Requests a TLS certificate
+  rpc GetTLSCertificate(TLSCertificateRequest) returns (TLSCertificateMessage);
 }
 
 // Message sent from the server when requesting the health of a node
@@ -44,3 +50,8 @@ message GetStateRequest {}
 // Argument for the WatchState RPC
 // This is currently an empty message
 message WatchStateRequest {}
+
+// Message for requesting a TLS certificate
+message TLSCertificateRequest {
+  string name = 1;
+}

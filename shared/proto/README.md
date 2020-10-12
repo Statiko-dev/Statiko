@@ -6,8 +6,8 @@
 - github.com/mitchellh/protoc-gen-go-json
 
 ```sh
-GO111MODULE=off go get github.com/golang/protobuf/protoc-gen-go
-GO111MODULE=off go get github.com/mitchellh/protoc-gen-go-json
+GO111MODULE=off go get -u github.com/golang/protobuf/protoc-gen-go
+GO111MODULE=off go get -u github.com/mitchellh/protoc-gen-go-json
 ```
 
 ## Build
@@ -24,4 +24,4 @@ protoc \
 
 The following Go files were created manually and are not auto-generated:
 
-- `state.extra.go`
+- `extra.go`

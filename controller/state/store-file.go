@@ -30,7 +30,7 @@ import (
 )
 
 type StateStoreFile struct {
-	state  *pb.State
+	state  *pb.StateStore
 	logger *log.Logger
 }
 
@@ -57,12 +57,12 @@ func (s *StateStoreFile) ReleaseLock(leaseID interface{}) error {
 }
 
 // GetState returns the full state
-func (s *StateStoreFile) GetState() *pb.State {
+func (s *StateStoreFile) GetState() *pb.StateStore {
 	return s.state
 }
 
 // StoreState replaces the current state
-func (s *StateStoreFile) SetState(state *pb.State) (err error) {
+func (s *StateStoreFile) SetState(state *pb.StateStore) (err error) {
 	s.state = state
 	return
 }
@@ -109,7 +109,7 @@ func (s *StateStoreFile) ReadState() (err error) {
 			s.createStateFile(path)
 		} else {
 			// Parse JSON
-			s.state = &pb.State{}
+			s.state = &pb.StateStore{}
 			err = json.Unmarshal(data, s.state)
 		}
 	} else {
@@ -134,8 +134,10 @@ func (s *StateStoreFile) createStateFile(path string) (err error) {
 	s.logger.Println("Will create new state file", path)
 
 	// File doesn't exist, so load an empty state
-	s.state = &pb.State{
-		Sites: make([]*pb.State_Site, 0),
+	s.state = &pb.StateStore{
+		Sites:        make([]*pb.Site, 0),
+		Certificates: make(map[string]*pb.TLSCertificate),
+		Secrets:      make(map[string][]byte),
 	}
 
 	// Write the empty state to disk
