@@ -26,6 +26,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
@@ -49,6 +50,7 @@ type Manager struct {
 	storeType          string
 	logger             *log.Logger
 	signaler           *utils.Signaler
+	semaphore          *sync.Mutex
 }
 
 // Init loads the state from the store
@@ -80,6 +82,12 @@ func (m *Manager) Init() (err error) {
 		m.setUpdated()
 	})
 
+	// Check if there's a version
+	state := m.store.GetState()
+	if state.Version < 1 {
+		state.Version = 1
+	}
+
 	return
 }
 
@@ -95,11 +103,13 @@ func (m *Manager) GetStore() StateStore {
 
 // AcquireLock acquires a lock on the sync semaphore, ensuring that only one node at a time can be syncing
 func (m *Manager) AcquireLock(name string, timeout bool) (interface{}, error) {
+	m.semaphore.Lock()
 	return m.store.AcquireLock(name, timeout)
 }
 
 // ReleaseSyncLock releases the lock on the sync semaphore
 func (m *Manager) ReleaseLock(leaseID interface{}) error {
+	m.semaphore.Unlock()
 	return m.store.ReleaseLock(leaseID)
 }
 
@@ -133,6 +143,10 @@ func (m *Manager) ReplaceState(state *pb.StateStore) error {
 		return err
 	}
 	defer m.store.ReleaseLock(leaseID)
+
+	// Set version based on the current version
+	currentState := m.store.GetState()
+	state.Version = currentState.Version + 1
 
 	// Replace the state
 	if err := m.store.SetState(state); err != nil {
@@ -215,8 +229,9 @@ func (m *Manager) AddSite(site *pb.Site) error {
 		}
 	}
 
-	// Add the site
+	// Add the site and increase the version
 	state.Sites = append(state.Sites, site)
+	state.Version++
 	m.setUpdated()
 
 	// Commit the state to the store
@@ -259,6 +274,9 @@ func (m *Manager) UpdateSite(site *pb.Site, setUpdated bool) error {
 		if s.Domain == site.Domain {
 			// Replace the element
 			state.Sites[i] = site
+
+			// Increase the version since we made a change
+			state.Version++
 
 			found = true
 			break
@@ -314,6 +332,9 @@ func (m *Manager) DeleteSite(domain string) error {
 			// Remove the element
 			state.Sites[i] = state.Sites[len(state.Sites)-1]
 			state.Sites = state.Sites[:len(state.Sites)-1]
+
+			// Increase the version since we made a change
+			state.Version++
 
 			found = true
 			break
@@ -372,7 +393,7 @@ func (m *Manager) SetDHParams(val string) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Store the value
+	// Store the value and increase the version
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
@@ -382,6 +403,7 @@ func (m *Manager) SetDHParams(val string) error {
 		Pem:  val,
 		Date: now.Unix(),
 	}
+	state.Version++
 
 	m.setUpdated()
 
@@ -455,7 +477,7 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Store the value
+	// Store the value and increase the version
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
@@ -464,6 +486,7 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 		state.Secrets = make(map[string][]byte)
 	}
 	state.Secrets[key] = append(nonce, encValue...)
+	state.Version++
 
 	m.setUpdated()
 
@@ -491,12 +514,13 @@ func (m *Manager) DeleteSecret(key string) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Delete the key
+	// Delete the key and increase the version
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
 	}
 	if state.Secrets != nil {
+		state.Version++
 		delete(state.Secrets, key)
 	}
 
@@ -612,7 +636,7 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Update the state
+	// Update the state and increase the version
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
@@ -621,6 +645,7 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 		state.Certificates = make(map[string]*pb.TLSCertificate)
 	}
 	state.Certificates[certId] = obj
+	state.Version++
 
 	m.setUpdated()
 
@@ -660,9 +685,10 @@ func (m *Manager) DeleteCertificate(certId string) (err error) {
 		}
 	}
 
-	// Delete the certificate
+	// Delete the certificate and increase the version
 	if state.Certificates != nil {
 		delete(state.Certificates, certId)
+		state.Version++
 	}
 
 	m.setUpdated()
