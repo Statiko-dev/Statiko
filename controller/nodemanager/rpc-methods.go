@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -36,13 +37,14 @@ func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.
 // HealthChannel is a bi-directional stream that is used by the server to request the health of a node
 func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) error {
 	// Register the node
-	nodeId, ch, err := s.registerNode()
+	nodeId, ch, err := s.Cluster.RegisterNode()
 	if err != nil {
 		return err
 	}
-	defer s.unregisterNode(nodeId)
+	defer s.Cluster.UnregisterNode(nodeId)
 
-	var responseCh chan *pb.NodeHealth
+	responseChs := make([]chan *pb.NodeHealth, 0)
+	semaphore := sync.Mutex{}
 	go func() {
 		// Receive messages in background
 		for {
@@ -56,18 +58,28 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 				break
 			}
 
-			// If there's no response channel, ignore this message
-			if responseCh == nil {
+			// Store the state version the node is on
+			s.Cluster.ReceivedVersion(nodeId, in.Version)
+
+			// If there's no response channel, stop processing here
+			if responseChs == nil {
 				continue
 			}
 
-			// Try sending the response if the channel is not closed
-			in.NodeId = nodeId
-			select {
-			case responseCh <- in:
-			default:
+			// Try sending the response to each channel if they're not closed
+			semaphore.Lock()
+			in.XNodeId = nodeId
+			for i := 0; i < len(responseChs); i++ {
+				if responseChs == nil {
+					continue
+				}
+				select {
+				case responseChs[i] <- in:
+				default:
+				}
 			}
-			responseCh = nil
+			responseChs = make([]chan *pb.NodeHealth, 0)
+			semaphore.Unlock()
 		}
 	}()
 
@@ -82,7 +94,10 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 			fmt.Println("runningCtx.Done()")
 			return nil
 		// Need to send a ping to request the health
-		case responseCh = <-ch:
+		case rch := <-ch:
+			semaphore.Lock()
+			responseChs = append(responseChs, rch)
+			semaphore.Unlock()
 			err := stream.Send(&pb.NodeHealthPing{})
 			if err != nil {
 				s.logger.Println("Error while sending health request:", err)
@@ -95,6 +110,8 @@ func (s *RPCServer) HealthChannel(stream pb.Controller_HealthChannelServer) erro
 // WatchState is a stream that notifies clients of state updates
 func (s *RPCServer) WatchState(req *pb.WatchStateRequest, stream pb.Controller_WatchStateServer) error {
 	ctx := stream.Context()
+
+	// Subscribe to the state
 	stateCh := make(chan int)
 	s.State.Subscribe(stateCh)
 	defer func() {

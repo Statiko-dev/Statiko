@@ -44,8 +44,8 @@ func (x *StateStore) GetSite(domain string) *Site {
 	return nil
 }
 
-// GetTlsCertificate returns a certificate by its ID
-func (x *StateStore) GetTlsCertificate(id string) *TLSCertificate {
+// GetTLSCertificate returns a certificate by its ID
+func (x *StateStore) GetTLSCertificate(id string) *TLSCertificate {
 	if x.Certificates == nil {
 		x.Certificates = make(map[string]*TLSCertificate)
 	}
@@ -60,28 +60,14 @@ func (x *StateStore) GetTlsCertificate(id string) *TLSCertificate {
 // Validate a TLSCertificate object; this can modify the object
 func (x *TLSCertificate) Validate() bool {
 	switch x.Type {
-	case TLSCertificate_IMPORTED:
-		// Must have the certificate data and name only
-		if x.Data != nil && len(x.Data) > 0 && x.Name != "" {
-			x.Version = ""
-			return true
-		}
-	case TLSCertificate_SELF_SIGNED:
+	case TLSCertificate_IMPORTED, TLSCertificate_SELF_SIGNED, TLSCertificate_ACME:
 		// Must have the certificate data only
-		if x.Data != nil && len(x.Data) > 0 {
+		if len(x.Data) > 0 {
 			x.Name = ""
-			x.Version = ""
-			return true
-		}
-	case TLSCertificate_ACME:
-		// Must have the certificate data only
-		if x.Data != nil && len(x.Data) > 0 {
-			x.Name = ""
-			x.Version = ""
 			return true
 		}
 	case TLSCertificate_AZURE_KEY_VAULT:
-		// Must have certificate name, and optionally version
+		// Must have certificate name only
 		if x.Name != "" {
 			x.Data = nil
 			return true

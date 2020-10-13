@@ -29,16 +29,16 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/controller/nodemanager"
+	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/shared/fs"
 )
 
 // APIServer is the API server
 type APIServer struct {
-	Store       fs.Fs
-	State       *state.Manager
-	NodeManager *nodemanager.RPCServer
+	Store   fs.Fs
+	State   *state.Manager
+	Cluster *cluster.Cluster
 
 	logger    *log.Logger
 	router    *gin.Engine
@@ -225,7 +225,7 @@ func (s *APIServer) setupRoutes() {
 
 		group.POST("/certificate", s.ImportCertificateHandler)
 		group.GET("/certificate", s.ListCertificateHandler)
-		group.DELETE("/certificate/:name", s.DeleteCertificateHandler)
+		group.DELETE("/certificate/:id", s.DeleteCertificateHandler)
 
 		group.GET("/dhparams", s.DHParamsGetHandler)
 		group.POST("/dhparams", s.DHParamsSetHandler)

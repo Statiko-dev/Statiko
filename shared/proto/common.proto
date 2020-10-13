@@ -28,13 +28,17 @@ message Site {
   // Temporary site (e.g. for testing)
   bool temporary = 3;
 
-  // TLS certificate ID
-  string tls = 4;
+  // ID of the generated TLS certificate
+  string generated_tls_id = 10;
+  // Enable using ACME for requesting certificates instead of self-signed ones
+  bool enable_acme = 11;
+  // ID of an imported TLS certificate to use (optional)
+  string imported_tls_id = 12;
 
   // App (optional)
   message App {
     // App name
     string name = 1;
   }
-  App app = 5;
+  App app = 20;
 }

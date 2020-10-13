@@ -183,6 +183,16 @@ func (m *Manager) Unsubscribe(ch chan int) {
 	m.signaler.Unsubscribe(ch)
 }
 
+// GetVersion returns the version of the state
+func (m *Manager) GetVersion() uint64 {
+	state := m.store.GetState()
+	if state == nil {
+		return 0
+	}
+
+	return state.Version
+}
+
 // GetSites returns the list of all sites
 func (m *Manager) GetSites() []*pb.Site {
 	state := m.store.GetState()
@@ -222,10 +232,15 @@ func (m *Manager) AddSite(site *pb.Site) error {
 	// Get the current state
 	state := m.store.GetState()
 
-	// Ensure that the TLS certificate referenced exists
-	if site.Tls != "" {
-		if _, ok := state.Certificates[site.Tls]; !ok {
-			return errors.New("the site references a TLS certificate that doesn't exist")
+	// Ensure that the TLS certificates referenced exist
+	if site.GeneratedTlsId != "" {
+		if _, ok := state.Certificates[site.GeneratedTlsId]; !ok {
+			return errors.New("the site references a generated TLS certificate that doesn't exist")
+		}
+	}
+	if site.ImportedTlsId != "" {
+		if _, ok := state.Certificates[site.ImportedTlsId]; !ok {
+			return errors.New("the site references an imported TLS certificate that doesn't exist")
 		}
 	}
 
@@ -261,10 +276,15 @@ func (m *Manager) UpdateSite(site *pb.Site, setUpdated bool) error {
 	// Get the current state
 	state := m.store.GetState()
 
-	// Ensure that the TLS certificate referenced exists
-	if site.Tls != "" {
-		if _, ok := state.Certificates[site.Tls]; !ok {
-			return errors.New("the site references a TLS certificate that doesn't exist")
+	// Ensure that the TLS certificates referenced exist
+	if site.GeneratedTlsId != "" {
+		if _, ok := state.Certificates[site.GeneratedTlsId]; !ok {
+			return errors.New("the site references a generated TLS certificate that doesn't exist")
+		}
+	}
+	if site.ImportedTlsId != "" {
+		if _, ok := state.Certificates[site.ImportedTlsId]; !ok {
+			return errors.New("the site references an imported TLS certificate that doesn't exist")
 		}
 	}
 
@@ -272,6 +292,14 @@ func (m *Manager) UpdateSite(site *pb.Site, setUpdated bool) error {
 	found := false
 	for i, s := range state.Sites {
 		if s.Domain == site.Domain {
+			// If the generated TLS certificate has changed, remove the old one
+			if state.Sites[i].GeneratedTlsId != site.GeneratedTlsId {
+				cert := state.Certificates[s.GeneratedTlsId]
+				if cert != nil && (cert.Type == pb.TLSCertificate_SELF_SIGNED || cert.Type == pb.TLSCertificate_ACME) {
+					delete(state.Certificates, s.GeneratedTlsId)
+				}
+			}
+
 			// Replace the element
 			state.Sites[i] = site
 
@@ -321,11 +349,11 @@ func (m *Manager) DeleteSite(domain string) error {
 	state := m.store.GetState()
 	for i, s := range state.Sites {
 		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
-			// If the TLS certificate is self-signed or from ACME, remove it too
-			if s.Tls != "" {
-				cert := state.Certificates[s.Tls]
+			// Remove all generated certificates too
+			if s.GeneratedTlsId != "" {
+				cert := state.Certificates[s.GeneratedTlsId]
 				if cert != nil && (cert.Type == pb.TLSCertificate_SELF_SIGNED || cert.Type == pb.TLSCertificate_ACME) {
-					delete(state.Certificates, s.Tls)
+					delete(state.Certificates, s.GeneratedTlsId)
 				}
 			}
 
@@ -535,24 +563,15 @@ func (m *Manager) DeleteSecret(key string) error {
 }
 
 // GetCertificate returns a certificate object; for certs with data in the state, this returns the key and certificate too, decrypted and PEM-encoded
-func (m *Manager) GetCertificate(domain string) (obj *pb.TLSCertificate, key []byte, cert []byte, err error) {
+func (m *Manager) GetCertificate(certId string) (obj *pb.TLSCertificate, key []byte, cert []byte, err error) {
 	// Get the state
 	state := m.store.GetState()
 	if state == nil {
 		return nil, nil, nil, errors.New("state not loaded")
 	}
 
-	// Get the site and ensure it has a TLS certificate
-	site := state.GetSite(domain)
-	if site == nil {
-		return nil, nil, nil, errors.New("site not found")
-	}
-	if site.Tls == "" {
-		return nil, nil, nil, errors.New("site does not have a TLS certificate")
-	}
-
 	// Retrieve the certificate
-	obj = state.GetTlsCertificate(site.Tls)
+	obj = state.GetTLSCertificate(certId)
 	if obj == nil {
 		return nil, nil, nil, errors.New("TLS certificate not found")
 	}
@@ -564,6 +583,23 @@ func (m *Manager) GetCertificate(domain string) (obj *pb.TLSCertificate, key []b
 	}
 
 	return obj, key, cert, nil
+}
+
+// GetCertificateInfo returns the info (metadata) of a TLS certificate, but does not decrypt the content
+func (m *Manager) GetCertificateInfo(certId string) (obj *pb.TLSCertificate, err error) {
+	// Get the state
+	state := m.store.GetState()
+	if state == nil {
+		return nil, errors.New("state not loaded")
+	}
+
+	// Retrieve the certificate
+	obj = state.GetTLSCertificate(certId)
+	if obj == nil {
+		return nil, errors.New("TLS certificate not found")
+	}
+
+	return obj, nil
 }
 
 // SetCertificate sets a certificate in the state
@@ -680,7 +716,7 @@ func (m *Manager) DeleteCertificate(certId string) (err error) {
 		return errors.New("state not loaded")
 	}
 	for _, s := range state.Sites {
-		if s.Tls == certId {
+		if s.GeneratedTlsId == certId || s.ImportedTlsId == certId {
 			return errors.New("certificate is in use by a site and cannot be deleted")
 		}
 	}
@@ -701,22 +737,14 @@ func (m *Manager) DeleteCertificate(certId string) (err error) {
 	return nil
 }
 
-// ListCertificates returns a list of all certificates' IDs
-func (m *Manager) ListCertificates() []string {
+// ListCertificates returns a list of all certificates
+func (m *Manager) ListCertificates() map[string]*pb.TLSCertificate {
 	state := m.store.GetState()
 	if state == nil {
 		return nil
 	}
 
-	// Get the keys
-	res := make([]string, len(state.Certificates))
-	i := 0
-	for k, _ := range state.Certificates {
-		res[i] = k
-		i++
-	}
-
-	return res
+	return state.Certificates
 }
 
 // Returns a cipher for AES-GCM-128 initialized

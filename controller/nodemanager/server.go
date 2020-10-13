@@ -22,19 +22,21 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/statiko-dev/statiko/buildinfo"
+	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // RPCServer is the gRPC server that is used to communicate with nodes
 type RPCServer struct {
-	State *state.Manager
+	State   *state.Manager
+	Cluster *cluster.Cluster
 
 	logger        *log.Logger
 	stopCh        chan int
@@ -43,7 +45,6 @@ type RPCServer struct {
 	runningCtx    context.Context
 	runningCancel context.CancelFunc
 	running       bool
-	nodeChs       *sync.Map
 	grpcServer    *grpc.Server
 }
 
@@ -58,9 +59,6 @@ func (s *RPCServer) Init() {
 	s.stopCh = make(chan int)
 	s.restartCh = make(chan int)
 	s.doneCh = make(chan int)
-
-	// List of nodes currently registered, and their channels to request state
-	s.nodeChs = &sync.Map{}
 }
 
 // Start the gRPC server; must be run in a goroutine with `go s.Start()`
@@ -73,8 +71,10 @@ func (s *RPCServer) Start() {
 		s.grpcServer = grpc.NewServer()
 		pb.RegisterControllerServer(s.grpcServer, s)
 
-		// Register reflection service on gRPC server
-		reflection.Register(s.grpcServer)
+		// Register reflection service on gRPC server in development
+		if buildinfo.ENV != "production" {
+			reflection.Register(s.grpcServer)
+		}
 
 		// Start the server in another channel
 		go func() {

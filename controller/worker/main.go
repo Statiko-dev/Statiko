@@ -55,7 +55,6 @@ func startLeaderWorkers(ctx context.Context) {
 func startSharedWorkers() {
 	// These workers don't need to be stopped
 	ctx := context.Background()
-	startHealthWorker(ctx)
 	startNodeCertMonitorWorker(ctx)
 }
 

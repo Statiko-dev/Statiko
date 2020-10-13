@@ -18,21 +18,21 @@ package certificates
 
 import (
 	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"log"
 	"os"
 
-	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
+	"github.com/statiko-dev/statiko/controller/cluster"
+	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // Certificates is the class that manages TLS certificates
 type Certificates struct {
-	AgentState *state.AgentState
-
-	logger *log.Logger
+	State   *state.Manager
+	Cluster *cluster.Cluster
+	logger  *log.Logger
 }
 
 // Init the object
@@ -42,44 +42,60 @@ func (c *Certificates) Init() {
 }
 
 // GetCertificate returns the certificate for the site (with key and certificate PEM-encoded)
-func (c *Certificates) GetCertificate(site *pb.State_Site) (key []byte, cert []byte, err error) {
-	if site == nil || site.Tls == nil {
+func (c *Certificates) GetCertificate(site *pb.Site) (key []byte, cert []byte, err error) {
+	if site == nil || site.Tls == "" {
 		return nil, nil, errors.New("empty TLS configuration")
 	}
 
-	var certObj *x509.Certificate
+	// Request the certificate information (and possibly data) from the state
+	var (
+		certObj  *pb.TLSCertificate
+		certX509 *x509.Certificate
+	)
+	certObj, key, cert, err = c.State.GetCertificate(site.Tls)
+	if err != nil {
+		return nil, nil, err
+	}
+	if certObj == nil {
+		return nil, nil, errors.New("certificate not found")
+	}
 
 	// Check the type of the TLS certificate
-	switch site.Tls.Type {
-	case pb.State_Site_TLS_AZURE_KEY_VAULT:
+	switch certObj.Type {
+	case pb.TLSCertificate_AZURE_KEY_VAULT:
 		// Get the certificate
-		key, cert, certObj, err = c.GetAKVCertificate(site)
+		key, cert, certX509, err = c.GetAKVCertificate(certObj)
 		if err != nil {
-			return
+			return nil, nil, err
 		}
 
 		// Inspect the certificate, but consider errors as warnings only
-		if insp := InspectCertificate(site, certObj); insp != nil {
+		if insp := InspectCertificate(site, certObj, certX509); insp != nil {
 			c.logger.Printf("[Warn] %v\n", insp)
 		}
 		return
-	case pb.State_Site_TLS_IMPORTED:
-		// Get the certificate
-		key, cert, certObj, err = c.GetImportedCertificate(site)
+	case pb.TLSCertificate_IMPORTED:
+		// Ensure we have a certificate
+		if len(key) == 0 || len(cert) == 0 {
+			return nil, nil, errors.New("certificate is empty")
+		}
+
+		// Get the x509 object
+		certX509, err = GetX509(cert)
 		if err != nil {
-			return
+			return nil, nil, err
 		}
 
 		// Inspect the certificate, but consider errors as warnings only
-		if insp := InspectCertificate(site, certObj); insp != nil {
+		if insp := InspectCertificate(site, certObj, certX509); insp != nil {
 			c.logger.Printf("[Warn] %v\n", insp)
 		}
 		return
-	case pb.State_Site_TLS_SELF_SIGNED:
-		key, cert, err = c.GetSelfSignedCertificate(site)
+	case pb.TLSCertificate_SELF_SIGNED:
+		key, cert, err = c.GetSelfSignedCertificate(site, certObj, key, cert)
 		return
-	case pb.State_Site_TLS_ACME:
-		key, cert, err = c.GetACMECertificate(site)
+	case pb.TLSCertificate_ACME:
+		key, cert, err = c.GetACMECertificate(site, certObj, key, cert)
 		return
 	default:
 		err = errors.New("invalid TLS certificate type")
@@ -87,36 +103,10 @@ func (c *Certificates) GetCertificate(site *pb.State_Site) (key []byte, cert []b
 	}
 }
 
-// GetImportedCertificate returns a certificate stored in the state store
-func (c *Certificates) GetImportedCertificate(site *pb.State_Site) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
-	if site == nil || site.Tls == nil || site.Tls.Certificate == "" {
-		return nil, nil, nil, errors.New("empty TLS certificate name")
-	}
-
-	// Get the certificate from the store
-	key, cert, err = c.AgentState.GetCertificate(pb.State_Site_TLS_IMPORTED, []string{site.Tls.Certificate})
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// Get the certificate's x509 object
-	block, _ := pem.Decode(cert)
-	if block == nil {
-		err = errors.New("invalid certificate PEM block")
-		return nil, nil, nil, err
-	}
-	certObj, err = x509.ParseCertificate(block.Bytes)
-	return
-}
-
 // GetAKVCertificate returns a certificate from Azure Key Vault
-func (c *Certificates) GetAKVCertificate(site *pb.State_Site) (key []byte, cert []byte, certObj *x509.Certificate, err error) {
+func (c *Certificates) GetAKVCertificate(certObj *pb.TLSCertificate) (key []byte, cert []byte, certX509 *x509.Certificate, err error) {
 	var name, version string
-	if site.Tls.Certificate == "" {
-		err = errors.New("certificate name is empty")
-		return
-	}
-	version, cert, key, certObj, err = azurekeyvault.GetInstance().GetCertificate(site.Tls.Certificate, site.Tls.Version)
+	version, cert, key, certX509, err = azurekeyvault.GetInstance().GetCertificate(certObj.Name, certObj.Version)
 	if err != nil {
 		return
 	}

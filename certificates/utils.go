@@ -33,8 +33,20 @@ import (
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
+// GetX509 returns a X509 object for a certificate
+func GetX509(cert []byte) (certX509 *x509.Certificate, err error) {
+	// Get the certificate's x509 object
+	block, _ := pem.Decode(cert)
+	if block == nil {
+		err = errors.New("invalid certificate PEM block")
+		return nil, err
+	}
+	certX509, err = x509.ParseCertificate(block.Bytes)
+	return
+}
+
 // InspectCertificate loads a X.509 certificate and checks its details, such as expiration
-func InspectCertificate(site *pb.State_Site, cert *x509.Certificate) error {
+func InspectCertificate(site *pb.Site, obj *pb.TLSCertificate, cert *x509.Certificate) error {
 	now := time.Now()
 
 	// Check "NotAfter" (require at least 12 hours)
@@ -44,12 +56,12 @@ func InspectCertificate(site *pb.State_Site, cert *x509.Certificate) error {
 
 	// Check "NotBefore"
 	if !cert.NotBefore.Before(now) {
-		return fmt.Errorf("certificate's NotBefsore is in the future: %v", cert.NotBefore)
+		return fmt.Errorf("certificate's NotBefore is in the future: %v", cert.NotBefore)
 	}
 
 	// Check if the list of domains matches, but only for self-signed or ACME certificates
 	// We're not checking this for imported certificates because they might have wildcards and be valid for more domains
-	if site.Tls.Type == pb.State_Site_TLS_ACME || site.Tls.Type == pb.State_Site_TLS_SELF_SIGNED {
+	if obj.Type == pb.TLSCertificate_ACME || obj.Type == pb.TLSCertificate_SELF_SIGNED {
 		domains := append([]string{site.Domain}, site.Aliases...)
 		sort.Strings(domains)
 		certDomains := append(make([]string, 0), cert.DNSNames...)

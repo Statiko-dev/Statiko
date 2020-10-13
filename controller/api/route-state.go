@@ -40,7 +40,7 @@ func (s *APIServer) GetStateHandler(c *gin.Context) {
 // PutStateHandler is the handler for PUT /state (and POST /state), which replaces the state with the input
 func (s *APIServer) PutStateHandler(c *gin.Context) {
 	// Get updated state from the body
-	st := &pb.State{}
+	st := &pb.StateStore{}
 	if err := c.BindJSON(st); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body: " + err.Error(),

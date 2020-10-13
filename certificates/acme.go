@@ -22,13 +22,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/go-acme/lego/v3/certcrypto"
 	"github.com/go-acme/lego/v3/certificate"
@@ -36,6 +33,8 @@ import (
 	"github.com/go-acme/lego/v3/registration"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/controller/cluster"
+	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -45,29 +44,20 @@ const ACMEMinDays = 21
 
 // GetACMECertificate returns a certificate issued by ACME (e.g. Let's Encrypt), with key and certificate PEM-encoded
 // If the ACME provider hasn't issued a certificate yet, this will return a self-signed TLS certificate, until the ACME one is available
-func (c *Certificates) GetACMECertificate(site *pb.State_Site) (key []byte, cert []byte, err error) {
-	// List of domains
-	domains := append([]string{site.Domain}, site.Aliases...)
-
+func (c *Certificates) GetACMECertificate(site *pb.Site, certObj *pb.TLSCertificate, existingKey []byte, existingCert []byte) (key []byte, cert []byte, err error) {
 	// Check if we have a certificate issued by the ACME provider already
-	key, cert, err = c.AgentState.GetCertificate(pb.State_Site_TLS_ACME, domains)
-	if err != nil {
-		return nil, nil, err
-	}
-	if key != nil && len(key) > 0 && cert != nil && len(cert) > 0 {
-		// If the cersztificate has expired, still return it, but in the meanwhile trigger a refresh job
-		block, _ := pem.Decode(cert)
-		if block == nil {
-			err = errors.New("invalid certificate PEM block")
-			return nil, nil, err
-		}
-		certObj, err := x509.ParseCertificate(block.Bytes)
+	if len(existingKey) > 0 && len(existingCert) > 0 {
+		// Get the x509 object
+		certX509, err := GetX509(cert)
 		if err != nil {
 			return nil, nil, err
 		}
-		if certErr := InspectCertificate(site, certObj); certErr != nil {
+
+		// If the certificate has expired, still return it, but in the meanwhile trigger a refresh job
+		if certErr := InspectCertificate(site, certObj, certX509); certErr != nil {
 			c.logger.Printf("Certificate from ACME provider for site %s has an error; requesting a new one: %v\n", site.Domain, certErr)
-			state.Instance.TriggerRefreshCerts()
+			// TODO: THIS
+			//state.Instance.TriggerRefreshCerts()
 		}
 
 		// Return the certificate (even if invalid/expired)
@@ -77,8 +67,9 @@ func (c *Certificates) GetACMECertificate(site *pb.State_Site) (key []byte, cert
 	// No certificate yet
 	// Triggering a background job to generate it, and for now returning a self-signed certificate
 	c.logger.Println("Requesting certificate from ACME provider for site", site.Domain)
-	state.Instance.TriggerRefreshCerts()
-	return c.GetSelfSignedCertificate(site)
+	// TODO: THIS
+	//state.Instance.TriggerRefreshCerts()
+	return c.GetSelfSignedCertificate(site, certObj, nil, nil)
 }
 
 // GenerateACMECertificate requests a new certificate from the ACME provider
@@ -128,7 +119,10 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 	user.Registration = reg
 
 	// Enable the HTTP-01 challenge
-	err = client.Challenge.SetHTTP01Provider(&StatikoProvider{})
+	err = client.Challenge.SetHTTP01Provider(&StatikoProvider{
+		State:   c.State,
+		Cluster: c.Cluster,
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -145,10 +139,10 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 	}
 
 	// Retrieve the certificate and private key
-	if certificates.PrivateKey == nil || len(certificates.PrivateKey) < 1 {
+	if len(certificates.PrivateKey) == 0 {
 		return nil, nil, errors.New("received an empty private key")
 	}
-	if certificates.Certificate == nil || len(certificates.Certificate) < 1 {
+	if len(certificates.Certificate) == 0 {
 		return nil, nil, errors.New("received an empty certificate")
 	}
 
@@ -159,7 +153,7 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 func (c *Certificates) acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	// Check if we have a key stored
 	storePath := "acme/keys/" + utils.SHA256String(email)[:15] + ".pem"
-	data, err := c.AgentState.GetSecret(storePath)
+	data, err := c.State.GetSecret(storePath)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +170,7 @@ func (c *Certificates) acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = c.AgentState.SetSecret(storePath, data)
+	err = c.State.SetSecret(storePath, data)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +181,7 @@ func (c *Certificates) acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 func (c *Certificates) acmeRegistration(email string, client *lego.Client) (*registration.Resource, error) {
 	// Check if the user has registered already
 	storePath := "acme/registrations/" + utils.SHA256String(email)[:15] + ".pem"
-	data, err := c.AgentState.GetSecret(storePath)
+	data, err := c.State.GetSecret(storePath)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +221,7 @@ func (c *Certificates) acmeNewRegistration(email string, client *lego.Client) (*
 		return nil, err
 	}
 	storePath := "acme/registrations/" + utils.SHA256String(email)[:15] + ".pem"
-	err = c.AgentState.SetSecret(storePath, data)
+	err = c.State.SetSecret(storePath, data)
 	if err != nil {
 		return nil, err
 	}
@@ -254,6 +248,8 @@ func (u *ACMEUser) GetPrivateKey() crypto.PrivateKey {
 
 // StatikoProvider implements ChallengeProvider for `http-01` challenge.
 type StatikoProvider struct {
+	State   *state.Manager
+	Cluster *cluster.Cluster
 }
 
 // Present makes the token available
@@ -262,13 +258,15 @@ func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
 	message := domain + "|" + keyAuth
 
 	// Set the token as a secret
-	err := state.Instance.SetSecret("acme/challenges/"+token, []byte(message))
+	err := w.State.SetSecret("acme/challenges/"+token, []byte(message))
 	if err != nil {
 		return err
 	}
 
-	// Sleep 3 seconds to aid with syncing across the cluster
-	time.Sleep(3 * time.Second)
+	// Wait until the cluster has synced
+	// This is a blocking call
+	ver := w.State.GetVersion()
+	w.Cluster.WaitForVersion(ver)
 
 	return nil
 }
@@ -276,7 +274,7 @@ func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
 // CleanUp removes the key created for the challenge
 func (w *StatikoProvider) CleanUp(domain, token, keyAuth string) error {
 	// Delete the secret
-	err := state.Instance.DeleteSecret("acme/challenges/" + token)
+	err := w.State.DeleteSecret("acme/challenges/" + token)
 	if err != nil {
 		return err
 	}

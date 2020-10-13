@@ -17,14 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package certificates
 
 import (
-	"crypto/x509"
-	"encoding/pem"
-	"errors"
-	"strings"
-	"time"
-
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
 )
 
 // SelfSignedCertificateIssuer is the organization that issues self-signed certificates
@@ -34,66 +27,28 @@ const SelfSignedCertificateIssuer = "statiko self-signed"
 const SelfSignedMinDays = 14
 
 // GetSelfSignedCertificate returns a self-signed certificate, with key and certificate PEM-encoded
-func (c *Certificates) GetSelfSignedCertificate(site *pb.State_Site) (key []byte, cert []byte, err error) {
-	var block *pem.Block
-	var certObj *x509.Certificate
+func (c *Certificates) GetSelfSignedCertificate(site *pb.Site, certObj *pb.TLSCertificate, existingKey []byte, existingCert []byte) (key []byte, cert []byte, err error) {
+	// If we have an existing certificate, check if it's still valid
+	if len(existingKey) > 0 && len(existingCert) > 0 {
+		// Get the x509 object
+		certX509, err := GetX509(cert)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	// List of domains
-	domains := append([]string{site.Domain}, site.Aliases...)
-
-requestcert:
-	// Check if we have certificates generated already in the state store
-	key, cert, err = c.AgentState.GetCertificate(pb.State_Site_TLS_SELF_SIGNED, domains)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Check if the certificate is not empty
-	if key == nil || len(key) == 0 || cert == nil || len(cert) == 0 {
-		c.logger.Println("Generating missing self-signed certificate for site", site.Domain)
-		goto newcert
-	}
-
-	// Check if the certificate is still valid
-	block, _ = pem.Decode(cert)
-	if block == nil {
-		err = errors.New("invalid certificate PEM block")
-		return nil, nil, err
-	}
-	certObj, err = x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, nil, err
-	}
-	if certErr := InspectCertificate(site, certObj); certErr != nil {
+		// If the certificate is valid, use that
+		certErr := InspectCertificate(site, certObj, certX509)
+		if certErr == nil {
+			return existingKey, existingCert, nil
+		}
 		c.logger.Printf("Regenerating invalid self-signed certificate for site %s: %v\n", site.Domain, certErr)
-		goto newcert
+	} else {
+		c.logger.Println("Generating missing self-signed certificate for site", site.Domain)
 	}
 
-	return
-
-newcert:
-	// Request a new certificate
-	job := utils.JobData{
-		Type: utils.JobTypeTLSCertificate,
-		Data: strings.Join(domains, ","),
-	}
-	jobID, err := state.Worker.AddJob(job)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Wait for the job
-	ch := make(chan error, 1)
-	go state.Worker.WaitForJob(jobID, ch)
-	err = <-ch
-	close(ch)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Wait 3 seconds to ensure changes are synced
-	time.Sleep(3 * time.Second)
-
-	// Get the certificate
-	goto requestcert
+	// If we're here, we need to generate a new sellf-signed certificate
+	// That's either because we didn't have one to bein with, or because we had one but it had expired or it was invalid
+	domains := append([]string{site.Domain}, site.Aliases...)
+	key, cert, err = GenerateTLSCert(domains...)
+	return key, cert, err
 }

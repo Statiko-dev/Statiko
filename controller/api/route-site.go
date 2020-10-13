@@ -35,7 +35,7 @@ import (
 // CreateSiteHandler is the handler for POST /site, which creates a new site
 func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	// Get data from the form body
-	site := &pb.State_Site{}
+	site := &pb.Site{}
 	if err := c.BindJSON(site); err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request body: " + err.Error(),

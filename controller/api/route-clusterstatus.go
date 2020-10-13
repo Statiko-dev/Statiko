@@ -25,7 +25,7 @@ import (
 // ClusterStatusHandler is the handler for GET /clusterstatus, which returns the status of the entire cluster
 func (s *APIServer) ClusterStatusHandler(c *gin.Context) {
 	// Get cluster status
-	health := s.NodeManager.RequestClusterHealth()
+	health := s.Cluster.RequestClusterHealth()
 
 	c.JSON(http.StatusOK, health)
 }

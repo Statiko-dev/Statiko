@@ -57,11 +57,15 @@ message TLSCertificate {
   }
   Type type = 1;
 
-  // Certificate name, version and data (used by certain types only)
+  // Certificate data (used by certain types only)
   // Data is encrypted if present
-  string name = 2;
-  string version = 3;
-  bytes data = 4;
+  bytes data = 2;
+
+  // Certificate name (used by certain types only)
+  string name = 3;
+
+  // List of domains that are used by the certificate - this is auto-generated
+  repeated string domains = 1000;
 }
 
 // DH Parameters

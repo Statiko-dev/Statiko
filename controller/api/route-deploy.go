@@ -65,7 +65,7 @@ func (s *APIServer) DeploySiteHandler(c *gin.Context) {
 		return
 	}
 
-	site.App = &pb.State_Site_App{
+	site.App = &pb.Site_App{
 		Name: req.Name,
 	}
 

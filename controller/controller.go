@@ -24,6 +24,7 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/api"
+	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/nodemanager"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/notifications"
@@ -36,6 +37,7 @@ type Controller struct {
 	store    fs.Fs
 	state    *state.Manager
 	notifier *notifications.Notifications
+	cluster  *cluster.Cluster
 	apiSrv   *api.APIServer
 	rcpSrv   *nodemanager.RPCServer
 	logger   *log.Logger
@@ -67,6 +69,13 @@ func (c *Controller) Run() (err error) {
 		return err
 	}
 
+	// Init the cluster object
+	c.cluster = &cluster.Cluster{}
+	err = c.cluster.Init()
+	if err != nil {
+		return err
+	}
+
 	// Start all background workers
 	// TODO: NEEDS UPDATING
 	//worker.StartWorker()
@@ -81,7 +90,8 @@ func (c *Controller) Run() (err error) {
 
 	// Init and start the gRPC server
 	c.rcpSrv = &nodemanager.RPCServer{
-		State: c.state,
+		State:   c.state,
+		Cluster: c.cluster,
 	}
 	c.rcpSrv.Init()
 	go c.rcpSrv.Start()
@@ -91,9 +101,9 @@ func (c *Controller) Run() (err error) {
 
 	// Init and start the API server
 	c.apiSrv = &api.APIServer{
-		Store:       c.store,
-		State:       c.state,
-		NodeManager: c.rcpSrv,
+		Store:   c.store,
+		State:   c.state,
+		Cluster: c.cluster,
 	}
 	c.apiSrv.Init()
 	go c.apiSrv.Start()

@@ -14,13 +14,12 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package nodemanager
+package cluster
 
 import (
 	"context"
+	"math"
 	"time"
-
-	"github.com/google/uuid"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
@@ -33,28 +32,25 @@ const healthRequestTimeout = 15
 type ClusterHealthResponse []*pb.NodeHealth
 
 // RequestClusterHealth requests each node in the cluster to return their health
-func (s *RPCServer) RequestClusterHealth() ClusterHealthResponse {
+// This blocks until we have the health
+func (c *Cluster) RequestClusterHealth() ClusterHealthResponse {
 	// Channel to collect responses
 	responseCh := make(chan *pb.NodeHealth)
 
+	// Lock before iterating through the map
+	c.semaphore.Lock()
+
 	// Send a message to every channel in the map
 	nodes := []string{}
-	s.nodeChs.Range(func(key, value interface{}) bool {
-		// Get the node ID
-		nodeId, ok := key.(string)
-		if !ok {
-			return true
-		}
+	for nodeId, value := range c.nodes {
 		nodes = append(nodes, nodeId)
 
-		// Send the message
-		ch, ok := value.(chan chan *pb.NodeHealth)
-		if !ok {
-			return true
-		}
-		ch <- responseCh
-		return true
-	})
+		// Send the ping with the response channel
+		value.HealthChan <- responseCh
+	}
+
+	// Unlock as we're done with the map
+	c.semaphore.Unlock()
 
 	// Set a timeout for collecting responses
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(healthRequestTimeout)*time.Second)
@@ -82,8 +78,8 @@ func (s *RPCServer) RequestClusterHealth() ClusterHealthResponse {
 		diff := utils.StringSliceDiff(nodes, resultKeys)
 		for _, nodeId := range diff {
 			result[i] = &pb.NodeHealth{
-				NodeId: nodeId,
-				Error:  ctx.Err().Error(),
+				XNodeId: nodeId,
+				XError:  ctx.Err().Error(),
 			}
 			i++
 		}
@@ -92,38 +88,41 @@ func (s *RPCServer) RequestClusterHealth() ClusterHealthResponse {
 	return result
 }
 
-// Used internally to register a node
-func (s *RPCServer) registerNode() (string, chan chan *pb.NodeHealth, error) {
-	// Create a channel that will trigger a ping
-	// This is a "chan chan", or a channel that is used to pass a response channel
-	ch := make(chan chan *pb.NodeHealth)
+// ReceivedVersion is called when a node reports a new version of their state
+func (c *Cluster) ReceivedVersion(nodeId string, ver uint64) {
+	// Acquire a lock
+	c.semaphore.Lock()
+	defer c.semaphore.Unlock()
 
-	// Register the node
-	nodeIdUUID, err := uuid.NewRandom()
-	if err != nil {
-		close(ch)
-		return "", nil, err
+	// Check if the object exists, then update the version for that node
+	obj, ok := c.nodes[nodeId]
+	if !ok || obj == nil {
+		return
 	}
-	nodeId := nodeIdUUID.String()
+	obj.Version = ver
 
-	// Store the node in the map
-	s.nodeChs.Store(nodeId, ch)
+	// Check the minimum version of each node in the cluster
+	c.clusterVer = c.minNodeStateVersion()
 
-	s.logger.Println("Node registered:", nodeId)
-
-	return nodeId, ch, nil
+	// Notify all watchers
+	for i := 0; i < len(c.verWatchers); i++ {
+		c.verWatchers[i] <- c.clusterVer
+	}
 }
 
-// Used internally to un-register a node
-func (s *RPCServer) unregisterNode(nodeId string) {
-	// Remove the node from the map
-	loaded, ok := s.nodeChs.LoadAndDelete(nodeId)
-	if ok && loaded != nil {
-		s.logger.Println("Node un-registered:", nodeId)
-		// Close the channel
-		ch, ok := loaded.(chan chan *pb.NodeHealth)
-		if ok {
-			close(ch)
+// Internal function that returns the minimum version of the state in the cluster
+func (c *Cluster) minNodeStateVersion() (ver uint64) {
+	// Empty cluster has version 0
+	if len(c.nodes) == 0 {
+		return 0
+	}
+
+	// Find the minimum version of the state
+	ver = math.MaxUint64
+	for _, node := range c.nodes {
+		if node != nil && node.Version < ver {
+			ver = node.Version
 		}
 	}
+	return
 }

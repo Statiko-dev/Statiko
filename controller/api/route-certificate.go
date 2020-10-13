@@ -17,32 +17,39 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package api
 
 import (
-	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"net/http"
-	"regexp"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 type certAddRequest struct {
+	Type        string `json:"type" form:"type"`
 	Name        string `json:"name" form:"name"`
 	Certificate string `json:"cert" form:"cert"`
 	Key         string `json:"key" form:"key"`
 	Force       bool   `json:"force" form:"force"`
 }
 
-var certNameRegEx *regexp.Regexp = regexp.MustCompile("^([a-z][a-z0-9\\.\\-]*)$")
+type certListResponseItem struct {
+	Type    string   `json:"type"`
+	ID      string   `json:"id"`
+	Name    string   `json:"name,omitempty"`
+	Domains []string `json:"domains,omitempty"`
+}
+
+type certListResponse []certListResponseItem
 
 // ImportCertificateHandler is the handler for POST /certificate, which stores a new certificate
-// Certificate must be an object with a key and a certificate, both PEM-encoded
-// Certificate name must be a lowercase string with letters, numbers, dashes and dots only, and must begin with a letter
+// For imported certificates, data must be an object with a key and a certificate, both PEM-encoded
+// For certificates imported from Azure Key Vault, the data must be an object with the certificate name
 func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 	// Get data from the form body
 	data := &certAddRequest{}
@@ -52,71 +59,112 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 		})
 		return
 	}
-	if data.Name == "" || data.Certificate == "" || data.Key == "" {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Fields 'name', 'cert' and 'key' must not be empty",
-		})
-		return
-	}
 
-	// Validate the name
-	data.Name = strings.ToLower(data.Name)
-	if !certNameRegEx.MatchString(data.Name) {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Certificate name must contain letters, numbers, dots and dashes only, and it must begin with a letter",
-		})
-		return
-	}
+	var (
+		certObj   *pb.TLSCertificate
+		key, cert []byte
+	)
 
-	// Validate the certificate
-	block, _ := pem.Decode([]byte(data.Certificate))
-	if block == nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid certificate PEM block",
-		})
-		return
-	}
-	certObj, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid certificate: " + err.Error(),
-		})
-		return
-	}
+	// Switch depending on the certificate type
+	switch strings.ToUpper(data.Type) {
 
-	// Check if the certificate is valid, unless the "force" option is true
-	// We're not validating the certificate's chain
-	if !data.Force {
-		now := time.Now()
-
-		// Check "NotAfter" (require at least 12 hours)
-		if certObj.NotAfter.Before(now.Add(12 * time.Hour)) {
+	// Imported certificates
+	case pb.TLSCertificate_IMPORTED.String():
+		// Ensure we have the certificate and key
+		if data.Certificate == "" || data.Key == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": fmt.Sprintf("certificate has expired or has less than 12 hours of validity: %v", certObj.NotAfter),
+				"error": "Fields 'cert' and 'key' must not be empty",
 			})
 			return
 		}
 
-		// Check "NotBefore"
-		if !certObj.NotBefore.Before(now) {
+		// Validate the certificate
+		certX509, err := certificates.GetX509([]byte(data.Certificate))
+		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": fmt.Sprintf("certificate's NotBefore is in the future: %v", certObj.NotBefore),
+				"error": "Invalid certificate: " + err.Error(),
 			})
 			return
 		}
-	}
 
-	// Check the key, just if it's PEM-encoded correctly
-	block, _ = pem.Decode([]byte(data.Key))
-	if block == nil {
+		// Check if the certificate is valid, unless the "force" option is true
+		// We're not validating the certificate's chain
+		if !data.Force {
+			now := time.Now()
+
+			// Check "NotAfter" (require at least 12 hours)
+			if certX509.NotAfter.Before(now.Add(12 * time.Hour)) {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"error": fmt.Sprintf("certificate has expired or has less than 12 hours of validity: %v", certX509.NotAfter),
+				})
+				return
+			}
+
+			// Check "NotBefore"
+			if !certX509.NotBefore.Before(now) {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"error": fmt.Sprintf("certificate's NotBefore is in the future: %v", certX509.NotBefore),
+				})
+				return
+			}
+		}
+
+		// Check the key, just to see if it's PEM-encoded correctly
+		block, _ := pem.Decode([]byte(data.Key))
+		if block == nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid key PEM block",
+			})
+			return
+		}
+
+		// Data to save
+		certObj = &pb.TLSCertificate{
+			Type: pb.TLSCertificate_IMPORTED,
+		}
+		key = []byte(data.Key)
+		cert = []byte(data.Certificate)
+
+	// Certs imported from Azure Key Vault
+	case pb.TLSCertificate_AZURE_KEY_VAULT.String():
+		// Ensure we have the name
+		if data.Name == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Field 'name'",
+			})
+			return
+		}
+
+		// Check if the certificate exists
+		exists, err := azurekeyvault.GetInstance().CertificateExists(data.Name)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+				"error": "TLS certificate does not exist in Azure Key Vault",
+			})
+			return
+		}
+
+		// Data to save
+		certObj = &pb.TLSCertificate{
+			Type: pb.TLSCertificate_AZURE_KEY_VAULT,
+			Name: data.Name,
+		}
+		key = nil
+		cert = nil
+
+	// Other types of certificates cannot be imported
+	default:
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid key PEM block",
+			"error": "Invalid TLS certificate type",
 		})
-		return
 	}
 
 	// Store the certificate
-	err = s.State.SetCertificate(pb.State_Site_TLS_IMPORTED, []string{data.Name}, []byte(data.Key), []byte(data.Certificate))
+	err := s.State.SetCertificate(certObj, "", key, cert)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -126,29 +174,43 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// ListCertificateHandler is the handler for GET /certificate, which lists all certificates currently stored (names only)
+// ListCertificateHandler is the handler for GET /certificate, which lists all certificates currently stored
 func (s *APIServer) ListCertificateHandler(c *gin.Context) {
+	result := certListResponse{}
+
 	// Get the list of certificates from the state object
-	certs := s.State.ListImportedCertificates()
-	sort.Strings(certs)
-	c.JSON(http.StatusOK, certs)
+	for id, cert := range s.State.ListCertificates() {
+		// Only list certificates that are imported
+		if cert.Type == pb.TLSCertificate_SELF_SIGNED || cert.Type == pb.TLSCertificate_ACME {
+			continue
+		}
+		result = append(result, certListResponseItem{
+			Type:    strings.ToLower(cert.Type.String()),
+			ID:      id,
+			Name:    cert.Name,
+			Domains: cert.Domains,
+		})
+	}
+
+	// Respond
+	c.JSON(http.StatusOK, result)
 }
 
-// DeleteCertificateHandler is the handler for DELETE /certificate/{name}, which removes a certificate from the store
-// Only certificates not used by any site can be deleted
+// DeleteCertificateHandler is the handler for DELETE /certificate/{id}, which removes a certificate from the store
+// Only imported certificates not used by any site can be deleted
 func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
-	if name := c.Param("name"); len(name) > 0 {
-		name = strings.ToLower(name)
+	if id := c.Param("id"); len(id) > 0 {
+		id = strings.ToLower(id)
 
-		// Check if the certificate exists in the store
-		key, cert, err := s.State.GetCertificate(pb.State_Site_TLS_IMPORTED, []string{name})
+		// Check if the certificate exists in the store and if it's an imported one
+		cert, err := s.State.GetCertificateInfo(id)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-		if key == nil || len(key) == 0 || cert == nil || len(cert) == 0 {
+		if cert == nil || cert.Type != pb.TLSCertificate_IMPORTED || cert.Type != pb.TLSCertificate_AZURE_KEY_VAULT {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-				"error": "TLS certificate does not exist in store",
+				"error": "TLS certificate does not exist in store or it's not an imported certificate",
 			})
 			return
 		}
@@ -156,9 +218,7 @@ func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 		// Check if any site is using the certificate
 		sites := s.State.GetSites()
 		for _, s := range sites {
-			if s.Tls != nil &&
-				s.Tls.Type == pb.State_Site_TLS_IMPORTED &&
-				s.Tls.Certificate == name {
+			if s.ImportedTlsId == id || s.GeneratedTlsId == id {
 				c.AbortWithStatusJSON(http.StatusConflict, gin.H{
 					"error": "TLS certificate is in use and can't be removed",
 				})
@@ -167,7 +227,7 @@ func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 		}
 
 		// Delete the certificate
-		if err := s.State.RemoveCertificate(pb.State_Site_TLS_IMPORTED, []string{name}); err != nil {
+		if err := s.State.DeleteCertificate(id); err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
@@ -175,7 +235,7 @@ func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 	} else {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid parameter 'name'",
+			"error": "Invalid parameter 'id'",
 		})
 	}
 }
