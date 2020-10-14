@@ -70,7 +70,7 @@ func (s *APIServer) DeploySiteHandler(c *gin.Context) {
 	}
 
 	// Update the app
-	if err := s.State.UpdateSite(site, true); err != nil {
+	if err := s.State.UpdateSite(site); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}

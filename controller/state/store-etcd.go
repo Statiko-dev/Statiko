@@ -436,10 +436,12 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 	// Populate the certificates object
 	if len(s.state.Certificates) > 0 {
 		for k, v := range s.state.Certificates {
-			// If there's a data object, store it as a separate key
-			if len(v.Data) > 0 {
-				// Encode the value to b64
-				encoded := base64.StdEncoding.EncodeToString(v.Data)
+			// If there's a certificate, store it as a separate key
+			if len(v.Certificate) > 0 || len(v.Key) > 0 {
+				// Encode the values to b64 and join them with a newline
+				encoded := base64.StdEncoding.EncodeToString(v.Key) +
+					"\n" +
+					base64.StdEncoding.EncodeToString(v.Certificate)
 
 				// Store the value if different
 				_, err := s.setIfDifferent(s.certsKeyPrefix+k, encoded)
@@ -451,7 +453,8 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 			// Copy the value and remove the data
 			certificates[k] = &pb.TLSCertificate{}
 			*certificates[k] = *v
-			certificates[k].Data = nil
+			certificates[k].Certificate = nil
+			certificates[k].Key = nil
 		}
 	}
 
@@ -520,14 +523,22 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
 		for _, kv := range resp.Kvs {
 			if kv.Value != nil && len(kv.Value) > 0 {
-				// Decode the value from base64
-				data, err := base64.StdEncoding.DecodeString(string(kv.Value))
-				if err != nil {
-					return err
+				// Split the key and certificate
+				pos := strings.Index(string(kv.Value), "\n")
+				if pos < 0 {
+					return errors.New("separator not found in the string")
 				}
 				key := strings.TrimPrefix(string(kv.Key), s.certsKeyPrefix)
 				if el, ok := unserialized.Certificates[key]; ok && el != nil {
-					unserialized.Certificates[key].Data = data
+					// Decode the values from base64
+					unserialized.Certificates[key].Key, err = base64.StdEncoding.DecodeString(string(kv.Value[0:pos]))
+					if err != nil {
+						return err
+					}
+					unserialized.Certificates[key].Certificate, err = base64.StdEncoding.DecodeString(string(kv.Value[pos:]))
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}

@@ -20,7 +20,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
 )

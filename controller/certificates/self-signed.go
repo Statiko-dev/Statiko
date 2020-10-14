@@ -17,6 +17,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package certificates
 
 import (
+	"errors"
+
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -27,9 +29,20 @@ const SelfSignedCertificateIssuer = "statiko self-signed"
 const SelfSignedMinDays = 14
 
 // GetSelfSignedCertificate returns a self-signed certificate, with key and certificate PEM-encoded
-func (c *Certificates) GetSelfSignedCertificate(site *pb.Site, certObj *pb.TLSCertificate, existingKey []byte, existingCert []byte) (key []byte, cert []byte, err error) {
+func (c *Certificates) GetSelfSignedCertificate(site *pb.Site, certificateId string) (key []byte, cert []byte, err error) {
+	var certObj *pb.TLSCertificate
+
+	// Get the certificate object
+	certObj, key, cert, err = c.State.GetCertificate(certificateId)
+	if err != nil {
+		return nil, nil, err
+	}
+	if certObj == nil {
+		return nil, nil, errors.New("certificate not found")
+	}
+
 	// If we have an existing certificate, check if it's still valid
-	if len(existingKey) > 0 && len(existingCert) > 0 {
+	if len(key) > 0 && len(cert) > 0 {
 		// Get the x509 object
 		certX509, err := GetX509(cert)
 		if err != nil {
@@ -39,7 +52,7 @@ func (c *Certificates) GetSelfSignedCertificate(site *pb.Site, certObj *pb.TLSCe
 		// If the certificate is valid, use that
 		certErr := InspectCertificate(site, certObj, certX509)
 		if certErr == nil {
-			return existingKey, existingCert, nil
+			return key, cert, nil
 		}
 		c.logger.Printf("Regenerating invalid self-signed certificate for site %s: %v\n", site.Domain, certErr)
 	} else {
@@ -47,8 +60,15 @@ func (c *Certificates) GetSelfSignedCertificate(site *pb.Site, certObj *pb.TLSCe
 	}
 
 	// If we're here, we need to generate a new sellf-signed certificate
-	// That's either because we didn't have one to bein with, or because we had one but it had expired or it was invalid
+	// That's either because we didn't have one to begin with, or because we had one but it had expired or it was invalid
 	domains := append([]string{site.Domain}, site.Aliases...)
 	key, cert, err = GenerateTLSCert(domains...)
-	return key, cert, err
+
+	// Save the certificate
+	err = c.State.SetCertificate(certObj, certificateId, key, cert)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return key, cert, nil
 }

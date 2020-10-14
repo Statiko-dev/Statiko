@@ -62,14 +62,15 @@ func (x *TLSCertificate) Validate() bool {
 	switch x.Type {
 	case TLSCertificate_IMPORTED, TLSCertificate_SELF_SIGNED, TLSCertificate_ACME:
 		// Must have the certificate data only
-		if len(x.Data) > 0 {
+		if len(x.Key) > 0 && len(x.Certificate) > 0 {
 			x.Name = ""
 			return true
 		}
 	case TLSCertificate_AZURE_KEY_VAULT:
 		// Must have certificate name only
 		if x.Name != "" {
-			x.Data = nil
+			x.Key = nil
+			x.Certificate = nil
 			return true
 		}
 	}

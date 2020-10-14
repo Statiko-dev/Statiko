@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
@@ -203,8 +203,7 @@ func certMonitorWorker() error {
 			// We will need to request a new certificate if it's expiring
 			// Additionally, if the certificate currently on disk was self-signed, it was just temporary, so we need to request the certificate
 			expired := exp.Before(now.Add(time.Duration(certificates.ACMEMinDays*24) * time.Hour))
-			selfSigned := cert.Issuer.Organization != nil &&
-				len(cert.Issuer.Organization) > 0 &&
+			selfSigned := len(cert.Issuer.Organization) > 0 &&
 				cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer
 			if expired || selfSigned {
 				certMonitorLogger.Printf("Requesting a new certificate for site %s from ACME\n", el.Domain)

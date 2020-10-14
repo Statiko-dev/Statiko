@@ -40,7 +40,7 @@ import (
 
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/certificates"
+	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"

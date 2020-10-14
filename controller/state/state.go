@@ -21,7 +21,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"io"
 	"log"
@@ -33,8 +32,6 @@ import (
 	"github.com/statiko-dev/statiko/shared/defaults"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -258,7 +255,7 @@ func (m *Manager) AddSite(site *pb.Site) error {
 }
 
 // UpdateSite updates a site with the same Domain
-func (m *Manager) UpdateSite(site *pb.Site, setUpdated bool) error {
+func (m *Manager) UpdateSite(site *pb.Site) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -315,10 +312,7 @@ func (m *Manager) UpdateSite(site *pb.Site, setUpdated bool) error {
 		return errors.New("site not found")
 	}
 
-	// Check if we need to set the object as updated
-	if setUpdated {
-		m.setUpdated()
-	}
+	m.setUpdated()
 
 	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
@@ -603,7 +597,7 @@ func (m *Manager) GetCertificateInfo(certId string) (obj *pb.TLSCertificate, err
 }
 
 // SetCertificate sets a certificate in the state
-// If the ID parameter is set, it will replace existing certificates with the same ID; otherwise, a new ID will be generated
+// It requires an ID for the certificate, pre-generated; if it's already set, it will be replaced
 // Additionally, if a key and certificate are passed, they will be encrypted
 func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []byte, cert []byte) (err error) {
 	// Check if the store is healthy
@@ -613,37 +607,16 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 		return err
 	}
 
-	// Ensure that we have a certificate object
+	// Ensure that we have a certificate object and ID
 	if obj == nil {
 		return errors.New("certificate object is empty")
 	}
-
-	// If we don't have a certificate ID, generate a new one
 	if certId == "" {
-		u, err := uuid.NewRandom()
-		if err != nil {
-			return err
-		}
-		certId = u.String()
+		return errors.New("certificate ID is empty")
 	}
 
-	// If we have a key and certificate, enncrypt them
-	if key != nil && len(key) > 0 && cert != nil && len(cert) > 0 {
-		// Serialize the certificates
-		if len(key) > 204800 || len(cert) > 204800 {
-			return errors.New("key and/or certificate are too long")
-		}
-		keyLen := make([]byte, 4)
-		certLen := make([]byte, 4)
-		binary.LittleEndian.PutUint32(keyLen, uint32(len(key)))
-		binary.LittleEndian.PutUint32(certLen, uint32(len(cert)))
-		// Add 8 because of the 2 lengths that are 32-bit ints
-		serialized := make([]byte, 8+len(key)+len(cert))
-		copy(serialized[0:4], keyLen)
-		copy(serialized[4:8], certLen)
-		copy(serialized[8:(8+len(key))], key)
-		copy(serialized[(8+len(key)):(8+len(key)+len(cert))], cert)
-
+	// If we have a certificate, encrypt the key then store both
+	if len(key) > 0 && len(cert) > 0 {
 		// Get the cipher
 		aesgcm, err := m.getSecretsCipher()
 		if err != nil {
@@ -651,13 +624,17 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 		}
 
 		// Get a nonce
+		// Note: we're using AES-GCM and re-using the same key. This is fine in this case because we won't encrypt million of files
 		nonce := make([]byte, 12)
 		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 			return err
 		}
 
-		// Encrypt the secret
-		obj.Data = aesgcm.Seal(nil, nonce, serialized, nil)
+		// Encrypt the key
+		obj.Key = aesgcm.Seal(nil, nonce, key, nil)
+
+		// Store the certificate
+		obj.Certificate = cert
 	}
 
 	// Now, validate the object (we first had to generate the data if needed)
@@ -791,7 +768,7 @@ func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
 // Decrypts the certificate data from the object
 func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert []byte, err error) {
 	// If there's no data, just return
-	if obj.Data == nil || len(obj.Data) < 13 {
+	if len(obj.Key) == 0 || len(obj.Certificate) == 0 {
 		return nil, nil, nil
 	}
 
@@ -801,25 +778,18 @@ func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert [
 		return nil, nil, err
 	}
 
-	// Decrypt the secret
+	// Decrypt the key
 	// First 12 bytes of the value are the nonce
-	serialized, err := aesgcm.Open(nil, obj.Data[0:12], obj.Data[12:], nil)
+	key, err = aesgcm.Open(nil, obj.Key[0:12], obj.Key[12:], nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	if serialized == nil || len(serialized) < 13 {
+	if len(key) == 0 {
 		return nil, nil, errors.New("invalid decrypted data")
 	}
 
-	// Un-serialize the secret
-	keyLen := binary.LittleEndian.Uint32(serialized[0:4])
-	certLen := binary.LittleEndian.Uint32(serialized[4:8])
-	if keyLen < 1 || certLen < 1 || len(serialized) != int(8+keyLen+certLen) {
-		return nil, nil, errors.New("invalid serialized data")
-	}
-
-	key = serialized[8:(keyLen + 8)]
-	cert = serialized[(keyLen + 8):]
+	// Certificate
+	cert = obj.Certificate
 
 	return key, cert, nil
 }

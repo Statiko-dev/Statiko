@@ -25,8 +25,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/statiko-dev/statiko/certificates"
-	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
+	"github.com/statiko-dev/statiko/controller/certificates"
+	"github.com/statiko-dev/statiko/controller/certificates/azurekeyvault"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -47,7 +47,7 @@ type certListResponseItem struct {
 
 type certListResponse []certListResponseItem
 
-// ImportCertificateHandler is the handler for POST /certificate, which stores a new certificate
+// ImportCertificateHandler is the handler for POST /certificate, which adds a new certificate
 // For imported certificates, data must be an object with a key and a certificate, both PEM-encoded
 // For certificates imported from Azure Key Vault, the data must be an object with the certificate name
 func (s *APIServer) ImportCertificateHandler(c *gin.Context) {

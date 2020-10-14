@@ -45,18 +45,34 @@ func GetX509(cert []byte) (certX509 *x509.Certificate, err error) {
 	return
 }
 
+// DomainList returns the list of domains in a certificate
+func DomainList(certX509 *x509.Certificate) []string {
+	if certX509 == nil || len(certX509.DNSNames) == 0 {
+		return nil
+	}
+
+	// Clone the object
+	return append(make([]string, 0), certX509.DNSNames...)
+}
+
+// IsSelfSigned returns true if the certificate is self-signed
+func IsSelfSigned(certX509 *x509.Certificate) bool {
+	return len(certX509.Issuer.Organization) > 0 &&
+		certX509.Issuer.Organization[0] == SelfSignedCertificateIssuer
+}
+
 // InspectCertificate loads a X.509 certificate and checks its details, such as expiration
-func InspectCertificate(site *pb.Site, obj *pb.TLSCertificate, cert *x509.Certificate) error {
+func InspectCertificate(site *pb.Site, obj *pb.TLSCertificate, certX509 *x509.Certificate) error {
 	now := time.Now()
 
 	// Check "NotAfter" (require at least 12 hours)
-	if cert.NotAfter.Before(now.Add(12 * time.Hour)) {
-		return fmt.Errorf("certificate has expired or has less than 12 hours of validity: %v", cert.NotAfter)
+	if certX509.NotAfter.Before(now.Add(12 * time.Hour)) {
+		return fmt.Errorf("certificate has expired or has less than 12 hours of validity: %v", certX509.NotAfter)
 	}
 
 	// Check "NotBefore"
-	if !cert.NotBefore.Before(now) {
-		return fmt.Errorf("certificate's NotBefore is in the future: %v", cert.NotBefore)
+	if !certX509.NotBefore.Before(now) {
+		return fmt.Errorf("certificate's NotBefore is in the future: %v", certX509.NotBefore)
 	}
 
 	// Check if the list of domains matches, but only for self-signed or ACME certificates
@@ -64,7 +80,8 @@ func InspectCertificate(site *pb.Site, obj *pb.TLSCertificate, cert *x509.Certif
 	if obj.Type == pb.TLSCertificate_ACME || obj.Type == pb.TLSCertificate_SELF_SIGNED {
 		domains := append([]string{site.Domain}, site.Aliases...)
 		sort.Strings(domains)
-		certDomains := append(make([]string, 0), cert.DNSNames...)
+		// Clone the object so we don't cause issues while sorting it
+		certDomains := append(make([]string, 0), certX509.DNSNames...)
 		sort.Strings(certDomains)
 		if !reflect.DeepEqual(domains, certDomains) {
 			return fmt.Errorf("list of domains in certificate does not match: %v", certDomains)

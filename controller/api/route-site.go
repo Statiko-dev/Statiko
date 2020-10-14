@@ -25,9 +25,10 @@ import (
 
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/certificates/azurekeyvault"
+	"github.com/statiko-dev/statiko/controller/certificates"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -66,7 +67,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 			return
 		}
 		// Temporary domains cannot use TLS certificates from ACME, to avoid rate limiting
-		if site.Tls != nil && site.Tls.Type == pb.State_Site_TLS_ACME {
+		if site.EnableAcme {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 				"error": "Temporary sites cannot request TLS certificates from ACME",
 			})
@@ -84,9 +85,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	}
 
 	// Check if site exists already
-	domains := make([]string, len(site.Aliases)+1)
-	copy(domains, site.Aliases)
-	domains[len(site.Aliases)] = site.Domain
+	domains := append([]string{site.Domain}, site.Aliases...)
 	for _, el := range domains {
 		if s.State.GetSite(el) != nil {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
@@ -96,71 +95,39 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 		}
 	}
 
-	tlsType := pb.State_Site_TLS_NULL
-	if site.Tls != nil {
-		tlsType = site.Tls.GetType()
-	}
-	switch tlsType {
-	case pb.State_Site_TLS_ACME:
-		// ACME
-		site.Tls = &pb.State_Site_TLS{
-			Type:        pb.State_Site_TLS_ACME,
-			Certificate: "",
-			Version:     "",
-		}
-	case pb.State_Site_TLS_IMPORTED:
-		// Imported
-		if site.Tls.Certificate == "" {
-			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-				"error": "Missing name for imported TLS certificate",
-			})
-			return
-		}
-		// Check if the certificate exists
-		key, cert, err := s.State.GetCertificate(pb.State_Site_TLS_IMPORTED, []string{site.Tls.Certificate})
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-		if key == nil || len(key) == 0 || cert == nil || len(cert) == 0 {
-			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-				"error": "TLS certificate does not exist in store",
-			})
-			return
-		}
-	case pb.State_Site_TLS_AZURE_KEY_VAULT:
-		// Azure Key Vault
-		if site.Tls.Certificate == "" {
-			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-				"error": "Missing name for TLS certificate from Azure Key Vault",
-			})
-			return
-		}
-		// Check if the certificate exists
-		exists, err := azurekeyvault.GetInstance().CertificateExists(site.Tls.Certificate)
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-		if !exists {
-			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-				"error": "TLS certificate does not exist in Azure Key Vault",
-			})
-			return
-		}
-	case pb.State_Site_TLS_NULL, pb.State_Site_TLS_SELF_SIGNED:
-		// Self-signed TLS certificates are default when no value is specified
-		site.Tls = &pb.State_Site_TLS{
-			Type:        pb.State_Site_TLS_SELF_SIGNED,
-			Certificate: "",
-			Version:     "",
-		}
-	default:
-		c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-			"error": "Invalid TLS configuration",
-		})
+	// Generate a TLS certificate
+	certId, err := s.genTls(site)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
+	// When ACME is enabled, start the background process that requests a cert from ACME
+	if site.EnableAcme {
+		// TODO: THIS
+		//defer state.Instance.TriggerRefreshCerts()
+	}
+	site.GeneratedTlsId = certId
+
+	// Check if we have an imported certificate
+	if site.ImportedTlsId != "" {
+		// Ensure it exists and it's not self-signed or from ACME
+		obj, err := s.State.GetCertificateInfo(site.ImportedTlsId)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Error with imported certificate: " + err.Error(),
+			})
+			return
+		}
+		if obj == nil || obj.Type == pb.TLSCertificate_SELF_SIGNED || obj.Type == pb.TLSCertificate_ACME {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Imported certificate not found or certificate is not an imported one",
+			})
+			return
+		}
+	}
+
+	// Ensure there's no App passed
+	site.App = nil
 
 	// Add the website to the store
 	if err := s.State.AddSite(site); err != nil {
@@ -310,104 +277,57 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 
 	// Iterate through the fields in the input and update site
 	updated := false
+	regenerateTls := false
 	for k, v := range update {
 		t := reflect.TypeOf(v)
 
 		switch strings.ToLower(k) {
-		case "tls":
-			if t != nil && t.Kind() == reflect.Map {
-				vMap := v.(map[string]interface{})
-				certType, ok := vMap["type"].(string)
-				if !ok {
-					c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-						"error": "Missing key tls.type",
-					})
-					return
-				}
-				switch certType {
-				case pb.State_Site_TLS_ACME.String():
-					if site.Temporary {
-						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-							"error": "Temporary sites cannot request TLS certificates from ACME",
-						})
-						return
-					}
-					site.Tls = &pb.State_Site_TLS{
-						Type: pb.State_Site_TLS_ACME,
-					}
-				case pb.State_Site_TLS_SELF_SIGNED.String():
-					site.Tls = &pb.State_Site_TLS{
-						Type: pb.State_Site_TLS_SELF_SIGNED,
-					}
-				case pb.State_Site_TLS_IMPORTED.String():
-					// Imported certificate
-					// Get the certificate name
-					name, ok := vMap["cert"].(string)
-					if !ok || name == "" {
-						c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-							"error": "Missing or invalid key tls.cert for imported certificate",
-						})
-						return
-					}
-
-					// Check if the certificate exists
-					key, cert, err := s.State.GetCertificate(pb.State_Site_TLS_IMPORTED, []string{name})
-					if err != nil {
-						c.AbortWithError(http.StatusInternalServerError, err)
-						return
-					}
-					if key == nil || len(key) == 0 || cert == nil || len(cert) == 0 {
-						c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-							"error": "TLS certificate does not exist in store",
-						})
-						return
-					}
-					site.Tls = &pb.State_Site_TLS{
-						Type:        pb.State_Site_TLS_IMPORTED,
-						Certificate: name,
-					}
-				case pb.State_Site_TLS_AZURE_KEY_VAULT.String():
-					// Certificate stored in Azure Key Vault
-					// Get the certificate name
-					name, ok := vMap["cert"].(string)
-					if !ok || name == "" {
-						c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-							"error": "Missing or invalid key tls.cert for Azure Key Vault certificate",
-						})
-						return
-					}
-
-					// Get the certificate version, if any
-					version, ok := vMap["ver"].(string)
-					if !ok {
-						version = ""
-					}
-
-					// Check if the certificate exists
-					exists, err := azurekeyvault.GetInstance().CertificateExists(name)
-					if err != nil {
-						c.AbortWithError(http.StatusInternalServerError, err)
-						return
-					}
-					if !exists {
-						c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-							"error": "Certificate does not exist in Azure Key Vault",
-						})
-						return
-					}
-					site.Tls = &pb.State_Site_TLS{
-						Type:        pb.State_Site_TLS_AZURE_KEY_VAULT,
-						Certificate: name,
-						Version:     version,
-					}
-				default:
-					c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-						"error": "Invalid TLS certificate type",
-					})
-					return
-				}
-				updated = true
+		// Enable/disable ACME
+		case "enableacme":
+			enabled, ok := v.(bool)
+			// Ignore invalid
+			if !ok {
+				break
 			}
+			// Temporary domains cannot use TLS certificates from ACME, to avoid rate limiting
+			if site.Temporary && enabled {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"error": "Temporary sites cannot request TLS certificates from ACME",
+				})
+				return
+			}
+			site.EnableAcme = enabled
+			updated = true
+			regenerateTls = true
+		// Imported TLS certificate ID
+		case "importedtlsid":
+			certId, ok := v.(string)
+			// Ignore invalid
+			if !ok {
+				break
+			}
+
+			// If we're setting a certificate, ensure it exists and it's not self-signed or from ACME
+			if certId != "" {
+				obj, err := s.State.GetCertificateInfo(certId)
+				if err != nil {
+					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+						"error": "Error with imported certificate: " + err.Error(),
+					})
+					return
+				}
+				if obj == nil || obj.Type == pb.TLSCertificate_SELF_SIGNED || obj.Type == pb.TLSCertificate_ACME {
+					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+						"error": "Imported certificate not found or certificate is not an imported one",
+					})
+					return
+				}
+			}
+			site.ImportedTlsId = certId
+			updated = true
+			regenerateTls = true
+
+		// Aliases
 		case "aliases":
 			// Aliases can't be updated for temporary sites
 			if site.Temporary {
@@ -416,30 +336,27 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 				})
 				return
 			}
-			if t == nil {
-				// Reset the aliases slice
-				site.Aliases = make([]string, 0)
-			} else if t.Kind() == reflect.Slice {
-				updated = true
+			// Reset the aliases slice
+			site.Aliases = make([]string, 0)
 
-				// Reset the aliases slice
-				site.Aliases = make([]string, 0)
+			if t != nil && t.Kind() == reflect.Slice {
+				updated = true
+				regenerateTls = true
 
 				// Check if the aliases exist already
 				for _, a := range v.([]interface{}) {
 					// Element must be a string
-					if reflect.TypeOf(a).Kind() != reflect.String {
+					str, ok := a.(string)
+					if !ok {
 						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 							"error": "Invalid type for element in the aliases list",
 						})
 						return
 					}
 
-					str := a.(string)
-
 					// Aliases can't be defined somewhere else (but can be defined in this same site!)
-					ok := s.State.GetSite(str)
-					if ok != nil && ok.Domain != site.Domain {
+					found := s.State.GetSite(str)
+					if found != nil && found.Domain != site.Domain {
 						c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 							"error": "Alias " + str + " already exists",
 						})
@@ -453,9 +370,24 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 		}
 	}
 
+	// Regenerate the TLS certificate if needed
+	if regenerateTls {
+		certId, err := s.genTls(site)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		// When ACME is enabled, start the background process that requests a cert from ACME
+		if site.EnableAcme {
+			// TODO: THIS
+			//defer state.Instance.TriggerRefreshCerts()
+		}
+		site.GeneratedTlsId = certId
+	}
+
 	// Update the site object if something has changed
 	if updated {
-		if err := s.State.UpdateSite(site, true); err != nil {
+		if err := s.State.UpdateSite(site); err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
@@ -463,4 +395,38 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 
 	// Respond with the site
 	c.JSON(http.StatusOK, site)
+}
+
+// Internal function that generates a new self-signed TLS certificate (also for ACME)
+func (s *APIServer) genTls(site *pb.Site) (certId string, err error) {
+	// Generate a TLS certificate, either self-signed or from ACME
+	generatedTls := &pb.TLSCertificate{
+		Type: pb.TLSCertificate_SELF_SIGNED,
+	}
+	if site.EnableAcme {
+		generatedTls.Type = pb.TLSCertificate_ACME
+	}
+
+	// Generate a certificate ID
+	u, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+	certId = u.String()
+
+	// Generate the new TLS certificate
+	// Even for sites that use ACME, we still need a temporary self-signed certificate
+	domains := append([]string{site.Domain}, site.Aliases...)
+	key, cert, err := certificates.GenerateTLSCert(domains...)
+	if err != nil {
+		return "", err
+	}
+
+	// Save the certificate
+	err = s.State.SetCertificate(generatedTls, certId, key, cert)
+	if err != nil {
+		return "", err
+	}
+
+	return certId, nil
 }

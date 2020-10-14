@@ -57,12 +57,13 @@ message TLSCertificate {
   }
   Type type = 1;
 
-  // Certificate data (used by certain types only)
-  // Data is encrypted if present
-  bytes data = 2;
+  // Certificate key, PEM-encoded and encrypted  (used by certain types only)
+  bytes key = 5;
+  // Certificate, PEM-encoded (used by certain types only)
+  bytes certificate = 6;
 
   // Certificate name (used by certain types only)
-  string name = 3;
+  string name = 10;
 
   // List of domains that are used by the certificate - this is auto-generated
   repeated string domains = 1000;
