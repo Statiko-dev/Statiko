@@ -17,11 +17,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/renameio"
 
 	"github.com/statiko-dev/statiko/appconfig"
@@ -72,9 +72,9 @@ func (s *StateStoreFile) WriteState() (err error) {
 	path := appconfig.Config.GetString("state.file.path")
 	s.logger.Println("Writing state to disk", path)
 
-	// Convert to JSON
+	// Serialize to protocol buffers
 	var data []byte
-	data, err = json.MarshalIndent(s.state, "", "  ")
+	data, err = proto.Marshal(s.state)
 	if err != nil {
 		return
 	}
@@ -108,9 +108,9 @@ func (s *StateStoreFile) ReadState() (err error) {
 		if len(data) == 0 {
 			s.createStateFile(path)
 		} else {
-			// Parse JSON
+			// Parse protobuf
 			s.state = &pb.StateStore{}
-			err = json.Unmarshal(data, s.state)
+			err = proto.Unmarshal(data, s.state)
 		}
 	} else {
 		s.createStateFile(path)

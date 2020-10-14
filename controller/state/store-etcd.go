@@ -20,13 +20,13 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.etcd.io/etcd/v3/clientv3"
@@ -343,7 +343,7 @@ func (s *StateStoreEtcd) SetState(state *pb.StateStore) (err error) {
 func (s *StateStoreEtcd) WriteState() (err error) {
 	s.logger.Println("Writing state in etcd")
 
-	// Convert to JSON
+	// Encode to protobuf
 	var data []byte
 	data, err = s.serializeState()
 	if err != nil {
@@ -381,7 +381,7 @@ func (s *StateStoreEtcd) ReadState() (err error) {
 
 	// Check if the value exists
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 && resp.Kvs[0].Value != nil && len(resp.Kvs[0].Value) > 0 {
-		// Parse the JSON from the state
+		// Parse the protobuf from the state
 		err = s.unserializeState(resp.Kvs[0].Value)
 	} else {
 		s.logger.Println("Will create new state")
@@ -422,9 +422,9 @@ func (s *StateStoreEtcd) OnReceive(callback func()) {
 	s.receiveCallback = callback
 }
 
-// Serialize the state to JSON
+// Serialize the state to protobuf
 // Additionally, store all secrets longer than 64 bytes in a separate etcd key
-// Store the DH parameters file in a separate etcd key too
+// Store the certificates and DH parameters file in separate etcd keys too
 func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 	// Create a copy of the state
 	certificates := make(map[string]*pb.TLSCertificate, len(s.state.Certificates))
@@ -474,8 +474,8 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 
 	// Check if we have DH params
 	if s.state.DhParams != nil && s.state.DhParams.Pem != "" && s.state.DhParams.Date != 0 {
-		// Encode to JSON
-		dhparams, err := json.Marshal(s.state.DhParams)
+		// Encode to protobuf
+		dhparams, err := proto.Marshal(s.state.DhParams)
 		if err != nil {
 			return nil, err
 		}
@@ -487,9 +487,9 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 		}
 	}
 
-	// Convert to JSON
+	// Convert to protobuf
 	var data []byte
-	data, err := json.Marshal(serialize)
+	data, err := proto.Marshal(&serialize)
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +497,7 @@ func (s *StateStoreEtcd) serializeState() ([]byte, error) {
 	return data, nil
 }
 
-// Unserialize the state from JSON
+// Unserialize the state from protobuf
 // Additionally, retrieve all elements that were stored separately in etcd
 func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	var (
@@ -507,9 +507,9 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 		cancel context.CancelFunc
 	)
 
-	// First, unserialize the JSON data
+	// First, unserialize the protobuf message
 	unserialized := &pb.StateStore{}
-	if err := json.Unmarshal(data, unserialized); err != nil {
+	if err := proto.Unmarshal(data, unserialized); err != nil {
 		return err
 	}
 
@@ -575,7 +575,7 @@ func (s *StateStoreEtcd) unserializeState(data []byte) error {
 	}
 	if resp != nil && resp.Header.Size() > 0 && len(resp.Kvs) > 0 {
 		unserialized.DhParams = &pb.DHParams{}
-		err := json.Unmarshal(resp.Kvs[0].Value, unserialized.DhParams)
+		err := proto.Unmarshal(resp.Kvs[0].Value, unserialized.DhParams)
 		if err != nil {
 			return errors.Wrap(err, "")
 		}

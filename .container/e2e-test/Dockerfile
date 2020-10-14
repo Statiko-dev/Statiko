@@ -40,7 +40,7 @@ RUN sed -i 's/nodaemon=true/nodaemon=false/' /etc/supervisord.conf \
 
 # When the container starts, start supervisord, then run tests
 ENV MOCHA_FILE=/results/statiko.xml
-CMD rm -f /etc/statiko/state.json \
+CMD rm -f /etc/statiko/state* \
     && supervisord -c /etc/supervisord.conf \
     && sleep 8 \
     && supervisorctl status \

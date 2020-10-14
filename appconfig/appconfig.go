@@ -112,7 +112,7 @@ func (c *appConfig) setDefaults() {
 	viper.SetDefault("nginx.user", "www-data")
 	viper.SetDefault("repo.s3.endpoint", "s3.amazonaws.com")
 	viper.SetDefault("state.etcd.keyPrefix", "/statiko")
-	viper.SetDefault("state.file.path", "/etc/statiko/state.json")
+	viper.SetDefault("state.file.path", "/etc/statiko/state")
 	viper.SetDefault("state.etcd.timeout", 10000)
 	viper.SetDefault("state.store", "file")
 	viper.SetDefault("tls.dhparams.maxAge", 120)
