@@ -19,6 +19,7 @@ package certificates
 import (
 	"crypto/x509"
 	"errors"
+	"strings"
 
 	"github.com/statiko-dev/statiko/controller/certificates/azurekeyvault"
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -60,15 +61,14 @@ func (c *Certificates) GetImportedCertificate(site *pb.Site, certificateId strin
 }
 
 // GetAKVCertificate returns a certificate from Azure Key Vault
-func (c *Certificates) GetAKVCertificate(site *pb.Site, certificateId string) (key []byte, cert []byte, err error) {
+func (c *Certificates) GetAKVCertificate(certificateId string) (key []byte, cert []byte, err error) {
 	var (
 		certObj       *pb.TLSCertificate
-		certX509      *x509.Certificate
 		name, version string
 	)
 
 	// Get the certificate object
-	certObj, _, _, err = c.State.GetCertificate(certificateId)
+	certObj, err = c.State.GetCertificateInfo(certificateId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -76,17 +76,22 @@ func (c *Certificates) GetAKVCertificate(site *pb.Site, certificateId string) (k
 		return nil, nil, errors.New("certificate not found")
 	}
 
+	// Check if we have a version in the name
+	pos := strings.Index(certObj.Name, "/")
+	if pos > -1 {
+		name = certObj.Name[0:pos]
+		version = certObj.Name[(pos + 1):]
+	} else {
+		name = certObj.Name
+		version = ""
+	}
+
 	// Get the certificate and key
-	version, cert, key, certX509, err = azurekeyvault.GetInstance().GetCertificate(certObj.Name, "")
+	version, cert, key, _, err = azurekeyvault.GetInstance().GetCertificate(name, version)
 	if err != nil {
 		return nil, nil, err
 	}
 	c.logger.Printf("Retrieved TLS certificate from AKV: %s (%s)\n", name, version)
-
-	// Inspect the certificate, but consider errors as warnings only
-	if insp := InspectCertificate(site, certObj, certX509); insp != nil {
-		c.logger.Printf("[Warn] %v\n", insp)
-	}
 
 	return key, cert, err
 }

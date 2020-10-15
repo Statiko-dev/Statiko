@@ -16,7 +16,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package proto
 
-import "github.com/statiko-dev/statiko/utils"
+import (
+	"crypto/x509"
+	"sort"
+
+	"github.com/statiko-dev/statiko/utils"
+)
 
 // This file contains additional methods added to the protobuf object
 
@@ -77,4 +82,24 @@ func (x *TLSCertificate) Validate() bool {
 
 	// If we're here, the validation failled
 	return false
+}
+
+// SetCertificateProperties sets the properties of the certificate in the object
+func (x *TLSCertificate) SetCertificateProperties(certX509 *x509.Certificate) {
+	if x == nil {
+		return
+	}
+
+	// List of domains
+	// Copy the object before sorting it
+	x.XDomains = append([]string{}, certX509.DNSNames...)
+	sort.Strings(x.XDomains)
+
+	// Not before and expiry (as UNIX timestamp)
+	if !certX509.NotBefore.IsZero() {
+		x.XNbf = certX509.NotBefore.Unix()
+	}
+	if !certX509.NotAfter.IsZero() {
+		x.XExp = certX509.NotAfter.Unix()
+	}
 }

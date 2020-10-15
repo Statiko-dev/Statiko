@@ -193,17 +193,17 @@ func (m *Manager) GetVersion() uint64 {
 // GetSites returns the list of all sites
 func (m *Manager) GetSites() []*pb.Site {
 	state := m.store.GetState()
-	if state != nil {
-		return state.Sites
+	if state == nil {
+		return nil
 	}
 
-	return nil
+	return state.Sites
 }
 
 // GetSite returns the site object for a specific domain (including aliases)
 func (m *Manager) GetSite(domain string) *pb.Site {
 	state := m.store.GetState()
-	if state != nil {
+	if state == nil {
 		return nil
 	}
 
@@ -290,7 +290,7 @@ func (m *Manager) UpdateSite(site *pb.Site) error {
 	for i, s := range state.Sites {
 		if s.Domain == site.Domain {
 			// If the generated TLS certificate has changed, remove the old one
-			if state.Sites[i].GeneratedTlsId != site.GeneratedTlsId {
+			if s.GeneratedTlsId != site.GeneratedTlsId {
 				cert := state.Certificates[s.GeneratedTlsId]
 				if cert != nil && (cert.Type == pb.TLSCertificate_SELF_SIGNED || cert.Type == pb.TLSCertificate_ACME) {
 					delete(state.Certificates, s.GeneratedTlsId)
@@ -631,7 +631,7 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 		}
 
 		// Encrypt the key
-		obj.Key = aesgcm.Seal(nil, nonce, key, nil)
+		obj.Key = append(nonce, aesgcm.Seal(nil, nonce, key, nil)...)
 
 		// Store the certificate
 		obj.Certificate = cert

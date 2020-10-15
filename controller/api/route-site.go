@@ -26,6 +26,7 @@ import (
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/certificates"
@@ -258,7 +259,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 	}
 
 	// Get the site from the state object
-	site := s.State.GetSite(domain)
+	site := proto.Clone(s.State.GetSite(domain)).(*pb.Site)
 	if site == nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error": "Domain name not found",
@@ -283,7 +284,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 
 		switch strings.ToLower(k) {
 		// Enable/disable ACME
-		case "enableacme":
+		case "enableacme", "enable_acme":
 			enabled, ok := v.(bool)
 			// Ignore invalid
 			if !ok {
@@ -300,7 +301,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 			updated = true
 			regenerateTls = true
 		// Imported TLS certificate ID
-		case "importedtlsid":
+		case "importedtlsid", "imported_tls_id":
 			certId, ok := v.(string)
 			// Ignore invalid
 			if !ok {
@@ -325,7 +326,11 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 			}
 			site.ImportedTlsId = certId
 			updated = true
-			regenerateTls = true
+
+			// If we're unsetting the certificate ID, then we must re-generate the self-signed cert
+			if certId == "" {
+				regenerateTls = true
+			}
 
 		// Aliases
 		case "aliases":
@@ -421,6 +426,13 @@ func (s *APIServer) genTls(site *pb.Site) (certId string, err error) {
 	if err != nil {
 		return "", err
 	}
+
+	// Get the x509 object to set the other properties
+	certX509, err := certificates.GetX509(cert)
+	if err != nil {
+		return "", err
+	}
+	generatedTls.SetCertificateProperties(certX509)
 
 	// Save the certificate
 	err = s.State.SetCertificate(generatedTls, certId, key, cert)

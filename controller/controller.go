@@ -24,8 +24,9 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/api"
+	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
-	"github.com/statiko-dev/statiko/controller/nodemanager"
+	"github.com/statiko-dev/statiko/controller/rpcserver"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/fs"
@@ -38,8 +39,9 @@ type Controller struct {
 	state    *state.Manager
 	notifier *notifications.Notifications
 	cluster  *cluster.Cluster
+	certs    *certificates.Certificates
 	apiSrv   *api.APIServer
-	rcpSrv   *nodemanager.RPCServer
+	rcpSrv   *rpcserver.RPCServer
 	logger   *log.Logger
 }
 
@@ -76,6 +78,16 @@ func (c *Controller) Run() (err error) {
 		return err
 	}
 
+	// Init the certs object
+	c.certs = &certificates.Certificates{
+		State:   c.state,
+		Cluster: c.cluster,
+	}
+	err = c.certs.Init()
+	if err != nil {
+		return err
+	}
+
 	// Start all background workers
 	// TODO: NEEDS UPDATING
 	//worker.StartWorker()
@@ -89,9 +101,10 @@ func (c *Controller) Run() (err error) {
 	)
 
 	// Init and start the gRPC server
-	c.rcpSrv = &nodemanager.RPCServer{
+	c.rcpSrv = &rpcserver.RPCServer{
 		State:   c.state,
 		Cluster: c.cluster,
+		Certs:   c.certs,
 	}
 	c.rcpSrv.Init()
 	go c.rcpSrv.Start()

@@ -57,7 +57,7 @@ message TLSCertificate {
   }
   Type type = 1;
 
-  // Certificate key, PEM-encoded and encrypted  (used by certain types only)
+  // Certificate key, PEM-encoded and encrypted (used by certain types only)
   bytes key = 5;
   // Certificate, PEM-encoded (used by certain types only)
   bytes certificate = 6;
@@ -65,8 +65,10 @@ message TLSCertificate {
   // Certificate name (used by certain types only)
   string name = 10;
 
-  // List of domains that are used by the certificate - this is auto-generated
-  repeated string domains = 1000;
+  // Auto-generated information
+  repeated string _domains = 2000;
+  int64 _nbf = 2001;
+  int64 _exp = 2002;
 }
 
 // DH Parameters

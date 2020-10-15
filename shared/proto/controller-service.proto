@@ -53,5 +53,6 @@ message WatchStateRequest {}
 
 // Message for requesting a TLS certificate
 message TLSCertificateRequest {
-  string name = 1;
+  // ID of the TLS certificate to request
+  string certificate_id = 1;
 }

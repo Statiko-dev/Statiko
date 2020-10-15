@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package nodemanager
+package rpcserver
 
 import (
 	"context"
@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/statiko-dev/statiko/buildinfo"
+	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -37,6 +38,7 @@ import (
 type RPCServer struct {
 	State   *state.Manager
 	Cluster *cluster.Cluster
+	Certs   *certificates.Certificates
 
 	logger        *log.Logger
 	stopCh        chan int

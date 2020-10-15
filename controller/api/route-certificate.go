@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/certificates/azurekeyvault"
@@ -31,18 +32,24 @@ import (
 )
 
 type certAddRequest struct {
-	Type        string `json:"type" form:"type"`
-	Name        string `json:"name" form:"name"`
+	Type string `json:"type" form:"type"`
+	// For Azure Key Vault
+	Name    string `json:"name" form:"name"`
+	Version string `json:"version" form:"version"`
+	// For imported: these are PEM-encoded
 	Certificate string `json:"cert" form:"cert"`
 	Key         string `json:"key" form:"key"`
-	Force       bool   `json:"force" form:"force"`
+	// Force accepting certificates that have expired too
+	Force bool `json:"force" form:"force"`
 }
 
 type certListResponseItem struct {
-	Type    string   `json:"type"`
-	ID      string   `json:"id"`
-	Name    string   `json:"name,omitempty"`
-	Domains []string `json:"domains,omitempty"`
+	Type      string     `json:"type"`
+	ID        string     `json:"id"`
+	Name      string     `json:"name,omitempty"`
+	Domains   []string   `json:"domains,omitempty"`
+	NotBefore *time.Time `json:"nbf,omitempty"`
+	Expiry    *time.Time `json:"exp,omitempty"`
 }
 
 type certListResponse []certListResponseItem
@@ -122,6 +129,7 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 		certObj = &pb.TLSCertificate{
 			Type: pb.TLSCertificate_IMPORTED,
 		}
+		certObj.SetCertificateProperties(certX509)
 		key = []byte(data.Key)
 		cert = []byte(data.Certificate)
 
@@ -135,15 +143,44 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 			return
 		}
 
-		// Check if the certificate exists
-		exists, err := azurekeyvault.GetInstance().CertificateExists(data.Name)
+		// Get the latest version if version is empty
+		if data.Version == "" || strings.ToLower(data.Version) == "latest" {
+			var err error
+			data.Version, err = azurekeyvault.GetInstance().GetCertificateLastVersion(data.Name)
+			if err != nil {
+				c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+			if data.Version == "" {
+				c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+					"error": "TLS certificate does not exist in Azure Key Vault",
+				})
+				return
+			}
+		} else {
+			// Ensure that the certificate exists
+			exists, err := azurekeyvault.GetInstance().CertificateExists(data.Name)
+			if err != nil {
+				c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+			if !exists {
+				c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+					"error": "TLS certificate does not exist in Azure Key Vault",
+				})
+				return
+			}
+		}
+
+		// Retrieve the certificate so we can inspect it
+		_, _, _, certX509, err := azurekeyvault.GetInstance().GetCertificate(data.Name, data.Version)
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
-		if !exists {
+		if certX509 == nil {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-				"error": "TLS certificate does not exist in Azure Key Vault",
+				"error": "empty certificate properties returned by Azure Key Vault",
 			})
 			return
 		}
@@ -151,8 +188,9 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 		// Data to save
 		certObj = &pb.TLSCertificate{
 			Type: pb.TLSCertificate_AZURE_KEY_VAULT,
-			Name: data.Name,
+			Name: data.Name + "/" + data.Version,
 		}
+		certObj.SetCertificateProperties(certX509)
 		key = nil
 		cert = nil
 
@@ -161,10 +199,19 @@ func (s *APIServer) ImportCertificateHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid TLS certificate type",
 		})
+		return
 	}
 
+	// Generate a certificate ID
+	u, err := uuid.NewRandom()
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+	certId := u.String()
+
 	// Store the certificate
-	err := s.State.SetCertificate(certObj, "", key, cert)
+	err = s.State.SetCertificate(certObj, certId, key, cert)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -184,11 +231,20 @@ func (s *APIServer) ListCertificateHandler(c *gin.Context) {
 		if cert.Type == pb.TLSCertificate_SELF_SIGNED || cert.Type == pb.TLSCertificate_ACME {
 			continue
 		}
+		var nbf, exp time.Time
+		if cert.XNbf > 0 {
+			nbf = time.Unix(cert.XNbf, 0)
+		}
+		if cert.XExp > 0 {
+			exp = time.Unix(cert.XExp, 0)
+		}
 		result = append(result, certListResponseItem{
-			Type:    strings.ToLower(cert.Type.String()),
-			ID:      id,
-			Name:    cert.Name,
-			Domains: cert.Domains,
+			Type:      strings.ToLower(cert.Type.String()),
+			ID:        id,
+			Name:      cert.Name,
+			Domains:   cert.XDomains,
+			NotBefore: &nbf,
+			Expiry:    &exp,
 		})
 	}
 

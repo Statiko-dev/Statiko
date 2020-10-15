@@ -14,10 +14,11 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package nodemanager
+package rpcserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -141,5 +142,24 @@ func (s *RPCServer) WatchState(req *pb.WatchStateRequest, stream pb.Controller_W
 
 // GetTLSCertificate is a simple RPC that returns a TLS certificate
 func (s *RPCServer) GetTLSCertificate(ctx context.Context, in *pb.TLSCertificateRequest) (*pb.TLSCertificateMessage, error) {
-	return nil, nil
+	// Get the certificate ID
+	certId := in.CertificateId
+	if certId == "" {
+		return nil, errors.New("empty certificate ID")
+	}
+
+	// Get the certificate
+	key, cert, err := s.Certs.GetCertificate(certId)
+	if err != nil {
+		return nil, err
+	}
+	if len(key) == 0 || len(cert) == 0 {
+		return nil, errors.New("certificate not found")
+	}
+
+	// Response
+	return &pb.TLSCertificateMessage{
+		CertificatePem: string(cert),
+		KeyPem:         string(key),
+	}, nil
 }

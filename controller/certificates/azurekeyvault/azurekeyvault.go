@@ -132,8 +132,8 @@ func (akv *Client) getKeyLastVersion(keyName string) (string, error) {
 	return lastItemVersion, nil
 }
 
-// Returns the last version of a certificate
-func (akv *Client) getCertificateLastVersion(certificateName string) (string, error) {
+// GetCertificateLastVersion returns the last version of a certificate
+func (akv *Client) GetCertificateLastVersion(certificateName string) (string, error) {
 	// List certificate versions
 	list, err := akv.KeyVault.GetCertificateVersionsComplete(akv.ctx, akv.BaseURL(), certificateName, nil)
 	if err != nil {
@@ -208,7 +208,7 @@ func (akv *Client) GetCertificate(certificateName string, certificateVersion str
 	if len(certificateVersion) == 0 {
 		akv.logger.Printf("Getting last version for %s\n", certificateName)
 		var err error
-		certificateVersion, err = akv.getCertificateLastVersion(certificateName)
+		certificateVersion, err = akv.GetCertificateLastVersion(certificateName)
 		if err != nil {
 			return certificateVersion, nil, nil, nil, err
 		}
@@ -252,7 +252,7 @@ func (akv *Client) GetCertificate(certificateName string, certificateVersion str
 // CertificateExists returns true whether if the certificate exists on the Key Vault
 func (akv *Client) CertificateExists(certificateName string) (exists bool, err error) {
 	// Get the last version of the certificate to test if it exists
-	version, err := akv.getCertificateLastVersion(certificateName)
+	version, err := akv.GetCertificateLastVersion(certificateName)
 	if version != "" {
 		exists = true
 	}
