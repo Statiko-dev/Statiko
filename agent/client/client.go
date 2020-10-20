@@ -100,7 +100,7 @@ func (c *RPCClient) Reconnect() error {
 }
 
 // GetState requests the latest state from the cluster manager
-func (c *RPCClient) GetState() (*pb.State, error) {
+func (c *RPCClient) GetState() (*pb.StateMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 

@@ -70,11 +70,3 @@ message TLSCertificate {
   int64 _nbf = 2001;
   int64 _exp = 2002;
 }
-
-// DH Parameters
-message DHParams {
-  // Generation date (UNIX timestamp)
-  int64 date = 1;
-  // PEM-encoded value
-  string pem = 2;
-}

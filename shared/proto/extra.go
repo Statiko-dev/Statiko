@@ -28,13 +28,30 @@ import (
 // StateMessage returns the StateMessage object from a given StateStore
 func (x *StateStore) StateMessage() *StateMessage {
 	return &StateMessage{
-		Version: x.Version,
-		Sites:   x.Sites,
+		Version:  x.Version,
+		Sites:    x.Sites,
+		DhParams: x.DhParams,
 	}
 }
 
 // GetSite searches the list of sites to return the one matching the requested domain (including aliases)
 func (x *StateStore) GetSite(domain string) *Site {
+	sites := x.GetSites()
+	if sites == nil {
+		return nil
+	}
+
+	for _, s := range sites {
+		if s.Domain == domain || (len(s.Aliases) > 0 && utils.StringInSlice(s.Aliases, domain)) {
+			return s
+		}
+	}
+
+	return nil
+}
+
+// GetSite searches the list of sites to return the one matching the requested domain (including aliases)
+func (x *StateMessage) GetSite(domain string) *Site {
 	sites := x.GetSites()
 	if sites == nil {
 		return nil

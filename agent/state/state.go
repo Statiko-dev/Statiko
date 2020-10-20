@@ -24,40 +24,47 @@ import (
 
 	"github.com/statiko-dev/statiko/shared/defaults"
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	common "github.com/statiko-dev/statiko/shared/state"
 	"github.com/statiko-dev/statiko/utils"
 )
 
+// Internal type used for certificates stored in the cache
+type certCacheItem struct {
+	Key         []byte
+	Certificate []byte
+}
+
 // AgentState contains the state for the agent and methods to access it
 type AgentState struct {
-	common.StateCommon
-
 	logger     *log.Logger
-	state      *pb.State
+	state      *pb.StateMessage
 	updated    *time.Time
 	signaler   *utils.Signaler
+	certCache  map[string]certCacheItem
 	siteHealth map[string]error
 }
 
 // Init the object
 func (a *AgentState) Init() {
 	// Initialize the logger
-	a.logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
+	a.logger = log.New(os.Stdout, "agent-state: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Initialize the signaler
 	a.signaler = &utils.Signaler{}
 
+	// Init the certificate cache
+	a.certCache = map[string]certCacheItem{}
+
 	// Init the siteHealth map
-	a.siteHealth = make(map[string]error)
+	a.siteHealth = map[string]error{}
 }
 
 // DumpState exports the entire state
-func (a *AgentState) DumpState() *pb.State {
+func (a *AgentState) DumpState() *pb.StateMessage {
 	return a.state
 }
 
 // ReplaceState replaces the full state for the node with the provided one
-func (a *AgentState) ReplaceState(state *pb.State) {
+func (a *AgentState) ReplaceState(state *pb.StateMessage) {
 	// Set the new state object
 	a.state = state
 
@@ -90,7 +97,7 @@ func (a *AgentState) Unsubscribe(ch chan int) {
 }
 
 // GetSites returns the list of all sites
-func (a *AgentState) GetSites() []*pb.State_Site {
+func (a *AgentState) GetSites() []*pb.Site {
 	if a.state == nil {
 		return nil
 	}
@@ -98,7 +105,7 @@ func (a *AgentState) GetSites() []*pb.State_Site {
 }
 
 // GetSite returns the site object for a specific domain (including aliases)
-func (a *AgentState) GetSite(domain string) *pb.State_Site {
+func (a *AgentState) GetSite(domain string) *pb.Site {
 	if a.state == nil {
 		return nil
 	}
@@ -117,48 +124,39 @@ func (a *AgentState) GetDHParams() (string, *time.Time) {
 	return a.state.DhParams.Pem, &date
 }
 
-// GetSecret returns the value for a secret (encrypted in the state)
-func (a *AgentState) GetSecret(key string) ([]byte, error) {
-	// Check if we have a secret for this key
-	if a.state == nil {
-		return nil, errors.New("state not loaded")
-	}
-	if a.state.Secrets == nil {
-		a.state.Secrets = make(map[string][]byte)
-	}
-	encValue, found := a.state.Secrets[key]
-	if !found || encValue == nil || len(encValue) < 12 {
-		return nil, nil
+// GetCertificate returns a certificate pair (key and certificate) from the cache
+func (a *AgentState) GetCertificate(certificateId string) (key []byte, cert []byte, err error) {
+	if certificateId == "" {
+		return nil, nil, errors.New("certificate ID is empty")
 	}
 
-	// Decrypt the secret
-	return a.DecryptSecret(encValue)
+	// Get from the cache
+	obj, found := a.certCache[certificateId]
+	if !found {
+		return nil, nil, nil
+	}
+
+	return obj.Key, obj.Certificate, nil
 }
 
-// GetCertificate returns a certificate pair (key and certificate) stored as secrets, PEM-encoded
-func (a *AgentState) GetCertificate(typ pb.State_Site_TLS_Type, nameOrDomains []string) (key []byte, cert []byte, err error) {
-	// Key of the secret
-	secretKey := a.CertificateSecretKey(typ, nameOrDomains)
-	if secretKey == "" {
-		return nil, nil, errors.New("invalid name or domains")
+// SetCertificate adds a certificate pair (key and certificate) to the cache
+func (a *AgentState) SetCertificate(certificateId string, key []byte, cert []byte) (err error) {
+	if certificateId == "" {
+		return errors.New("certificate ID is empty")
 	}
 
-	// Retrieve the secret
-	serialized, err := a.GetSecret(secretKey)
-	if err != nil || serialized == nil || len(serialized) < 8 {
-		return nil, nil, err
+	// If we're setting a new certificate
+	if len(key) > 0 && len(cert) > 0 {
+		a.certCache[certificateId] = certCacheItem{
+			Key:         key,
+			Certificate: cert,
+		}
+	} else {
+		// Delete the certificate
+		delete(a.certCache, certificateId)
 	}
 
-	// Un-serialize the secret
-	return a.UnserializeCertificate(serialized)
-}
-
-// ListImportedCertificates returns a list of the names of all imported certificates
-func (a *AgentState) ListImportedCertificates() (res []string) {
-	if a.state == nil {
-		return []string{}
-	}
-	return a.ListImportedCertificates_Internal(a.state.Secrets)
+	return nil
 }
 
 // GetSiteHealth returns the health of a site

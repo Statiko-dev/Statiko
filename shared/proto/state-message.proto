@@ -29,4 +29,7 @@ message StateMessage {
 
   // List of sites
   repeated Site sites = 2;
+
+  // DH parameters
+  DHParams dh_params = 5;
 }

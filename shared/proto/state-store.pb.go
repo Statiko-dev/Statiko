@@ -281,64 +281,6 @@ func (x *TLSCertificate) GetXExp() int64 {
 	return 0
 }
 
-// DH Parameters
-type DHParams struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// Generation date (UNIX timestamp)
-	Date int64 `protobuf:"varint,1,opt,name=date,proto3" json:"date,omitempty"`
-	// PEM-encoded value
-	Pem string `protobuf:"bytes,2,opt,name=pem,proto3" json:"pem,omitempty"`
-}
-
-func (x *DHParams) Reset() {
-	*x = DHParams{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_state_store_proto_msgTypes[2]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *DHParams) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DHParams) ProtoMessage() {}
-
-func (x *DHParams) ProtoReflect() protoreflect.Message {
-	mi := &file_state_store_proto_msgTypes[2]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DHParams.ProtoReflect.Descriptor instead.
-func (*DHParams) Descriptor() ([]byte, []int) {
-	return file_state_store_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *DHParams) GetDate() int64 {
-	if x != nil {
-		return x.Date
-	}
-	return 0
-}
-
-func (x *DHParams) GetPem() string {
-	if x != nil {
-		return x.Pem
-	}
-	return ""
-}
-
 var File_state_store_proto protoreflect.FileDescriptor
 
 var file_state_store_proto_rawDesc = []byte{
@@ -388,13 +330,10 @@ var file_state_store_proto_rawDesc = []byte{
 	0x52, 0x54, 0x45, 0x44, 0x10, 0x01, 0x12, 0x0f, 0x0a, 0x0b, 0x53, 0x45, 0x4c, 0x46, 0x5f, 0x53,
 	0x49, 0x47, 0x4e, 0x45, 0x44, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x41, 0x43, 0x4d, 0x45, 0x10,
 	0x10, 0x12, 0x13, 0x0a, 0x0f, 0x41, 0x5a, 0x55, 0x52, 0x45, 0x5f, 0x4b, 0x45, 0x59, 0x5f, 0x56,
-	0x41, 0x55, 0x4c, 0x54, 0x10, 0x11, 0x22, 0x30, 0x0a, 0x08, 0x44, 0x48, 0x50, 0x61, 0x72, 0x61,
-	0x6d, 0x73, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03,
-	0x52, 0x04, 0x64, 0x61, 0x74, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x70, 0x65, 0x6d, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x03, 0x70, 0x65, 0x6d, 0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68,
-	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2d, 0x64,
-	0x65, 0x76, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x65,
-	0x64, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x41, 0x55, 0x4c, 0x54, 0x10, 0x11, 0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
+	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2d, 0x64, 0x65, 0x76,
+	0x2f, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x65, 0x64, 0x2f,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -410,21 +349,21 @@ func file_state_store_proto_rawDescGZIP() []byte {
 }
 
 var file_state_store_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_state_store_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_state_store_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_state_store_proto_goTypes = []interface{}{
 	(TLSCertificate_Type)(0), // 0: statiko.TLSCertificate.Type
 	(*StateStore)(nil),       // 1: statiko.StateStore
 	(*TLSCertificate)(nil),   // 2: statiko.TLSCertificate
-	(*DHParams)(nil),         // 3: statiko.DHParams
-	nil,                      // 4: statiko.StateStore.CertificatesEntry
-	nil,                      // 5: statiko.StateStore.SecretsEntry
-	(*Site)(nil),             // 6: statiko.Site
+	nil,                      // 3: statiko.StateStore.CertificatesEntry
+	nil,                      // 4: statiko.StateStore.SecretsEntry
+	(*Site)(nil),             // 5: statiko.Site
+	(*DHParams)(nil),         // 6: statiko.DHParams
 }
 var file_state_store_proto_depIdxs = []int32{
-	6, // 0: statiko.StateStore.sites:type_name -> statiko.Site
-	4, // 1: statiko.StateStore.certificates:type_name -> statiko.StateStore.CertificatesEntry
-	5, // 2: statiko.StateStore.secrets:type_name -> statiko.StateStore.SecretsEntry
-	3, // 3: statiko.StateStore.dh_params:type_name -> statiko.DHParams
+	5, // 0: statiko.StateStore.sites:type_name -> statiko.Site
+	3, // 1: statiko.StateStore.certificates:type_name -> statiko.StateStore.CertificatesEntry
+	4, // 2: statiko.StateStore.secrets:type_name -> statiko.StateStore.SecretsEntry
+	6, // 3: statiko.StateStore.dh_params:type_name -> statiko.DHParams
 	0, // 4: statiko.TLSCertificate.type:type_name -> statiko.TLSCertificate.Type
 	2, // 5: statiko.StateStore.CertificatesEntry.value:type_name -> statiko.TLSCertificate
 	6, // [6:6] is the sub-list for method output_type
@@ -465,18 +404,6 @@ func file_state_store_proto_init() {
 				return nil
 			}
 		}
-		file_state_store_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DHParams); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -484,7 +411,7 @@ func file_state_store_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_state_store_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

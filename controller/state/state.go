@@ -17,12 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
-	"io"
 	"log"
 	"os"
 	"sync"
@@ -452,15 +447,8 @@ func (m *Manager) GetSecret(key string) ([]byte, error) {
 		return nil, nil
 	}
 
-	// Get the cipher
-	aesgcm, err := m.getSecretsCipher()
-	if err != nil {
-		return nil, err
-	}
-
 	// Decrypt the secret
-	// First 12 bytes of the value are the nonce
-	value, err := aesgcm.Open(nil, encValue[0:12], encValue[12:], nil)
+	value, err := decryptData(encValue)
 	if err != nil {
 		return nil, err
 	}
@@ -470,20 +458,11 @@ func (m *Manager) GetSecret(key string) ([]byte, error) {
 
 // SetSecret sets the value for a secret (encrypted in the state)
 func (m *Manager) SetSecret(key string, value []byte) error {
-	// Get the cipher
-	aesgcm, err := m.getSecretsCipher()
+	// Encrypt the secret
+	encValue, err := encryptData(value)
 	if err != nil {
 		return err
 	}
-
-	// Get a nonce
-	nonce := make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return err
-	}
-
-	// Encrypt the secret
-	encValue := aesgcm.Seal(nil, nonce, value, nil)
 
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
@@ -507,7 +486,7 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	if state.Secrets == nil {
 		state.Secrets = make(map[string][]byte)
 	}
-	state.Secrets[key] = append(nonce, encValue...)
+	state.Secrets[key] = encValue
 	state.Version++
 
 	m.setUpdated()
@@ -617,21 +596,11 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 
 	// If we have a certificate, encrypt the key then store both
 	if len(key) > 0 && len(cert) > 0 {
-		// Get the cipher
-		aesgcm, err := m.getSecretsCipher()
+		// Encrypt the key
+		obj.Key, err = encryptData(key)
 		if err != nil {
 			return err
 		}
-
-		// Get a nonce
-		// Note: we're using AES-GCM and re-using the same key. This is fine in this case because we won't encrypt million of files
-		nonce := make([]byte, 12)
-		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-			return err
-		}
-
-		// Encrypt the key
-		obj.Key = append(nonce, aesgcm.Seal(nil, nonce, key, nil)...)
 
 		// Store the certificate
 		obj.Certificate = cert
@@ -724,47 +693,6 @@ func (m *Manager) ListCertificates() map[string]*pb.TLSCertificate {
 	return state.Certificates
 }
 
-// Returns a cipher for AES-GCM-128 initialized
-func (m *Manager) getSecretsCipher() (cipher.AEAD, error) {
-	// Get the symmetric encryption key
-	encKey, err := m.getSecretsEncryptionKey()
-	if err != nil {
-		return nil, err
-	}
-
-	// Init the AES-GCM cipher
-	block, err := aes.NewCipher(encKey)
-	if err != nil {
-		return nil, err
-	}
-	aesgcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
-
-	return aesgcm, nil
-}
-
-// Returns the value of the secrets symmetric encryption key from the configuration file
-func (m *Manager) getSecretsEncryptionKey() ([]byte, error) {
-	// Get the key
-	encKeyB64 := appconfig.Config.GetString("secretsEncryptionKey")
-	if len(encKeyB64) != 24 {
-		return nil, errors.New("empty or invalid 'secretsEncryptionKey' value in configuration file")
-	}
-
-	// Decode base64
-	encKey, err := base64.StdEncoding.DecodeString(encKeyB64)
-	if err != nil {
-		return nil, err
-	}
-	if len(encKey) != 16 {
-		return nil, errors.New("invalid length of 'secretsEncryptionKey'")
-	}
-
-	return encKey, nil
-}
-
 // Decrypts the certificate data from the object
 func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert []byte, err error) {
 	// If there's no data, just return
@@ -772,15 +700,8 @@ func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert [
 		return nil, nil, nil
 	}
 
-	// Get the cipher
-	aesgcm, err := m.getSecretsCipher()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	// Decrypt the key
-	// First 12 bytes of the value are the nonce
-	key, err = aesgcm.Open(nil, obj.Key[0:12], obj.Key[12:], nil)
+	key, err = decryptData(obj.Key)
 	if err != nil {
 		return nil, nil, err
 	}
