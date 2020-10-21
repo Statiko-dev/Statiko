@@ -44,6 +44,7 @@ const ACMEMinDays = 21
 
 // GetACMECertificate returns a certificate issued by ACME (e.g. Let's Encrypt), with key and certificate PEM-encoded
 // If the ACME provider hasn't issued a certificate yet, this will return a self-signed TLS certificate, until the ACME one is available
+// TODO: REMOVE THIS
 func (c *Certificates) GetACMECertificate(site *pb.Site, certificateId string) (key []byte, cert []byte, err error) {
 	var certObj *pb.TLSCertificate
 

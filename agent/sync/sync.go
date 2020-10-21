@@ -23,7 +23,7 @@ import (
 
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/state"
-	"github.com/statiko-dev/statiko/webserver"
+	"github.com/statiko-dev/statiko/agent/webserver"
 	//"github.com/statiko-dev/statiko/notifications"
 )
 

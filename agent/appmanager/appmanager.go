@@ -86,7 +86,7 @@ func (m *Manager) Init() error {
 }
 
 // SyncState ensures that the state of the filesystem matches the desired one
-func (m *Manager) SyncState(sites []*pb.State_Site) (updated bool, restartServer bool, err error) {
+func (m *Manager) SyncState(sites []*pb.Site) (updated bool, restartServer bool, err error) {
 	updated = false
 
 	// To start, ensure the basic folders exist
@@ -126,7 +126,7 @@ func (m *Manager) SyncState(sites []*pb.State_Site) (updated bool, restartServer
 }
 
 // SyncSiteFolders ensures that we have the correct folders in the site directory, and TLS certificates are present
-func (m *Manager) SyncSiteFolders(sites []*pb.State_Site) (bool, error) {
+func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 	updated := false
 
 	var u bool
@@ -239,12 +239,12 @@ func (m *Manager) SyncSiteFolders(sites []*pb.State_Site) (bool, error) {
 }
 
 // SyncApps ensures that we have the correct apps
-func (m *Manager) SyncApps(sites []*pb.State_Site) error {
+func (m *Manager) SyncApps(sites []*pb.Site) error {
 	// Init/reset the manifest list
 	m.manifests = make(map[string]*utils.AppManifest)
 
 	// Channels used by the worker pool to fetch apps in parallel
-	jobs := make(chan *pb.State_Site, 4)
+	jobs := make(chan *pb.Site, 4)
 	res := make(chan int, len(sites))
 
 	// Spin up 3 backround workers
@@ -706,7 +706,7 @@ func (m *Manager) StageApp(bundle string) error {
 }
 
 // Background worker for the StageApp function
-func (m *Manager) workerStageApp(id int, jobs <-chan *pb.State_Site, res chan<- int) {
+func (m *Manager) workerStageApp(id int, jobs <-chan *pb.Site, res chan<- int) {
 	for j := range jobs {
 		m.log.Println("Worker", id, "started staging app "+j.App.Name)
 		err := m.StageApp(j.App.Name)

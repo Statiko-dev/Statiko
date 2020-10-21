@@ -29,6 +29,7 @@ import (
 	"text/template"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
 
@@ -66,7 +67,7 @@ func (n *NginxConfig) Init() error {
 }
 
 // DesiredConfiguration builds the list of files for the desired configuration for nginx
-func (n *NginxConfig) DesiredConfiguration(sites []state.SiteState) (config ConfigData, err error) {
+func (n *NginxConfig) DesiredConfiguration(sites []pb.Site) (config ConfigData, err error) {
 	config = make(ConfigData)
 
 	// Basic webserver configuration

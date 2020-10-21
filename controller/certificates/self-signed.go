@@ -29,6 +29,7 @@ const SelfSignedCertificateIssuer = "statiko self-signed"
 const SelfSignedMinDays = 14
 
 // GetSelfSignedCertificate returns a self-signed certificate, with key and certificate PEM-encoded
+// TODO: REMOVE THIS
 func (c *Certificates) GetSelfSignedCertificate(site *pb.Site, certificateId string) (key []byte, cert []byte, err error) {
 	var certObj *pb.TLSCertificate
 
