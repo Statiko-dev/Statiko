@@ -20,6 +20,7 @@ package statiko;
 
 option go_package = "github.com/statiko-dev/statiko/shared/proto";
 
+// Site definition
 message Site {
   // Domains: primary and aliases
   string domain = 1;
@@ -49,4 +50,14 @@ message DHParams {
   int64 date = 1;
   // PEM-encoded value
   string pem = 2;
+}
+
+// Agent options object
+message AgentOptions {
+  // ID of the generated TLS certificate
+  string generated_tls_id = 10;
+  // Enable using ACME for requesting certificates instead of self-signed ones
+  bool enable_acme = 11;
+  // ID of an imported TLS certificate to use (optional)
+  string imported_tls_id = 12;
 }

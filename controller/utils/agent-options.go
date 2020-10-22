@@ -14,25 +14,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-syntax = "proto3";
+package utils
 
-package statiko;
+import (
+	pb "github.com/statiko-dev/statiko/shared/proto"
+)
 
-option go_package = "github.com/statiko-dev/statiko/shared/proto";
-
-import "common.proto";
-
-// Message sent to nodes that contains the desired state
-message StateMessage {
-  // State version
-  uint64 version = 1;
-
-  // List of sites
-  repeated Site sites = 2;
-
-  // DH parameters
-  DHParams dh_params = 3;
-
-  // Agent options
-  AgentOptions agent_options = 4;
+// EnsureAgentOptions ensures that the AgentOptions object is set
+func EnsureAgentOptions(state *pb.StateStore) error {
+	return nil
 }

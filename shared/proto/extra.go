@@ -23,14 +23,21 @@ import (
 	"github.com/statiko-dev/statiko/utils"
 )
 
-// This file contains additional methods added to the protobuf object
+// This file contains additional methods added to the protobuf objects
 
 // StateMessage returns the StateMessage object from a given StateStore
-func (x *StateStore) StateMessage() *StateMessage {
+func (x *StateStore) StateMessage(nodeName string) *StateMessage {
+	// Get the agent options, if any
+	var agentOpts *AgentOptions
+	if nodeName != "" && len(x.Agents) > 0 {
+		agentOpts = x.Agents[nodeName]
+	}
+
 	return &StateMessage{
-		Version:  x.Version,
-		Sites:    x.Sites,
-		DhParams: x.DhParams,
+		Version:      x.Version,
+		Sites:        x.Sites,
+		DhParams:     x.DhParams,
+		AgentOptions: agentOpts,
 	}
 }
 
@@ -85,14 +92,6 @@ func (x *TLSCertificate) Validate() bool {
 	case TLSCertificate_IMPORTED, TLSCertificate_SELF_SIGNED, TLSCertificate_ACME:
 		// Must have the certificate data only
 		if len(x.Key) > 0 && len(x.Certificate) > 0 {
-			x.Name = ""
-			return true
-		}
-	case TLSCertificate_AZURE_KEY_VAULT:
-		// Must have certificate name only
-		if x.Name != "" {
-			x.Key = nil
-			x.Certificate = nil
 			return true
 		}
 	}

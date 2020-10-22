@@ -20,6 +20,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
@@ -43,23 +44,27 @@ func (c *Certificates) Init() error {
 
 // GetCertificate returns a certificate key and cert by ID
 func (c *Certificates) GetCertificate(certificateId string) (key []byte, cert []byte, err error) {
-	// Get the certificate
-	var certObj *pb.TLSCertificate
-	certObj, key, cert, err = c.State.GetCertificate(certificateId)
-	if err != nil {
-		return nil, nil, err
-	}
-	if certObj == nil {
-		return nil, nil, errors.New("certificate not found")
-	}
-
-	// For Azure Key Vault, we need to request the certificate
-	if certObj.Type == pb.TLSCertificate_AZURE_KEY_VAULT {
+	// Check if the certificate type
+	switch {
+	// Certificate from Azure Key Vault
+	case strings.HasPrefix(certificateId, "akv:"):
+		// Request the certificate
 		key, cert, err = c.GetAKVCertificate(certificateId)
 		if err != nil {
 			return nil, nil, err
 		}
 		if len(cert) == 0 || len(key) == 0 {
+			return nil, nil, errors.New("certificate not found")
+		}
+	// Imported certificate in the state store
+	default:
+		// Get the certificate
+		var certObj *pb.TLSCertificate
+		certObj, key, cert, err = c.State.GetCertificate(certificateId)
+		if err != nil {
+			return nil, nil, err
+		}
+		if certObj == nil {
 			return nil, nil, errors.New("certificate not found")
 		}
 	}

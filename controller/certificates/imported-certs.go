@@ -62,28 +62,14 @@ func (c *Certificates) GetImportedCertificate(site *pb.Site, certificateId strin
 
 // GetAKVCertificate returns a certificate from Azure Key Vault
 func (c *Certificates) GetAKVCertificate(certificateId string) (key []byte, cert []byte, err error) {
-	var (
-		certObj       *pb.TLSCertificate
-		name, version string
-	)
-
-	// Get the certificate object
-	certObj, err = c.State.GetCertificateInfo(certificateId)
-	if err != nil {
-		return nil, nil, err
-	}
-	if certObj == nil {
-		return nil, nil, errors.New("certificate not found")
-	}
-
-	// Check if we have a version in the name
-	pos := strings.Index(certObj.Name, "/")
-	if pos > -1 {
-		name = certObj.Name[0:pos]
-		version = certObj.Name[(pos + 1):]
+	// Get the name and version
+	pos := strings.Index(certificateId, "/")
+	var name, version string
+	if pos == -1 {
+		name = certificateId[4:]
 	} else {
-		name = certObj.Name
-		version = ""
+		name = certificateId[4:pos]
+		version = certificateId[(pos + 1):]
 	}
 
 	// Get the certificate and key

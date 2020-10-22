@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -101,20 +102,29 @@ func (c *RPCClient) Reconnect() error {
 
 // GetState requests the latest state from the cluster manager
 func (c *RPCClient) GetState() (*pb.StateMessage, error) {
+	nodeName := appconfig.Config.GetString("nodeName")
+	if nodeName == "" {
+		return nil, errors.New("nodeName must be set")
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
-	// The request object is empty
-	in := &pb.GetStateRequest{}
+	in := &pb.GetStateRequest{
+		NodeName: nodeName,
+	}
 	return c.client.GetState(ctx, in, grpc.WaitForReady(true))
 }
 
 // startStateWatcher starts the background stream to watch for state updates
 func (c *RPCClient) startStateWatcher() {
+	nodeName := appconfig.Config.GetString("nodeName")
+
 	// Make the request
-	// The request object is empty
-	in := &pb.WatchStateRequest{}
+	in := &pb.WatchStateRequest{
+		NodeName: nodeName,
+	}
 	stream, err := c.client.WatchState(context.Background(), in, grpc.WaitForReady(true))
 	if err != nil {
 		c.logger.Println("State watcher error while connecting to the gRPC server:", err)
@@ -144,6 +154,8 @@ func (c *RPCClient) startStateWatcher() {
 
 // startHealthChannel starts the background stream to register this node and respond to health requests
 func (c *RPCClient) startHealthChannel() {
+	nodeName := appconfig.Config.GetString("nodeName")
+
 	// Making the connection will register the node with the cluster manager
 	stream, err := c.client.HealthChannel(context.Background(), grpc.WaitForReady(true))
 	if err != nil {
@@ -170,7 +182,7 @@ func (c *RPCClient) startHealthChannel() {
 		// We received a ping, which means we need to respond with our health
 		// TODO THIS
 		msg := &pb.NodeHealth{
-			NodeName: appconfig.Config.GetString("nodeName"),
+			NodeName: nodeName,
 		}
 		err = stream.Send(msg)
 		if err != nil {

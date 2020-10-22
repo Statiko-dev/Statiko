@@ -38,6 +38,9 @@ message StateStore {
 
   // DH parameters
   DHParams dh_params = 5;
+
+  // Agent options
+  map<string,AgentOptions> agents = 6;
 }
 
 // Configuration for a TLS certificate
@@ -52,8 +55,6 @@ message TLSCertificate {
     SELF_SIGNED = 0x2;
     // ACME (Let's Encrypt)
     ACME = 0x10;
-    // Stored in Azure Key Vault
-    AZURE_KEY_VAULT = 0x11;
   }
   Type type = 1;
 
@@ -61,9 +62,6 @@ message TLSCertificate {
   bytes key = 5;
   // Certificate, PEM-encoded (used by certain types only)
   bytes certificate = 6;
-
-  // Certificate name (used by certain types only)
-  string name = 10;
 
   // Auto-generated information
   repeated string _domains = 2000;

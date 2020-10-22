@@ -28,11 +28,24 @@ import (
 
 // GetState is a simple RPC that returns the current state object
 func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.StateMessage, error) {
+	if req.NodeName == "" {
+		return nil, errors.New("Argument NodeName is empty")
+	}
+
+	// Get the state message
 	state, err := s.State.DumpState()
 	if err != nil {
 		return nil, err
 	}
-	return state.StateMessage(), nil
+	msg := state.StateMessage(req.NodeName)
+
+	// Check if the message's agent options is nil - if it is, need to generate a new object
+	if msg.AgentOptions == nil {
+		// TODO: GENERATE TLS CERT
+		msg.AgentOptions = &pb.AgentOptions{}
+	}
+
+	return msg, nil
 }
 
 // HealthChannel is a bi-directional stream that is used by the server to request the health of a node
@@ -132,7 +145,7 @@ func (s *RPCServer) WatchState(req *pb.WatchStateRequest, stream pb.Controller_W
 			if err != nil {
 				return err
 			}
-			stream.Send(state.StateMessage())
+			stream.Send(state.StateMessage(req.NodeName))
 		// The server is shutting down
 		case <-s.runningCtx.Done():
 			return nil

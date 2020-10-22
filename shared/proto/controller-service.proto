@@ -44,12 +44,14 @@ service Controller {
 message NodeHealthPing {}
 
 // Argument for the GetState RPC
-// This is currently an empty message
-message GetStateRequest {}
+message GetStateRequest {
+  string node_name = 1;
+}
 
 // Argument for the WatchState RPC
-// This is currently an empty message
-message WatchStateRequest {}
+message WatchStateRequest {
+  string node_name = 1;
+}
 
 // Message for requesting a TLS certificate
 message TLSCertificateRequest {

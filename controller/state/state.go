@@ -350,23 +350,21 @@ func (m *Manager) DeleteSite(domain string) error {
 			state.Sites[i] = state.Sites[len(state.Sites)-1]
 			state.Sites = state.Sites[:len(state.Sites)-1]
 
-			// Increase the version since we made a change
-			state.Version++
-
 			found = true
 			break
 		}
 	}
 
-	if !found {
-		return errors.New("site not found")
-	}
+	// If we made a change, save the state
+	if found {
+		// Increase the version and mark as updated
+		state.Version++
+		m.setUpdated()
 
-	m.setUpdated()
-
-	// Commit the state to the store
-	if err := m.store.WriteState(); err != nil {
-		return err
+		// Commit the state to the store
+		if err := m.store.WriteState(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -381,7 +379,7 @@ func (m *Manager) StoreHealth() (healthy bool, err error) {
 func (m *Manager) GetDHParams() (string, *time.Time) {
 	// Check if we DH parameters; if not, return the default ones
 	state := m.store.GetState()
-	if state != nil && (state.DhParams == nil || state.DhParams.Date == 0 || state.DhParams.Pem == "") {
+	if state == nil || state.DhParams == nil || state.DhParams.Date == 0 || state.DhParams.Pem == "" {
 		return defaults.DefaultDHParams, nil
 	}
 
@@ -523,13 +521,13 @@ func (m *Manager) DeleteSecret(key string) error {
 	if state.Secrets != nil {
 		state.Version++
 		delete(state.Secrets, key)
-	}
 
-	m.setUpdated()
+		m.setUpdated()
 
-	// Commit the state to the store
-	if err := m.store.WriteState(); err != nil {
-		return err
+		// Commit the state to the store
+		if err := m.store.WriteState(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -713,4 +711,110 @@ func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert [
 	cert = obj.Certificate
 
 	return key, cert, nil
+}
+
+// GetAgentOptions returns the options object for an agent given its name
+// Returns nil if not found
+func (m *Manager) GetAgentOptions(name string) *pb.AgentOptions {
+	if name == "" {
+		return nil
+	}
+
+	// Get the options for the agent
+	state := m.store.GetState()
+	if state == nil || len(state.Agents) == 0 {
+		return nil
+	}
+	opts, found := state.Agents[name]
+	if !found {
+		opts = nil
+	}
+	return opts
+}
+
+// SetAgentOptions stores new options for an agent
+func (m *Manager) SetAgentOptions(name string, val *pb.AgentOptions) error {
+	if name == "" {
+		return errors.New("parameter name is empty")
+	}
+	if val == nil {
+		return errors.New("parameter val is empty")
+	}
+
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
+	// Lock
+	leaseID, err := m.store.AcquireLock("state", true)
+	if err != nil {
+		return err
+	}
+	defer m.store.ReleaseLock(leaseID)
+
+	// Store the value and increase the version
+	state := m.store.GetState()
+	if state == nil {
+		return errors.New("state not loaded")
+	}
+	if state.Agents == nil {
+		state.Agents = make(map[string]*pb.AgentOptions)
+	}
+	state.Agents[name] = val
+	state.Version++
+
+	m.setUpdated()
+
+	// Commit the state to the store
+	if err := m.store.WriteState(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteAgentOptions deletes the options object for an agent
+func (m *Manager) DeleteAgentOptions(name string) error {
+	if name == "" {
+		return errors.New("parameter name is empty")
+	}
+
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
+	// Lock
+	leaseID, err := m.store.AcquireLock("state", true)
+	if err != nil {
+		return err
+	}
+	defer m.store.ReleaseLock(leaseID)
+
+	// Check if the object exists
+	state := m.store.GetState()
+	if state != nil && state.Agents != nil {
+		_, found := state.Agents[name]
+
+		// If the object exists, delete it then save
+		if found {
+			delete(state.Agents, name)
+
+			// Increase the version and save
+			state.Version++
+			m.setUpdated()
+
+			// Commit the state to the store
+			if err := m.store.WriteState(); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

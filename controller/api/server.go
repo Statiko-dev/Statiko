@@ -229,5 +229,7 @@ func (s *APIServer) setupRoutes() {
 
 		group.GET("/dhparams", s.DHParamsGetHandler)
 		group.POST("/dhparams", s.DHParamsSetHandler)
+
+		group.POST("/agentoptions/:name", s.AgentOptionsSetHandler)
 	}
 }
