@@ -72,7 +72,9 @@ func (c *Controller) Run() (err error) {
 	}
 
 	// Init the cluster object
-	c.cluster = &cluster.Cluster{}
+	c.cluster = &cluster.Cluster{
+		State: c.state,
+	}
 	err = c.cluster.Init()
 	if err != nil {
 		return err

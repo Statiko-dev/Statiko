@@ -26,11 +26,11 @@ import "tls-message.proto";
 
 // Service that manages the state for the cluster and performs all background tasks
 service Controller {
-  // Bi-directional stream that is used by the server to request the health of a node
-  rpc HealthChannel(stream NodeHealth) returns (stream NodeHealthPing);
-
-  // Notifies clients of state updates
-  rpc WatchState(WatchStateRequest) returns (stream StateMessage);
+  // Bi-directional stream that is used for:
+  // 1. Registering a node
+  // 2. Allowing the server to request the health of a node
+  // 3. Notify nodes of state updates
+  rpc Channel(stream ChannelClientStream) returns (stream ChannelServerStream);
 
   // Requests the desired state
   rpc GetState(GetStateRequest) returns (StateMessage);
@@ -39,17 +39,52 @@ service Controller {
   rpc GetTLSCertificate(TLSCertificateRequest) returns (TLSCertificateMessage);
 }
 
-// Message sent from the server when requesting the health of a node
-// This is currently an empty message
-message NodeHealthPing {}
+// Client stream for the Channel RPC
+message ChannelClientStream {
+  // Types of messages
+  enum MessageType {
+    // Null value (should not be used)
+    NULL = 0;
+    // Node registration
+    REGISTER_NODE = 10;
+    // Health message (response to health pings)
+    HEALTH_MESSAGE = 20;
+  }
+  // Message type
+  MessageType type = 1;
+
+  // Register node message type
+  message RegisterNode {
+    // Node name
+    string node_name = 1;
+  }
+  // Register node message, for messages of type REGISTER_NODE
+  RegisterNode registration = 10;
+
+  // Health message, for messages of type HEALTH_MESSAGE
+  NodeHealth health = 20;
+}
+
+// Server stream for the Channel RPC
+message ChannelServerStream {
+  // Types of messages
+  enum MessageType {
+    // Null value (should not be used)
+    NULL = 0;
+    // New state notification
+    STATE_MESSAGE = 10;
+    // Health ping (requests node health)
+    HEALTH_PING = 20;
+  }
+  // Message type
+  MessageType type = 1;
+
+  // New state object, for messages of type STATE_MESSAGE
+  StateMessage state = 10;
+}
 
 // Argument for the GetState RPC
 message GetStateRequest {
-  string node_name = 1;
-}
-
-// Argument for the WatchState RPC
-message WatchStateRequest {
   string node_name = 1;
 }
 

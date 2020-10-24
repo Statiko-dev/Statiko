@@ -17,12 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package cluster
 
 import (
+	"errors"
 	"log"
 	"os"
 	"sync"
 
-	"github.com/google/uuid"
-
+	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -38,6 +38,7 @@ type registeredNode struct {
 
 // Cluster contains information on the nodes in the cluster and methods to interact with their state
 type Cluster struct {
+	State       *state.Manager
 	logger      *log.Logger
 	semaphore   *sync.Mutex
 	nodes       map[string]*registeredNode
@@ -60,50 +61,56 @@ func (c *Cluster) Init() error {
 }
 
 // RegisterNode registers a new node, returning its id
-func (c *Cluster) RegisterNode() (string, chan chan *pb.NodeHealth, error) {
-	// Create a channel that will trigger a ping
-	ch := make(chan chan *pb.NodeHealth)
-
-	// Register the node
-	nodeIdUUID, err := uuid.NewRandom()
-	if err != nil {
-		close(ch)
-		return "", nil, err
+func (c *Cluster) RegisterNode(nodeName string, ch chan chan *pb.NodeHealth) error {
+	// TODO: GENERATE TLS CERTIFICATES FOR THE NODE (LOOK AT THE STATE)
+	// Get the options for this node to check if there's already a TLS certificate
+	opts := c.State.GetAgentOptions(nodeName)
+	if opts == nil {
+		opts = &pb.AgentOptions{}
 	}
-	nodeId := nodeIdUUID.String()
+	if opts.GeneratedTlsId == "" {
+		// If there's no self-signed (or ACME) TLS certificate, generate one
+		
+	}
 
 	// Acquire a lock
 	c.semaphore.Lock()
 	defer c.semaphore.Unlock()
 
+	// Check if a node with the same name is already registered
+	n, ok := c.nodes[nodeName]
+	if ok && n != nil {
+		return errors.New("a node is already registered with the same name")
+	}
+
 	// Add the node to the map
 	// Set version as 0 for now
-	c.nodes[nodeId] = &registeredNode{
+	c.nodes[nodeName] = &registeredNode{
 		HealthChan: ch,
 		Version:    0,
 	}
 	// Reset the clusterVer to 0 because at least one node has version 0
 	c.clusterVer = 0
 
-	c.logger.Println("Node registered:", nodeId)
+	c.logger.Println("Node registered:", nodeName)
 
-	return nodeId, ch, nil
+	return nil
 }
 
 // UnregisterNode un-registers a node
-func (c *Cluster) UnregisterNode(nodeId string) {
+func (c *Cluster) UnregisterNode(nodeName string) {
 	// Acquire a lock
 	c.semaphore.Lock()
 	defer c.semaphore.Unlock()
 
 	// Remove the node from the map
-	obj, ok := c.nodes[nodeId]
+	obj, ok := c.nodes[nodeName]
 	if ok && obj != nil {
 		// Close the channel
 		if obj.HealthChan != nil {
 			close(obj.HealthChan)
 		}
-		delete(c.nodes, nodeId)
-		c.logger.Println("Node un-registered:", nodeId)
+		delete(c.nodes, nodeName)
+		c.logger.Println("Node un-registered:", nodeName)
 	}
 }

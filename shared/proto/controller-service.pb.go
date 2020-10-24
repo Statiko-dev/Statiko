@@ -39,16 +39,128 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Message sent from the server when requesting the health of a node
-// This is currently an empty message
-type NodeHealthPing struct {
+// Types of messages
+type ChannelClientStream_MessageType int32
+
+const (
+	// Null value (should not be used)
+	ChannelClientStream_NULL ChannelClientStream_MessageType = 0
+	// Node registration
+	ChannelClientStream_REGISTER_NODE ChannelClientStream_MessageType = 10
+	// Health message (response to health pings)
+	ChannelClientStream_HEALTH_MESSAGE ChannelClientStream_MessageType = 20
+)
+
+// Enum value maps for ChannelClientStream_MessageType.
+var (
+	ChannelClientStream_MessageType_name = map[int32]string{
+		0:  "NULL",
+		10: "REGISTER_NODE",
+		20: "HEALTH_MESSAGE",
+	}
+	ChannelClientStream_MessageType_value = map[string]int32{
+		"NULL":           0,
+		"REGISTER_NODE":  10,
+		"HEALTH_MESSAGE": 20,
+	}
+)
+
+func (x ChannelClientStream_MessageType) Enum() *ChannelClientStream_MessageType {
+	p := new(ChannelClientStream_MessageType)
+	*p = x
+	return p
+}
+
+func (x ChannelClientStream_MessageType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChannelClientStream_MessageType) Descriptor() protoreflect.EnumDescriptor {
+	return file_controller_service_proto_enumTypes[0].Descriptor()
+}
+
+func (ChannelClientStream_MessageType) Type() protoreflect.EnumType {
+	return &file_controller_service_proto_enumTypes[0]
+}
+
+func (x ChannelClientStream_MessageType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChannelClientStream_MessageType.Descriptor instead.
+func (ChannelClientStream_MessageType) EnumDescriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{0, 0}
+}
+
+// Types of messages
+type ChannelServerStream_MessageType int32
+
+const (
+	// Null value (should not be used)
+	ChannelServerStream_NULL ChannelServerStream_MessageType = 0
+	// New state notification
+	ChannelServerStream_STATE_MESSAGE ChannelServerStream_MessageType = 10
+	// Health ping (requests node health)
+	ChannelServerStream_HEALTH_PING ChannelServerStream_MessageType = 20
+)
+
+// Enum value maps for ChannelServerStream_MessageType.
+var (
+	ChannelServerStream_MessageType_name = map[int32]string{
+		0:  "NULL",
+		10: "STATE_MESSAGE",
+		20: "HEALTH_PING",
+	}
+	ChannelServerStream_MessageType_value = map[string]int32{
+		"NULL":          0,
+		"STATE_MESSAGE": 10,
+		"HEALTH_PING":   20,
+	}
+)
+
+func (x ChannelServerStream_MessageType) Enum() *ChannelServerStream_MessageType {
+	p := new(ChannelServerStream_MessageType)
+	*p = x
+	return p
+}
+
+func (x ChannelServerStream_MessageType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ChannelServerStream_MessageType) Descriptor() protoreflect.EnumDescriptor {
+	return file_controller_service_proto_enumTypes[1].Descriptor()
+}
+
+func (ChannelServerStream_MessageType) Type() protoreflect.EnumType {
+	return &file_controller_service_proto_enumTypes[1]
+}
+
+func (x ChannelServerStream_MessageType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ChannelServerStream_MessageType.Descriptor instead.
+func (ChannelServerStream_MessageType) EnumDescriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{1, 0}
+}
+
+// Client stream for the Channel RPC
+type ChannelClientStream struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	// Message type
+	Type ChannelClientStream_MessageType `protobuf:"varint,1,opt,name=type,proto3,enum=statiko.ChannelClientStream_MessageType" json:"type,omitempty"`
+	// Register node message, for messages of type REGISTER_NODE
+	Registration *ChannelClientStream_RegisterNode `protobuf:"bytes,10,opt,name=registration,proto3" json:"registration,omitempty"`
+	// Health message, for messages of type HEALTH_MESSAGE
+	Health *NodeHealth `protobuf:"bytes,20,opt,name=health,proto3" json:"health,omitempty"`
 }
 
-func (x *NodeHealthPing) Reset() {
-	*x = NodeHealthPing{}
+func (x *ChannelClientStream) Reset() {
+	*x = ChannelClientStream{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_controller_service_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -56,13 +168,13 @@ func (x *NodeHealthPing) Reset() {
 	}
 }
 
-func (x *NodeHealthPing) String() string {
+func (x *ChannelClientStream) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NodeHealthPing) ProtoMessage() {}
+func (*ChannelClientStream) ProtoMessage() {}
 
-func (x *NodeHealthPing) ProtoReflect() protoreflect.Message {
+func (x *ChannelClientStream) ProtoReflect() protoreflect.Message {
 	mi := &file_controller_service_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -74,9 +186,88 @@ func (x *NodeHealthPing) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NodeHealthPing.ProtoReflect.Descriptor instead.
-func (*NodeHealthPing) Descriptor() ([]byte, []int) {
+// Deprecated: Use ChannelClientStream.ProtoReflect.Descriptor instead.
+func (*ChannelClientStream) Descriptor() ([]byte, []int) {
 	return file_controller_service_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ChannelClientStream) GetType() ChannelClientStream_MessageType {
+	if x != nil {
+		return x.Type
+	}
+	return ChannelClientStream_NULL
+}
+
+func (x *ChannelClientStream) GetRegistration() *ChannelClientStream_RegisterNode {
+	if x != nil {
+		return x.Registration
+	}
+	return nil
+}
+
+func (x *ChannelClientStream) GetHealth() *NodeHealth {
+	if x != nil {
+		return x.Health
+	}
+	return nil
+}
+
+// Server stream for the Channel RPC
+type ChannelServerStream struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Message type
+	Type ChannelServerStream_MessageType `protobuf:"varint,1,opt,name=type,proto3,enum=statiko.ChannelServerStream_MessageType" json:"type,omitempty"`
+	// New state object, for messages of type STATE_MESSAGE
+	State *StateMessage `protobuf:"bytes,10,opt,name=state,proto3" json:"state,omitempty"`
+}
+
+func (x *ChannelServerStream) Reset() {
+	*x = ChannelServerStream{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_controller_service_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ChannelServerStream) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChannelServerStream) ProtoMessage() {}
+
+func (x *ChannelServerStream) ProtoReflect() protoreflect.Message {
+	mi := &file_controller_service_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChannelServerStream.ProtoReflect.Descriptor instead.
+func (*ChannelServerStream) Descriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ChannelServerStream) GetType() ChannelServerStream_MessageType {
+	if x != nil {
+		return x.Type
+	}
+	return ChannelServerStream_NULL
+}
+
+func (x *ChannelServerStream) GetState() *StateMessage {
+	if x != nil {
+		return x.State
+	}
+	return nil
 }
 
 // Argument for the GetState RPC
@@ -91,7 +282,7 @@ type GetStateRequest struct {
 func (x *GetStateRequest) Reset() {
 	*x = GetStateRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_controller_service_proto_msgTypes[1]
+		mi := &file_controller_service_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -104,7 +295,7 @@ func (x *GetStateRequest) String() string {
 func (*GetStateRequest) ProtoMessage() {}
 
 func (x *GetStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_controller_service_proto_msgTypes[1]
+	mi := &file_controller_service_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -117,58 +308,10 @@ func (x *GetStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStateRequest.ProtoReflect.Descriptor instead.
 func (*GetStateRequest) Descriptor() ([]byte, []int) {
-	return file_controller_service_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *GetStateRequest) GetNodeName() string {
-	if x != nil {
-		return x.NodeName
-	}
-	return ""
-}
-
-// Argument for the WatchState RPC
-type WatchStateRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	NodeName string `protobuf:"bytes,1,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
-}
-
-func (x *WatchStateRequest) Reset() {
-	*x = WatchStateRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_controller_service_proto_msgTypes[2]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *WatchStateRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WatchStateRequest) ProtoMessage() {}
-
-func (x *WatchStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_controller_service_proto_msgTypes[2]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WatchStateRequest.ProtoReflect.Descriptor instead.
-func (*WatchStateRequest) Descriptor() ([]byte, []int) {
 	return file_controller_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *WatchStateRequest) GetNodeName() string {
+func (x *GetStateRequest) GetNodeName() string {
 	if x != nil {
 		return x.NodeName
 	}
@@ -224,6 +367,55 @@ func (x *TLSCertificateRequest) GetCertificateId() string {
 	return ""
 }
 
+// Register node message type
+type ChannelClientStream_RegisterNode struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Node name
+	NodeName string `protobuf:"bytes,1,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
+}
+
+func (x *ChannelClientStream_RegisterNode) Reset() {
+	*x = ChannelClientStream_RegisterNode{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_controller_service_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ChannelClientStream_RegisterNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChannelClientStream_RegisterNode) ProtoMessage() {}
+
+func (x *ChannelClientStream_RegisterNode) ProtoReflect() protoreflect.Message {
+	mi := &file_controller_service_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChannelClientStream_RegisterNode.ProtoReflect.Descriptor instead.
+func (*ChannelClientStream_RegisterNode) Descriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{0, 0}
+}
+
+func (x *ChannelClientStream_RegisterNode) GetNodeName() string {
+	if x != nil {
+		return x.NodeName
+	}
+	return ""
+}
+
 var File_controller_service_proto protoreflect.FileDescriptor
 
 var file_controller_service_proto_rawDesc = []byte{
@@ -232,28 +424,52 @@ var file_controller_service_proto_rawDesc = []byte{
 	0x69, 0x6b, 0x6f, 0x1a, 0x11, 0x6e, 0x6f, 0x64, 0x65, 0x2d, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68,
 	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x13, 0x73, 0x74, 0x61, 0x74, 0x65, 0x2d, 0x6d, 0x65,
 	0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x11, 0x74, 0x6c, 0x73,
-	0x2d, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x10,
-	0x0a, 0x0e, 0x4e, 0x6f, 0x64, 0x65, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x50, 0x69, 0x6e, 0x67,
-	0x22, 0x2e, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x6e, 0x6f, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65,
-	0x22, 0x30, 0x0a, 0x11, 0x57, 0x61, 0x74, 0x63, 0x68, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e, 0x61,
-	0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x6e, 0x6f, 0x64, 0x65, 0x4e, 0x61,
-	0x6d, 0x65, 0x22, 0x3e, 0x0a, 0x15, 0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69,
-	0x63, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x25, 0x0a, 0x0e, 0x63,
-	0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x0d, 0x63, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65,
-	0x49, 0x64, 0x32, 0xa4, 0x02, 0x0a, 0x0a, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x6c, 0x65,
-	0x72, 0x12, 0x41, 0x0a, 0x0d, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x43, 0x68, 0x61, 0x6e, 0x6e,
-	0x65, 0x6c, 0x12, 0x13, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x4e, 0x6f, 0x64,
-	0x65, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x1a, 0x17, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b,
-	0x6f, 0x2e, 0x4e, 0x6f, 0x64, 0x65, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x50, 0x69, 0x6e, 0x67,
-	0x28, 0x01, 0x30, 0x01, 0x12, 0x41, 0x0a, 0x0a, 0x57, 0x61, 0x74, 0x63, 0x68, 0x53, 0x74, 0x61,
-	0x74, 0x65, 0x12, 0x1a, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x57, 0x61, 0x74,
-	0x63, 0x68, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15,
-	0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x4d, 0x65,
-	0x73, 0x73, 0x61, 0x67, 0x65, 0x30, 0x01, 0x12, 0x3b, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x53, 0x74,
+	0x2d, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xbc,
+	0x02, 0x0a, 0x13, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74,
+	0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x12, 0x3c, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0e, 0x32, 0x28, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43,
+	0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x53, 0x74, 0x72, 0x65,
+	0x61, 0x6d, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04,
+	0x74, 0x79, 0x70, 0x65, 0x12, 0x4d, 0x0a, 0x0c, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61,
+	0x74, 0x69, 0x6f, 0x6e, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x29, 0x2e, 0x73, 0x74, 0x61,
+	0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x43, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x2e, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65,
+	0x72, 0x4e, 0x6f, 0x64, 0x65, 0x52, 0x0c, 0x72, 0x65, 0x67, 0x69, 0x73, 0x74, 0x72, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x12, 0x2b, 0x0a, 0x06, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x18, 0x14, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x4e, 0x6f,
+	0x64, 0x65, 0x48, 0x65, 0x61, 0x6c, 0x74, 0x68, 0x52, 0x06, 0x68, 0x65, 0x61, 0x6c, 0x74, 0x68,
+	0x1a, 0x2b, 0x0a, 0x0c, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x4e, 0x6f, 0x64, 0x65,
+	0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x08, 0x6e, 0x6f, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x3e, 0x0a,
+	0x0b, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x08, 0x0a, 0x04,
+	0x4e, 0x55, 0x4c, 0x4c, 0x10, 0x00, 0x12, 0x11, 0x0a, 0x0d, 0x52, 0x45, 0x47, 0x49, 0x53, 0x54,
+	0x45, 0x52, 0x5f, 0x4e, 0x4f, 0x44, 0x45, 0x10, 0x0a, 0x12, 0x12, 0x0a, 0x0e, 0x48, 0x45, 0x41,
+	0x4c, 0x54, 0x48, 0x5f, 0x4d, 0x45, 0x53, 0x53, 0x41, 0x47, 0x45, 0x10, 0x14, 0x22, 0xbd, 0x01,
+	0x0a, 0x13, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53,
+	0x74, 0x72, 0x65, 0x61, 0x6d, 0x12, 0x3c, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0e, 0x32, 0x28, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x68,
+	0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x72, 0x65, 0x61,
+	0x6d, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x74,
+	0x79, 0x70, 0x65, 0x12, 0x2b, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x0a, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x15, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x53, 0x74, 0x61,
+	0x74, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65,
+	0x22, 0x3b, 0x0a, 0x0b, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12,
+	0x08, 0x0a, 0x04, 0x4e, 0x55, 0x4c, 0x4c, 0x10, 0x00, 0x12, 0x11, 0x0a, 0x0d, 0x53, 0x54, 0x41,
+	0x54, 0x45, 0x5f, 0x4d, 0x45, 0x53, 0x53, 0x41, 0x47, 0x45, 0x10, 0x0a, 0x12, 0x0f, 0x0a, 0x0b,
+	0x48, 0x45, 0x41, 0x4c, 0x54, 0x48, 0x5f, 0x50, 0x49, 0x4e, 0x47, 0x10, 0x14, 0x22, 0x2e, 0x0a,
+	0x0f, 0x47, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x08, 0x6e, 0x6f, 0x64, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x3e, 0x0a,
+	0x15, 0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x25, 0x0a, 0x0e, 0x63, 0x65, 0x72, 0x74, 0x69, 0x66,
+	0x69, 0x63, 0x61, 0x74, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d,
+	0x63, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x49, 0x64, 0x32, 0xe9, 0x01,
+	0x0a, 0x0a, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x6c, 0x65, 0x72, 0x12, 0x49, 0x0a, 0x07,
+	0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x12, 0x1c, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b,
+	0x6f, 0x2e, 0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x53,
+	0x74, 0x72, 0x65, 0x61, 0x6d, 0x1a, 0x1c, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e,
+	0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x72,
+	0x65, 0x61, 0x6d, 0x28, 0x01, 0x30, 0x01, 0x12, 0x3b, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x53, 0x74,
 	0x61, 0x74, 0x65, 0x12, 0x18, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x47, 0x65,
 	0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e,
 	0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x4d, 0x65, 0x73,
@@ -280,30 +496,37 @@ func file_controller_service_proto_rawDescGZIP() []byte {
 	return file_controller_service_proto_rawDescData
 }
 
-var file_controller_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_controller_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_controller_service_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_controller_service_proto_goTypes = []interface{}{
-	(*NodeHealthPing)(nil),        // 0: statiko.NodeHealthPing
-	(*GetStateRequest)(nil),       // 1: statiko.GetStateRequest
-	(*WatchStateRequest)(nil),     // 2: statiko.WatchStateRequest
-	(*TLSCertificateRequest)(nil), // 3: statiko.TLSCertificateRequest
-	(*NodeHealth)(nil),            // 4: statiko.NodeHealth
-	(*StateMessage)(nil),          // 5: statiko.StateMessage
-	(*TLSCertificateMessage)(nil), // 6: statiko.TLSCertificateMessage
+	(ChannelClientStream_MessageType)(0),     // 0: statiko.ChannelClientStream.MessageType
+	(ChannelServerStream_MessageType)(0),     // 1: statiko.ChannelServerStream.MessageType
+	(*ChannelClientStream)(nil),              // 2: statiko.ChannelClientStream
+	(*ChannelServerStream)(nil),              // 3: statiko.ChannelServerStream
+	(*GetStateRequest)(nil),                  // 4: statiko.GetStateRequest
+	(*TLSCertificateRequest)(nil),            // 5: statiko.TLSCertificateRequest
+	(*ChannelClientStream_RegisterNode)(nil), // 6: statiko.ChannelClientStream.RegisterNode
+	(*NodeHealth)(nil),                       // 7: statiko.NodeHealth
+	(*StateMessage)(nil),                     // 8: statiko.StateMessage
+	(*TLSCertificateMessage)(nil),            // 9: statiko.TLSCertificateMessage
 }
 var file_controller_service_proto_depIdxs = []int32{
-	4, // 0: statiko.Controller.HealthChannel:input_type -> statiko.NodeHealth
-	2, // 1: statiko.Controller.WatchState:input_type -> statiko.WatchStateRequest
-	1, // 2: statiko.Controller.GetState:input_type -> statiko.GetStateRequest
-	3, // 3: statiko.Controller.GetTLSCertificate:input_type -> statiko.TLSCertificateRequest
-	0, // 4: statiko.Controller.HealthChannel:output_type -> statiko.NodeHealthPing
-	5, // 5: statiko.Controller.WatchState:output_type -> statiko.StateMessage
-	5, // 6: statiko.Controller.GetState:output_type -> statiko.StateMessage
-	6, // 7: statiko.Controller.GetTLSCertificate:output_type -> statiko.TLSCertificateMessage
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: statiko.ChannelClientStream.type:type_name -> statiko.ChannelClientStream.MessageType
+	6, // 1: statiko.ChannelClientStream.registration:type_name -> statiko.ChannelClientStream.RegisterNode
+	7, // 2: statiko.ChannelClientStream.health:type_name -> statiko.NodeHealth
+	1, // 3: statiko.ChannelServerStream.type:type_name -> statiko.ChannelServerStream.MessageType
+	8, // 4: statiko.ChannelServerStream.state:type_name -> statiko.StateMessage
+	2, // 5: statiko.Controller.Channel:input_type -> statiko.ChannelClientStream
+	4, // 6: statiko.Controller.GetState:input_type -> statiko.GetStateRequest
+	5, // 7: statiko.Controller.GetTLSCertificate:input_type -> statiko.TLSCertificateRequest
+	3, // 8: statiko.Controller.Channel:output_type -> statiko.ChannelServerStream
+	8, // 9: statiko.Controller.GetState:output_type -> statiko.StateMessage
+	9, // 10: statiko.Controller.GetTLSCertificate:output_type -> statiko.TLSCertificateMessage
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_controller_service_proto_init() }
@@ -316,7 +539,7 @@ func file_controller_service_proto_init() {
 	file_tls_message_proto_init()
 	if !protoimpl.UnsafeEnabled {
 		file_controller_service_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*NodeHealthPing); i {
+			switch v := v.(*ChannelClientStream); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -328,7 +551,7 @@ func file_controller_service_proto_init() {
 			}
 		}
 		file_controller_service_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetStateRequest); i {
+			switch v := v.(*ChannelServerStream); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -340,7 +563,7 @@ func file_controller_service_proto_init() {
 			}
 		}
 		file_controller_service_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WatchStateRequest); i {
+			switch v := v.(*GetStateRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -363,19 +586,32 @@ func file_controller_service_proto_init() {
 				return nil
 			}
 		}
+		file_controller_service_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ChannelClientStream_RegisterNode); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_controller_service_proto_rawDesc,
-			NumEnums:      0,
-			NumMessages:   4,
+			NumEnums:      2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_controller_service_proto_goTypes,
 		DependencyIndexes: file_controller_service_proto_depIdxs,
+		EnumInfos:         file_controller_service_proto_enumTypes,
 		MessageInfos:      file_controller_service_proto_msgTypes,
 	}.Build()
 	File_controller_service_proto = out.File
@@ -396,10 +632,11 @@ const _ = grpc.SupportPackageIsVersion6
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ControllerClient interface {
-	// Bi-directional stream that is used by the server to request the health of a node
-	HealthChannel(ctx context.Context, opts ...grpc.CallOption) (Controller_HealthChannelClient, error)
-	// Notifies clients of state updates
-	WatchState(ctx context.Context, in *WatchStateRequest, opts ...grpc.CallOption) (Controller_WatchStateClient, error)
+	// Bi-directional stream that is used for:
+	// 1. Registering a node
+	// 2. Allowing the server to request the health of a node
+	// 3. Notify nodes of state updates
+	Channel(ctx context.Context, opts ...grpc.CallOption) (Controller_ChannelClient, error)
 	// Requests the desired state
 	GetState(ctx context.Context, in *GetStateRequest, opts ...grpc.CallOption) (*StateMessage, error)
 	// Requests a TLS certificate
@@ -414,63 +651,31 @@ func NewControllerClient(cc grpc.ClientConnInterface) ControllerClient {
 	return &controllerClient{cc}
 }
 
-func (c *controllerClient) HealthChannel(ctx context.Context, opts ...grpc.CallOption) (Controller_HealthChannelClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Controller_serviceDesc.Streams[0], "/statiko.Controller/HealthChannel", opts...)
+func (c *controllerClient) Channel(ctx context.Context, opts ...grpc.CallOption) (Controller_ChannelClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Controller_serviceDesc.Streams[0], "/statiko.Controller/Channel", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &controllerHealthChannelClient{stream}
+	x := &controllerChannelClient{stream}
 	return x, nil
 }
 
-type Controller_HealthChannelClient interface {
-	Send(*NodeHealth) error
-	Recv() (*NodeHealthPing, error)
+type Controller_ChannelClient interface {
+	Send(*ChannelClientStream) error
+	Recv() (*ChannelServerStream, error)
 	grpc.ClientStream
 }
 
-type controllerHealthChannelClient struct {
+type controllerChannelClient struct {
 	grpc.ClientStream
 }
 
-func (x *controllerHealthChannelClient) Send(m *NodeHealth) error {
+func (x *controllerChannelClient) Send(m *ChannelClientStream) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *controllerHealthChannelClient) Recv() (*NodeHealthPing, error) {
-	m := new(NodeHealthPing)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *controllerClient) WatchState(ctx context.Context, in *WatchStateRequest, opts ...grpc.CallOption) (Controller_WatchStateClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Controller_serviceDesc.Streams[1], "/statiko.Controller/WatchState", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &controllerWatchStateClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Controller_WatchStateClient interface {
-	Recv() (*StateMessage, error)
-	grpc.ClientStream
-}
-
-type controllerWatchStateClient struct {
-	grpc.ClientStream
-}
-
-func (x *controllerWatchStateClient) Recv() (*StateMessage, error) {
-	m := new(StateMessage)
+func (x *controllerChannelClient) Recv() (*ChannelServerStream, error) {
+	m := new(ChannelServerStream)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -497,10 +702,11 @@ func (c *controllerClient) GetTLSCertificate(ctx context.Context, in *TLSCertifi
 
 // ControllerServer is the server API for Controller service.
 type ControllerServer interface {
-	// Bi-directional stream that is used by the server to request the health of a node
-	HealthChannel(Controller_HealthChannelServer) error
-	// Notifies clients of state updates
-	WatchState(*WatchStateRequest, Controller_WatchStateServer) error
+	// Bi-directional stream that is used for:
+	// 1. Registering a node
+	// 2. Allowing the server to request the health of a node
+	// 3. Notify nodes of state updates
+	Channel(Controller_ChannelServer) error
 	// Requests the desired state
 	GetState(context.Context, *GetStateRequest) (*StateMessage, error)
 	// Requests a TLS certificate
@@ -511,11 +717,8 @@ type ControllerServer interface {
 type UnimplementedControllerServer struct {
 }
 
-func (*UnimplementedControllerServer) HealthChannel(Controller_HealthChannelServer) error {
-	return status.Errorf(codes.Unimplemented, "method HealthChannel not implemented")
-}
-func (*UnimplementedControllerServer) WatchState(*WatchStateRequest, Controller_WatchStateServer) error {
-	return status.Errorf(codes.Unimplemented, "method WatchState not implemented")
+func (*UnimplementedControllerServer) Channel(Controller_ChannelServer) error {
+	return status.Errorf(codes.Unimplemented, "method Channel not implemented")
 }
 func (*UnimplementedControllerServer) GetState(context.Context, *GetStateRequest) (*StateMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
@@ -528,51 +731,30 @@ func RegisterControllerServer(s *grpc.Server, srv ControllerServer) {
 	s.RegisterService(&_Controller_serviceDesc, srv)
 }
 
-func _Controller_HealthChannel_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ControllerServer).HealthChannel(&controllerHealthChannelServer{stream})
+func _Controller_Channel_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControllerServer).Channel(&controllerChannelServer{stream})
 }
 
-type Controller_HealthChannelServer interface {
-	Send(*NodeHealthPing) error
-	Recv() (*NodeHealth, error)
+type Controller_ChannelServer interface {
+	Send(*ChannelServerStream) error
+	Recv() (*ChannelClientStream, error)
 	grpc.ServerStream
 }
 
-type controllerHealthChannelServer struct {
+type controllerChannelServer struct {
 	grpc.ServerStream
 }
 
-func (x *controllerHealthChannelServer) Send(m *NodeHealthPing) error {
+func (x *controllerChannelServer) Send(m *ChannelServerStream) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *controllerHealthChannelServer) Recv() (*NodeHealth, error) {
-	m := new(NodeHealth)
+func (x *controllerChannelServer) Recv() (*ChannelClientStream, error) {
+	m := new(ChannelClientStream)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
-}
-
-func _Controller_WatchState_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(WatchStateRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ControllerServer).WatchState(m, &controllerWatchStateServer{stream})
-}
-
-type Controller_WatchStateServer interface {
-	Send(*StateMessage) error
-	grpc.ServerStream
-}
-
-type controllerWatchStateServer struct {
-	grpc.ServerStream
-}
-
-func (x *controllerWatchStateServer) Send(m *StateMessage) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _Controller_GetState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -626,15 +808,10 @@ var _Controller_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "HealthChannel",
-			Handler:       _Controller_HealthChannel_Handler,
+			StreamName:    "Channel",
+			Handler:       _Controller_Channel_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
-		},
-		{
-			StreamName:    "WatchState",
-			Handler:       _Controller_WatchState_Handler,
-			ServerStreams: true,
 		},
 	},
 	Metadata: "controller-service.proto",

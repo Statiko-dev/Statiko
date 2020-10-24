@@ -42,8 +42,8 @@ func (c *Cluster) RequestClusterHealth() ClusterHealthResponse {
 
 	// Send a message to every channel in the map
 	nodes := []string{}
-	for nodeId, value := range c.nodes {
-		nodes = append(nodes, nodeId)
+	for nodeName, value := range c.nodes {
+		nodes = append(nodes, nodeName)
 
 		// Send the ping with the response channel
 		value.HealthChan <- responseCh
@@ -76,10 +76,10 @@ func (c *Cluster) RequestClusterHealth() ClusterHealthResponse {
 		// Get a slice of al the keys in the result
 		resultKeys := make([]string, len(nodes)-i)
 		diff := utils.StringSliceDiff(nodes, resultKeys)
-		for _, nodeId := range diff {
+		for _, nodeName := range diff {
 			result[i] = &pb.NodeHealth{
-				XNodeId: nodeId,
-				XError:  ctx.Err().Error(),
+				NodeName: nodeName,
+				XError:   ctx.Err().Error(),
 			}
 			i++
 		}
@@ -89,13 +89,13 @@ func (c *Cluster) RequestClusterHealth() ClusterHealthResponse {
 }
 
 // ReceivedVersion is called when a node reports a new version of their state
-func (c *Cluster) ReceivedVersion(nodeId string, ver uint64) {
+func (c *Cluster) ReceivedVersion(nodeName string, ver uint64) {
 	// Acquire a lock
 	c.semaphore.Lock()
 	defer c.semaphore.Unlock()
 
 	// Check if the object exists, then update the version for that node
-	obj, ok := c.nodes[nodeId]
+	obj, ok := c.nodes[nodeName]
 	if !ok || obj == nil {
 		return
 	}
