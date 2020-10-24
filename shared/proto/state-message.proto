@@ -32,7 +32,4 @@ message StateMessage {
 
   // DH parameters
   DHParams dh_params = 3;
-
-  // Agent options
-  AgentOptions agent_options = 4;
 }

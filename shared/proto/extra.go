@@ -26,18 +26,11 @@ import (
 // This file contains additional methods added to the protobuf objects
 
 // StateMessage returns the StateMessage object from a given StateStore
-func (x *StateStore) StateMessage(nodeName string) *StateMessage {
-	// Get the agent options, if any
-	var agentOpts *AgentOptions
-	if nodeName != "" && len(x.Agents) > 0 {
-		agentOpts = x.Agents[nodeName]
-	}
-
+func (x *StateStore) StateMessage() *StateMessage {
 	return &StateMessage{
-		Version:      x.Version,
-		Sites:        x.Sites,
-		DhParams:     x.DhParams,
-		AgentOptions: agentOpts,
+		Version:  x.Version,
+		Sites:    x.Sites,
+		DhParams: x.DhParams,
 	}
 }
 

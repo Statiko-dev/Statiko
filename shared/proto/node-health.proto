@@ -60,5 +60,5 @@ message NodeHealth {
   repeated Site sites = 10;
 
   // Internal use only - do not use
-  string _error = 2001;
+  string _error = 2000;
 }

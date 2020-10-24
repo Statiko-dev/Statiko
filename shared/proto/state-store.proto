@@ -38,9 +38,6 @@ message StateStore {
 
   // DH parameters
   DHParams dh_params = 5;
-
-  // Agent options
-  map<string,AgentOptions> agents = 6;
 }
 
 // Configuration for a TLS certificate

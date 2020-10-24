@@ -28,16 +28,12 @@ import (
 
 // GetState is a simple RPC that returns the current state object
 func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.StateMessage, error) {
-	if req.NodeName == "" {
-		return nil, errors.New("Argument NodeName is empty")
-	}
-
 	// Get the state message
 	state, err := s.State.DumpState()
 	if err != nil {
 		return nil, err
 	}
-	return state.StateMessage(req.NodeName), nil
+	return state.StateMessage(), nil
 }
 
 // Channel is a bi-directional stream that is used for:
@@ -182,7 +178,7 @@ func (s *RPCServer) Channel(stream pb.Controller_ChannelServer) error {
 			}
 			stream.Send(&pb.ChannelServerStream{
 				Type:  pb.ChannelServerStream_STATE_MESSAGE,
-				State: state.StateMessage(nodeName),
+				State: state.StateMessage(),
 			})
 		}
 	}

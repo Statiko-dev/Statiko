@@ -62,17 +62,6 @@ func (c *Cluster) Init() error {
 
 // RegisterNode registers a new node, returning its id
 func (c *Cluster) RegisterNode(nodeName string, ch chan chan *pb.NodeHealth) error {
-	// TODO: GENERATE TLS CERTIFICATES FOR THE NODE (LOOK AT THE STATE)
-	// Get the options for this node to check if there's already a TLS certificate
-	opts := c.State.GetAgentOptions(nodeName)
-	if opts == nil {
-		opts = &pb.AgentOptions{}
-	}
-	if opts.GeneratedTlsId == "" {
-		// If there's no self-signed (or ACME) TLS certificate, generate one
-		
-	}
-
 	// Acquire a lock
 	c.semaphore.Lock()
 	defer c.semaphore.Unlock()

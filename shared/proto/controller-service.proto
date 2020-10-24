@@ -84,9 +84,8 @@ message ChannelServerStream {
 }
 
 // Argument for the GetState RPC
-message GetStateRequest {
-  string node_name = 1;
-}
+// This is currently an empty message
+message GetStateRequest {}
 
 // Message for requesting a TLS certificate
 message TLSCertificateRequest {
