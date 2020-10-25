@@ -71,6 +71,10 @@ message ChannelServerStream {
   enum MessageType {
     // Null value (should not be used)
     NULL = 0;
+    // OK message (acknowledgement)
+    OK = 1;
+    // Error message
+    ERROR = 2;
     // New state notification
     STATE_MESSAGE = 10;
     // Health ping (requests node health)
@@ -78,6 +82,9 @@ message ChannelServerStream {
   }
   // Message type
   MessageType type = 1;
+
+  // Error message, for messages of type ERROR
+  string error = 2;
 
   // New state object, for messages of type STATE_MESSAGE
   StateMessage state = 10;

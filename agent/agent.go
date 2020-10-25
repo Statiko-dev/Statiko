@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -45,6 +46,11 @@ type Agent struct {
 
 // Run the agent app
 func (a *Agent) Run() (err error) {
+	// Ensure that the node name is set
+	if appconfig.Config.GetString("nodeName") == "" {
+		return errors.New("nodeName must be set in the configuration")
+	}
+
 	// Init the store
 	fsType := appconfig.Config.GetString("repo.type")
 	a.store, err = fs.Get(fsType)

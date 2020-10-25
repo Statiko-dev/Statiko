@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -41,6 +40,20 @@ func (s *RPCServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.
 // 2. Allowing the server to request the health of a node
 // 3. Notify nodes of state updates
 func (s *RPCServer) Channel(stream pb.Controller_ChannelServer) error {
+	s.logger.Println("Client connected")
+	defer s.logger.Println("Client disconnected")
+
+	// Channel used for responding to health pings
+	ch := make(chan chan *pb.NodeHealth)
+
+	// Wait for the node to register itself
+	nodeName, err := s.channelRegisterNode(stream, ch)
+	if err != nil {
+		return err
+	}
+	// Unregister the node when the channel ends
+	defer s.Cluster.UnregisterNode(nodeName)
+
 	// Subscribe to the state
 	stateCh := make(chan int)
 	s.State.Subscribe(stateCh)
@@ -49,70 +62,44 @@ func (s *RPCServer) Channel(stream pb.Controller_ChannelServer) error {
 		close(stateCh)
 	}()
 
-	// Node name for nodes that are registered
-	// Also used as a flag to ensure that this node is registered
-	var nodeName string
-
-	// Channel used for responding to health pings
-	ch := make(chan chan *pb.NodeHealth)
-
-	// Collect the responses
+	// Collect the responses when requesting nodes' health
 	responseChs := make([]chan *pb.NodeHealth, 0)
 	semaphore := sync.Mutex{}
 
-	// TODO: CONVERT TO A CHANNEL AND PUT IN THE NEXT FOR LOOP
-	// Goroutine that takes care of receiving messages
-	go func() {
-		// Receive messages in background
-		for {
-			// This call is blocking
-			in, err := stream.Recv()
-			if err == io.EOF {
-				break
+	// Channel to receive messages
+	msgCh := clientStreamToChan(stream)
+
+	// Send and receive messages
+forloop:
+	for {
+		select {
+		// New message
+		case in := <-msgCh:
+			if in.Error != nil {
+				// Abort
+				s.logger.Println("Error while reading message:", in.Error)
+				return in.Error
 			}
-			if err != nil {
-				s.logger.Println("Error while reading health message:", err)
-				break
+			if in.Done {
+				// Exit without error
+				s.logger.Println("Stream reached EOF")
+				return nil
+			}
+			if in.Message == nil {
+				// Ignore empty messages
+				continue forloop
 			}
 
 			// Check the type of message
-			switch in.Type {
-			// Register a new node
-			case pb.ChannelClientStream_REGISTER_NODE:
-				// If this node is already registered, ignore the message
-				if nodeName != "" {
-					s.logger.Printf("node %s sent a registration request message, but it's already registered\n", nodeName)
-					break
-				}
-
-				// Ensure the registration request contains a node name
-				if in.Registration == nil || in.Registration.NodeName == "" {
-					s.logger.Println("node sent a registration request message without a node name")
-					break
-				}
-
-				// Register the node
-				// This also checks if a node with the same name already exists
-				err = s.Cluster.RegisterNode(nodeName, ch)
-				if err != nil {
-					s.logger.Println("Error while registering a node:", err)
-					break
-				}
-
+			switch in.Message.Type {
 			// New health message received
 			case pb.ChannelClientStream_HEALTH_MESSAGE:
-				// If this node is not registered, ignore the message
-				if nodeName != "" {
-					s.logger.Println("node sent a health message, but it's not registered")
-					break
-				}
-
 				// Store the state version the node is on
-				s.Cluster.ReceivedVersion(nodeName, in.Health.Version)
+				s.Cluster.ReceivedVersion(nodeName, in.Message.Health.Version)
 
 				// If there's no response channel, stop processing here
 				if responseChs == nil {
-					continue
+					continue forloop
 				}
 
 				// Try sending the response to each channel if they're not closed
@@ -122,7 +109,7 @@ func (s *RPCServer) Channel(stream pb.Controller_ChannelServer) error {
 						continue
 					}
 					select {
-					case responseChs[i] <- in.Health:
+					case responseChs[i] <- in.Message.Health:
 					default:
 					}
 				}
@@ -131,26 +118,9 @@ func (s *RPCServer) Channel(stream pb.Controller_ChannelServer) error {
 
 			// Invalid message
 			default:
-				s.logger.Printf("node %s sent a message with an invalid type: %d", nodeName, in.Type)
+				s.logger.Printf("node %s sent a message with an invalid type: %d", nodeName, in.Message.Type)
+				continue forloop
 			}
-		}
-
-		// Unregister the node when this goroutine ends
-		s.Cluster.UnregisterNode(nodeName)
-	}()
-
-	// Send messages when needed
-	for {
-		select {
-		// Exit if context is done
-		case <-stream.Context().Done():
-			fmt.Println("stream.Context().Done()")
-			return nil
-
-		// The server is shutting down
-		case <-s.runningCtx.Done():
-			fmt.Println("runningCtx.Done()")
-			return nil
 
 		// Need to send a ping to request the health
 		// Note that this is triggered only after the registration is complete
@@ -168,10 +138,6 @@ func (s *RPCServer) Channel(stream pb.Controller_ChannelServer) error {
 
 		// Send the new state to the clients
 		case <-stateCh:
-			// Ignore if the node hasn't registered yet
-			if nodeName == "" {
-				break
-			}
 			state, err := s.State.DumpState()
 			if err != nil {
 				return err
@@ -180,6 +146,16 @@ func (s *RPCServer) Channel(stream pb.Controller_ChannelServer) error {
 				Type:  pb.ChannelServerStream_STATE_MESSAGE,
 				State: state.StateMessage(),
 			})
+
+		// Exit if context is done
+		case <-stream.Context().Done():
+			fmt.Println("stream.Context().Done()")
+			return nil
+
+		// The server is shutting down
+		case <-s.runningCtx.Done():
+			fmt.Println("runningCtx.Done()")
+			return nil
 		}
 	}
 }

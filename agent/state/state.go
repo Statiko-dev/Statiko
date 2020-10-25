@@ -64,16 +64,12 @@ func (a *AgentState) DumpState() *pb.StateMessage {
 }
 
 // ReplaceState replaces the full state for the node with the provided one
+// It also broadcasts the notification to all subscribers
 func (a *AgentState) ReplaceState(state *pb.StateMessage) {
 	// Set the new state object
 	a.state = state
 
-	// Mark the state as updated and broadcast the updated message
-	a.setUpdated()
-}
-
-// setUpdated sets the updated time in the object and broadcasts the message
-func (a *AgentState) setUpdated() {
+	// Mark the state as updated
 	now := time.Now()
 	a.updated = &now
 
@@ -124,8 +120,8 @@ func (a *AgentState) GetDHParams() (string, *time.Time) {
 	return a.state.DhParams.Pem, &date
 }
 
-// GetCertificate returns a certificate pair (key and certificate) from the cache
-func (a *AgentState) GetCertificate(certificateId string) (key []byte, cert []byte, err error) {
+// GetCachedCertificate returns a certificate pair (key and certificate) from the cache
+func (a *AgentState) GetCachedCertificate(certificateId string) (key []byte, cert []byte, err error) {
 	if certificateId == "" {
 		return nil, nil, errors.New("certificate ID is empty")
 	}
@@ -139,8 +135,8 @@ func (a *AgentState) GetCertificate(certificateId string) (key []byte, cert []by
 	return obj.Key, obj.Certificate, nil
 }
 
-// SetCertificate adds a certificate pair (key and certificate) to the cache
-func (a *AgentState) SetCertificate(certificateId string, key []byte, cert []byte) (err error) {
+// SetCachedCertificate adds a certificate pair (key and certificate) to the cache
+func (a *AgentState) SetCachedCertificate(certificateId string, key []byte, cert []byte) (err error) {
 	if certificateId == "" {
 		return errors.New("certificate ID is empty")
 	}
@@ -164,8 +160,8 @@ func (a *AgentState) GetSiteHealth(domain string) error {
 	return a.siteHealth[domain]
 }
 
-// GetAllSiteHealth returns the health of all objects
-func (a *AgentState) GetAllSiteHealth() map[string]error {
+// GetAllSitesHealth returns the health of all objects
+func (a *AgentState) GetAllSitesHealth() map[string]error {
 	// Deep-clone the object
 	r := make(map[string]error, len(a.siteHealth))
 	for k, v := range a.siteHealth {

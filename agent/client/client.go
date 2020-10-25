@@ -18,8 +18,6 @@ package client
 
 import (
 	"context"
-	"errors"
-	"io"
 	"log"
 	"os"
 	"time"
@@ -77,17 +75,24 @@ func (c *RPCClient) Connect() (err error) {
 	// Client
 	c.client = pb.NewControllerClient(c.connection)
 
-	// Start the background streams in other goroutines
-	go c.startStateWatcher()
-	go c.startHealthChannel()
+	// Start the background stream in another goroutine
+	go func() {
+		// Continue re-connecting automatically if the connection drops
+		for c.connection != nil {
+			c.logger.Println("Connecting to the channel")
+			// Note that if the underlying connection is down, this call blocks until it comes back
+			c.startStreamChannel()
+		}
+	}()
 
 	return nil
 }
 
 // Disconnect closes the connection with the gRPC server
 func (c *RPCClient) Disconnect() error {
-	err := c.connection.Close()
+	conn := c.connection
 	c.connection = nil
+	err := conn.Close()
 	return err
 }
 
@@ -102,93 +107,127 @@ func (c *RPCClient) Reconnect() error {
 
 // GetState requests the latest state from the cluster manager
 func (c *RPCClient) GetState() (*pb.StateMessage, error) {
-	nodeName := appconfig.Config.GetString("nodeName")
-	if nodeName == "" {
-		return nil, errors.New("nodeName must be set")
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
-	in := &pb.GetStateRequest{
-		NodeName: nodeName,
-	}
+	in := &pb.GetStateRequest{}
 	return c.client.GetState(ctx, in, grpc.WaitForReady(true))
 }
 
-// startStateWatcher starts the background stream to watch for state updates
-func (c *RPCClient) startStateWatcher() {
+// Starts the stream channel with the server
+func (c *RPCClient) startStreamChannel() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Get node name
 	nodeName := appconfig.Config.GetString("nodeName")
 
-	// Make the request
-	in := &pb.WatchStateRequest{
-		NodeName: nodeName,
-	}
-	stream, err := c.client.WatchState(context.Background(), in, grpc.WaitForReady(true))
+	// Connect to the stream RPC
+	stream, err := c.client.Channel(ctx, grpc.WaitForReady(true))
 	if err != nil {
-		c.logger.Println("State watcher error while connecting to the gRPC server:", err)
+		c.logger.Println("Error while connecting to the Channel stream:", err)
 		return
 	}
 	defer stream.CloseSend()
-	c.logger.Println("State watcher connected")
+	c.logger.Println("Channel connected")
 
-	// Watch for incoming messages
-	for {
-		state, err := stream.Recv()
-		if err == io.EOF {
-			// TODO: Reconnect
-			c.logger.Println("State watcher disconnected from gRPC server")
-			break
-		}
-		if err != nil {
-			// TODO: Reconnect
-			c.logger.Println("Error caught from the gRPC server while watching for state:", err)
-			break
-		}
-
-		// Update the state in the manager
-		c.AgentState.ReplaceState(state)
-	}
-}
-
-// startHealthChannel starts the background stream to register this node and respond to health requests
-func (c *RPCClient) startHealthChannel() {
-	nodeName := appconfig.Config.GetString("nodeName")
-
-	// Making the connection will register the node with the cluster manager
-	stream, err := c.client.HealthChannel(context.Background(), grpc.WaitForReady(true))
-	if err != nil {
-		c.logger.Println("Health channel error while connecting to the gRPC server:", err)
-		return
-	}
-	defer stream.CloseSend()
-	c.logger.Println("Health channel connected")
-
-	// Watch for incoming messages
-	for {
-		_, err := stream.Recv()
-		if err == io.EOF {
-			// TODO: Reconnect
-			c.logger.Println("Health channel disconnected from gRPC server")
-			break
-		}
-		if err != nil {
-			// TODO: Reconnect
-			c.logger.Println("Error caught from the gRPC server in the health channel:", err)
-			break
-		}
-
-		// We received a ping, which means we need to respond with our health
-		// TODO THIS
-		msg := &pb.NodeHealth{
+	// Send the message to register the node
+	err = stream.Send(&pb.ChannelClientStream{
+		Type: pb.ChannelClientStream_REGISTER_NODE,
+		Registration: &pb.ChannelClientStream_RegisterNode{
 			NodeName: nodeName,
-		}
-		err = stream.Send(msg)
-		if err != nil {
-			// TODO: Reconnect
-			c.logger.Println("Error while sending health:", err)
-			break
+		},
+	})
+	if err != nil {
+		c.logger.Println("Error while sending registration message:", err)
+		return
+	}
+
+	// Channel to receive messages
+	msgCh := serverStreamToChan(stream)
+
+	// Flag: has received the "OK" message after registering
+	registered := false
+
+	// Send and receive messages
+forloop:
+	for {
+		select {
+		// New message
+		case in := <-msgCh:
+			if in.Error != nil {
+				// Abort
+				c.logger.Println("Error while reading message:", in.Error)
+				return
+			}
+			if in.Done {
+				// Exit without error
+				c.logger.Println("Stream reached EOF")
+				return
+			}
+			if in.Message == nil {
+				// Ignore empty messages
+				continue forloop
+			}
+
+			// Check the type of message
+			switch in.Message.Type {
+			// Registered correctly
+			case pb.ChannelServerStream_OK:
+				c.logger.Println("Node registered correctly")
+				registered = true
+
+			// Server sent an error
+			case pb.ChannelServerStream_ERROR:
+				// Abort
+				errStr := "(empty error message)"
+				if in.Message != nil && in.Message.Error != "" {
+					errStr = in.Message.Error
+				}
+				c.logger.Println("Received an error from the server:", errStr)
+				return
+
+			// New state
+			case pb.ChannelServerStream_STATE_MESSAGE:
+				// Error if we haven't registered yet
+				if !registered {
+					c.logger.Println("Received a state message, but have not received confirmation of node registration yet")
+					return
+				}
+				// Ensure we have a state in the message
+				if in.Message.State != nil {
+					c.logger.Println("Received new state")
+					// Update the state in the manager
+					c.AgentState.ReplaceState(in.Message.State)
+				}
+
+			// Health ping
+			case pb.ChannelServerStream_HEALTH_PING:
+				// TODO: COMPLETE THIS
+				health := &pb.NodeHealth{
+					NodeName: nodeName,
+				}
+				err = stream.Send(&pb.ChannelClientStream{
+					Type:   pb.ChannelClientStream_HEALTH_MESSAGE,
+					Health: health,
+				})
+				if err != nil {
+					// Abort
+					c.logger.Println("Error while sending health:", err)
+					return
+				}
+
+			// Invalid message
+			default:
+				c.logger.Printf("Server sent a message with an invalid type: %d", in.Message.Type)
+				continue forloop
+			}
+
+		// Context for canceling the operation
+		case <-ctx.Done():
+			c.logger.Println("Channel closed")
+			return
 		}
 	}
 }
