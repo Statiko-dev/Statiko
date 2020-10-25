@@ -534,26 +534,26 @@ func (m *Manager) DeleteSecret(key string) error {
 }
 
 // GetCertificate returns a certificate object; for certs with data in the state, this returns the key and certificate too, decrypted and PEM-encoded
-func (m *Manager) GetCertificate(certId string) (obj *pb.TLSCertificate, key []byte, cert []byte, err error) {
+func (m *Manager) GetCertificate(certId string) (key []byte, cert []byte, err error) {
 	// Get the state
 	state := m.store.GetState()
 	if state == nil {
-		return nil, nil, nil, errors.New("state not loaded")
+		return nil, nil, errors.New("state not loaded")
 	}
 
 	// Retrieve the certificate
-	obj = state.GetTLSCertificate(certId)
+	obj := state.GetTLSCertificate(certId)
 	if obj == nil {
-		return nil, nil, nil, errors.New("TLS certificate not found")
+		return nil, nil, errors.New("TLS certificate not found")
 	}
 
 	// Check if we have the certificate data in the object; if so, decrypt it
 	key, cert, err = m.decryptCertificate(obj)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	return obj, key, cert, nil
+	return key, cert, nil
 }
 
 // GetCertificateInfo returns the info (metadata) of a TLS certificate, but does not decrypt the content

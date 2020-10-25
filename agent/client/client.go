@@ -115,6 +115,18 @@ func (c *RPCClient) GetState() (*pb.StateMessage, error) {
 	return c.client.GetState(ctx, in, grpc.WaitForReady(true))
 }
 
+// GetTLSCertificate requests a TLS certificate from the cluster manager
+func (c *RPCClient) GetTLSCertificate(certificateId string) (*pb.TLSCertificateMessage, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
+	defer cancel()
+
+	// Make the request
+	in := &pb.TLSCertificateRequest{
+		CertificateId: certificateId,
+	}
+	return c.client.GetTLSCertificate(ctx, in, grpc.WaitForReady(true))
+}
+
 // Starts the stream channel with the server
 func (c *RPCClient) startStreamChannel() {
 	ctx, cancel := context.WithCancel(context.Background())

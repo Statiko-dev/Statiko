@@ -120,8 +120,8 @@ func (a *AgentState) GetDHParams() (string, *time.Time) {
 	return a.state.DhParams.Pem, &date
 }
 
-// GetCachedCertificate returns a certificate pair (key and certificate) from the cache
-func (a *AgentState) GetCachedCertificate(certificateId string) (key []byte, cert []byte, err error) {
+// GetCertificate returns a certificate pair (key and certificate) from the cache
+func (a *AgentState) GetCertificate(certificateId string) (key []byte, cert []byte, err error) {
 	if certificateId == "" {
 		return nil, nil, errors.New("certificate ID is empty")
 	}
@@ -135,8 +135,8 @@ func (a *AgentState) GetCachedCertificate(certificateId string) (key []byte, cer
 	return obj.Key, obj.Certificate, nil
 }
 
-// SetCachedCertificate adds a certificate pair (key and certificate) to the cache
-func (a *AgentState) SetCachedCertificate(certificateId string, key []byte, cert []byte) (err error) {
+// SetCertificate adds a certificate pair (key and certificate) to the cache
+func (a *AgentState) SetCertificate(certificateId string, key []byte, cert []byte) (err error) {
 	if certificateId == "" {
 		return errors.New("certificate ID is empty")
 	}

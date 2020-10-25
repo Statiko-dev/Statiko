@@ -17,9 +17,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package certificates
 
 import (
+	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
-
-	pb "github.com/statiko-dev/statiko/shared/proto"
+	"math/big"
+	"time"
 )
 
 // SelfSignedCertificateIssuer is the organization that issues self-signed certificates
@@ -28,48 +34,65 @@ const SelfSignedCertificateIssuer = "statiko self-signed"
 // SelfSignedMinDays controls how many days from the expiration self-signed certificates are renewed
 const SelfSignedMinDays = 14
 
-// GetSelfSignedCertificate returns a self-signed certificate, with key and certificate PEM-encoded
-// TODO: REMOVE THIS
-func (c *Certificates) GetSelfSignedCertificate(site *pb.Site, certificateId string) (key []byte, cert []byte, err error) {
-	var certObj *pb.TLSCertificate
+// GenerateTLSCert generates a new self-signed TLS certificate (with a RSA 4096-bit key) and returns the private key and public certificate encoded as PEM
+// The first domain is the primary one, used as value for the "Common Name" value too
+// Each certificate is valid for 1 year
+func GenerateTLSCert(domains ...string) (keyPEM []byte, certPEM []byte, err error) {
+	// Ensure we have at least 1 domain
+	if len(domains) < 1 {
+		err = errors.New("need to specify at least one domain name")
+		return
+	}
 
-	// Get the certificate object
-	certObj, key, cert, err = c.State.GetCertificate(certificateId)
+	// Generate a private key
+	// The main() method has already invoked rand.Seed
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return nil, nil, err
-	}
-	if certObj == nil {
-		return nil, nil, errors.New("certificate not found")
+		return
 	}
 
-	// If we have an existing certificate, check if it's still valid
-	if len(key) > 0 && len(cert) > 0 {
-		// Get the x509 object
-		certX509, err := GetX509(cert)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// If the certificate is valid, use that
-		certErr := InspectCertificate(site, certObj, certX509)
-		if certErr == nil {
-			return key, cert, nil
-		}
-		c.logger.Printf("Regenerating invalid self-signed certificate for site %s: %v\n", site.Domain, certErr)
-	} else {
-		c.logger.Println("Generating missing self-signed certificate for site", site.Domain)
+	// Build the X.509 certificate
+	now := time.Now()
+	tpl := x509.Certificate{}
+	tpl.BasicConstraintsValid = false
+	tpl.DNSNames = domains
+	tpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
+	tpl.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageDataEncipherment
+	tpl.IsCA = false
+	tpl.NotAfter = now.Add(8760 * time.Hour) // 1 year
+	tpl.NotBefore = now
+	tpl.SerialNumber = big.NewInt(1)
+	tpl.SignatureAlgorithm = x509.SHA256WithRSA
+	tpl.Subject = pkix.Name{
+		Organization: []string{SelfSignedCertificateIssuer},
+		CommonName:   domains[0],
 	}
-
-	// If we're here, we need to generate a new sellf-signed certificate
-	// That's either because we didn't have one to begin with, or because we had one but it had expired or it was invalid
-	domains := append([]string{site.Domain}, site.Aliases...)
-	key, cert, err = GenerateTLSCert(domains...)
-
-	// Save the certificate
-	err = c.State.SetCertificate(certObj, certificateId, key, cert)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &tpl, &tpl, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		return nil, nil, err
+		return
 	}
 
-	return key, cert, nil
+	// Encode the key in a PEM block
+	buf := &bytes.Buffer{}
+	err = pem.Encode(buf, &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+	if err != nil {
+		return
+	}
+	keyPEM = buf.Bytes()
+
+	// Encode the certificate in a PEM block
+	buf = &bytes.Buffer{}
+	err = pem.Encode(buf, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: derBytes,
+	})
+	if err != nil {
+		return
+	}
+	certPEM = buf.Bytes()
+
+	return
 }

@@ -29,8 +29,8 @@ import (
 
 // Sync is the main controller for synchronizing the system's state with the desired state
 type Sync struct {
-	// AgentState object
-	AgentState *state.AgentState
+	// State object
+	State *state.AgentState
 	// AppManager object
 	AppManager *appmanager.Manager
 
@@ -127,7 +127,7 @@ func (s *Sync) runner() error {
 	restartRequired := false
 
 	// Get the list of sites
-	sites := s.AgentState.GetSites()
+	sites := s.State.GetSites()
 
 	// First, sync apps
 	res, restartServer, err := s.AppManager.SyncState(sites)
@@ -149,7 +149,7 @@ func (s *Sync) runner() error {
 
 	// Check if any site has an error
 	for _, el := range sites {
-		if siteErr := s.AgentState.GetSiteHealth(el.Domain); siteErr != nil {
+		if siteErr := s.State.GetSiteHealth(el.Domain); siteErr != nil {
 			s.sendErrorNotification("Site " + el.Domain + " has an error: " + siteErr.Error())
 		}
 	}

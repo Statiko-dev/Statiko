@@ -38,9 +38,9 @@ import (
 	"github.com/google/renameio"
 	"gopkg.in/yaml.v2"
 
+	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/appconfig"
-	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
@@ -48,15 +48,11 @@ import (
 
 // Manager contains helper functions to manage apps and sites
 type Manager struct {
-	// State object
-	AgentState *state.AgentState
-	// Fs object
-	Fs fs.Fs
+	State        *state.AgentState
+	Certificates *certificates.AgentCertificates
+	Fs           fs.Fs
 
-	// Root folder for the platform
-	appRoot string
-
-	// Internals
+	appRoot     string
 	codeSignKey *rsa.PublicKey
 	log         *log.Logger
 	box         *packr.Box
@@ -115,7 +111,7 @@ func (m *Manager) SyncState(sites []*pb.Site) (updated bool, restartServer bool,
 		return
 	}
 
-	// Sync site folders too
+	// Lastly, sync the site folders
 	u, err = m.SyncSiteFolders(sites)
 	if err != nil {
 		return
@@ -147,11 +143,10 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 	}
 
 	// Iterate through the sites list
-	expectFolders := make([]string, 1)
-	expectFolders[0] = "_default"
+	expectFolders := []string{"_default"}
 	for _, s := range sites {
 		// If the app failed to deploy, skip this
-		if m.AgentState.GetSiteHealth(s.Domain) != nil {
+		if m.State.GetSiteHealth(s.Domain) != nil {
 			m.log.Println("Skipping because of unhealthy site:", s.Domain)
 			continue
 		}
@@ -160,7 +155,7 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 		u, err = ensureFolderWithUpdated(m.appRoot + "sites/" + s.Domain)
 		if err != nil {
 			m.log.Println("Error while creating folder for site:", s.Domain, err)
-			m.AgentState.SetSiteHealth(s.Domain, err)
+			m.State.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
@@ -170,7 +165,7 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 		u, err = ensureFolderWithUpdated(pathTLS)
 		if err != nil {
 			m.log.Println("Error while creating tls folder for site:", s.Domain, err)
-			m.AgentState.SetSiteHealth(s.Domain, err)
+			m.State.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		updated = updated || u
@@ -178,10 +173,15 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 		// Get the TLS certificate
 		pathKey := pathTLS + "/key.pem"
 		pathCert := pathTLS + "/certificate.pem"
-		keyPEM, certPEM, err := certificates.GetCertificate(&s)
+		// If we have an imported certificate, use that; otherwise, fallback to the generated one
+		certificateId := s.GeneratedTlsId
+		if s.ImportedTlsId != "" {
+			certificateId = s.ImportedTlsId
+		}
+		keyPEM, certPEM, err := m.Certificates.GetCertificate(certificateId)
 		if err != nil {
 			m.log.Println("Error while getting TLS certificate for site:", s.Domain, err)
-			m.AgentState.SetSiteHealth(s.Domain, err)
+			m.State.SetSiteHealth(s.Domain, err)
 			continue
 		}
 		u, err = writeFileIfChanged(pathKey, keyPEM)
@@ -198,7 +198,7 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 		}
 		if err := m.ActivateApp(bundle, s.Domain); err != nil {
 			m.log.Println("Error while activating app for site:", s.Domain, err)
-			m.AgentState.SetSiteHealth(s.Domain, err)
+			m.State.SetSiteHealth(s.Domain, err)
 			continue
 		}
 
@@ -255,12 +255,11 @@ func (m *Manager) SyncApps(sites []*pb.Site) error {
 	// Iterate through the sites looking for apps
 	requested := 0
 	appIndexes := make(map[string]int)
-	expectApps := make([]string, 1)
-	expectApps[0] = "_default"
+	expectApps := []string{"_default"}
 	fetchAppsList := make(map[string]int)
 	for i, s := range sites {
 		// Reset the error
-		m.AgentState.SetSiteHealth(s.Domain, nil)
+		m.State.SetSiteHealth(s.Domain, nil)
 
 		// Check if the jobs channel is full
 		for len(jobs) == cap(jobs) {
@@ -430,96 +429,18 @@ func (m *Manager) WriteDefaultApp() error {
 }
 
 // SyncMiscFiles synchronizes the misc folder
-// This contains the DH parameters and the node manager's TLS
+// This contains the DH parameters for the server
 func (m *Manager) SyncMiscFiles() (bool, bool, error) {
 	updated := false
 	restartServer := false
 
 	// Get the latest DH parameters and compare them with the ones on disk
-	pem, _ := m.AgentState.GetDHParams()
+	pem, _ := m.State.GetDHParams()
 	u, err := writeFileIfChanged(m.appRoot+"misc/dhparams.pem", []byte(pem))
 	if err != nil {
 		return false, false, err
 	}
 	updated = updated || u
-
-	// The TLS certificate for the node manager
-	if appconfig.Config.GetBool("tls.node.enabled") {
-		var (
-			err               error
-			certData, keyData []byte
-		)
-
-		// Check if we have a TLS certificate
-		cert := appconfig.Config.GetString("tls.node.certificate")
-		key := appconfig.Config.GetString("tls.node.key")
-		for {
-			if cert == "" || key == "" {
-				break
-			}
-			certData, err = ioutil.ReadFile(cert)
-			if err != nil {
-				if os.IsNotExist(err) {
-					certData = nil
-					keyData = nil
-					err = nil
-					break
-				} else {
-					return false, false, err
-				}
-			}
-			keyData, err = ioutil.ReadFile(key)
-			if err != nil {
-				if os.IsNotExist(err) {
-					certData = nil
-					keyData = nil
-					err = nil
-					break
-				} else {
-					return false, false, err
-				}
-			}
-
-			break
-		}
-
-		// If we don't have a TLS certificate, generate a self-signed one or request one from an ACME provider
-		// If we're using ACME and a certificate hasn't been requested yet, it will be requested later
-		if certData == nil || keyData == nil {
-			// Type
-			typ := pb.State_Site_TLS_SELF_SIGNED
-			if appconfig.Config.GetBool("tls.node.acme") {
-				typ = pb.State_Site_TLS_ACME
-			}
-
-			// Request the certificate
-			s := &pb.State_Site{
-				Domain:  utils.NodeAddress(),
-				Aliases: []string{},
-				Tls: &pb.State_Site_TLS{
-					Type: typ,
-				},
-			}
-			keyData, certData, err = certificates.GetCertificate(&s)
-			if err != nil {
-				return false, false, fmt.Errorf("error while obtaining certificate for node manager (type %s): %v", typ, err)
-			}
-		}
-
-		// Write the certificate and key if they're different
-		u, err = writeFileIfChanged(m.appRoot+"misc/node.cert.pem", certData)
-		if err != nil {
-			return false, false, err
-		}
-		restartServer = restartServer || u
-		updated = updated || u
-		u, err = writeFileIfChanged(m.appRoot+"misc/node.key.pem", keyData)
-		if err != nil {
-			return false, false, err
-		}
-		restartServer = restartServer || u
-		updated = updated || u
-	}
 
 	return updated, restartServer, nil
 }
@@ -717,7 +638,7 @@ func (m *Manager) workerStageApp(id int, jobs <-chan *pb.Site, res chan<- int) {
 			m.log.Println("Error staging app "+j.App.Name+":", err)
 
 			// Store the error
-			m.AgentState.SetSiteHealth(j.Domain, err)
+			m.State.SetSiteHealth(j.Domain, err)
 		}
 		res <- 1
 	}

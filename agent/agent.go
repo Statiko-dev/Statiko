@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/statiko-dev/statiko/agent/appmanager"
+	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/sync"
@@ -39,6 +40,7 @@ type Agent struct {
 	agentState *state.AgentState
 	notifier   *notifications.Notifications
 	logger     *log.Logger
+	certs      *certificates.AgentCertificates
 	rpcClient  *client.RPCClient
 	syncClient *sync.Sync
 	appManager *appmanager.Manager
@@ -62,6 +64,13 @@ func (a *Agent) Run() (err error) {
 	a.agentState = &state.AgentState{}
 	a.agentState.Init()
 
+	// Request the initial state
+	state, err := a.rpcClient.GetState()
+	if err != nil {
+		return err
+	}
+	a.agentState.ReplaceState(state)
+
 	// Init and start the gRPC client
 	a.rpcClient = &client.RPCClient{
 		AgentState: a.agentState,
@@ -72,23 +81,27 @@ func (a *Agent) Run() (err error) {
 		return err
 	}
 
-	// Request the initial state
-	state, err := a.rpcClient.GetState()
+	// Init the certs object
+	a.certs = &certificates.AgentCertificates{
+		State: a.agentState,
+		RPC:   a.rpcClient,
+	}
+	err = a.certs.Init()
 	if err != nil {
 		return err
 	}
-	a.agentState.ReplaceState(state)
 
 	// Init the app manager object
 	a.appManager = &appmanager.Manager{
-		AgentState: a.agentState,
-		Fs:         a.store,
+		State:        a.agentState,
+		Certificates: a.certs,
+		Fs:           a.store,
 	}
 	a.appManager.Init()
 
 	// Init the sync client
 	a.syncClient = &sync.Sync{
-		AgentState: a.agentState,
+		State: a.agentState,
 	}
 	a.syncClient.Init()
 

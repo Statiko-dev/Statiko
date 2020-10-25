@@ -30,7 +30,7 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/certificates"
-	"github.com/statiko-dev/statiko/controller/certificates/azurekeyvault"
+	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )

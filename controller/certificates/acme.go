@@ -35,59 +35,11 @@ import (
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
-	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
 // ACMEMinDays controls how many days from the expiration a new certificate is requested from ACME
 const ACMEMinDays = 21
-
-// GetACMECertificate returns a certificate issued by ACME (e.g. Let's Encrypt), with key and certificate PEM-encoded
-// If the ACME provider hasn't issued a certificate yet, this will return a self-signed TLS certificate, until the ACME one is available
-// TODO: REMOVE THIS
-func (c *Certificates) GetACMECertificate(site *pb.Site, certificateId string) (key []byte, cert []byte, err error) {
-	var certObj *pb.TLSCertificate
-
-	// Get the certificate object
-	certObj, key, cert, err = c.State.GetCertificate(certificateId)
-	if err != nil {
-		return nil, nil, err
-	}
-	if certObj == nil {
-		return nil, nil, errors.New("certificate not found")
-	}
-
-	// Check if we have a certificate issued by the ACME provider already
-	if len(key) > 0 && len(cert) > 0 {
-		// Get the x509 object
-		certX509, err := GetX509(cert)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// Check if the certificate is self-signed
-		if IsSelfSigned(certX509) {
-			c.logger.Printf("Stored certificate for ACME is self-signed; will request a new one: %v\n", site.Domain)
-			// TODO: THIS
-			//state.Instance.TriggerRefreshCerts()
-		} else if certErr := InspectCertificate(site, certObj, certX509); certErr != nil {
-			// If the certificate has expired, still return it, but in the meanwhile trigger a refresh job
-			c.logger.Printf("Certificate from ACME provider for site %s has an error; will request a new one: %v\n", site.Domain, certErr)
-			// TODO: THIS
-			//state.Instance.TriggerRefreshCerts()
-		}
-
-		// Return the certificate (even if invalid/expired)
-		return key, cert, nil
-	}
-
-	// No certificate yet
-	// Triggering a background job to generate it, and for now returning a self-signed certificate
-	c.logger.Println("Requesting certificate from ACME provider for site", site.Domain)
-	// TODO: THIS
-	//state.Instance.TriggerRefreshCerts()
-	return c.GetSelfSignedCertificate(site, certificateId)
-}
 
 // GenerateACMECertificate requests a new certificate from the ACME provider
 func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte, certPEM []byte, err error) {

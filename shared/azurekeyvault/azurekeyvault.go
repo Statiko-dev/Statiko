@@ -29,13 +29,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/keyvault/v7.0/keyvault"
+	"github.com/Azure/azure-sdk-for-go/services/keyvault/v7.1/keyvault"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"golang.org/x/crypto/pkcs12"
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/utils"
 )
+
+// Timeout (in seconds) for operations
+const requestTimeout = 15 * time.Second
 
 // Singleton for Client
 var instance *Client
@@ -59,7 +62,6 @@ type Client struct {
 	KeyVault  keyvault.BaseClient
 	VaultName string
 
-	ctx           context.Context
 	logger        *log.Logger
 	authenticated bool
 }
@@ -67,9 +69,6 @@ type Client struct {
 // Init the object
 func (akv *Client) Init() error {
 	akv.logger = log.New(os.Stdout, "azure-key-vault: ", log.Ldate|log.Ltime|log.LUTC)
-
-	// Context
-	akv.ctx = context.Background()
 
 	// Init the Key Vault client
 	if err := akv.initKeyVaultClient(); err != nil {
@@ -102,7 +101,9 @@ func (akv *Client) initKeyVaultClient() error {
 // Returns the last version of a key
 func (akv *Client) getKeyLastVersion(keyName string) (string, error) {
 	// List key versions
-	list, err := akv.KeyVault.GetKeyVersionsComplete(akv.ctx, akv.BaseURL(), keyName, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	list, err := akv.KeyVault.GetKeyVersionsComplete(ctx, akv.BaseURL(), keyName, nil)
+	cancel()
 	if err != nil {
 		return "", err
 	}
@@ -135,7 +136,9 @@ func (akv *Client) getKeyLastVersion(keyName string) (string, error) {
 // GetCertificateLastVersion returns the last version of a certificate
 func (akv *Client) GetCertificateLastVersion(certificateName string) (string, error) {
 	// List certificate versions
-	list, err := akv.KeyVault.GetCertificateVersionsComplete(akv.ctx, akv.BaseURL(), certificateName, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	list, err := akv.KeyVault.GetCertificateVersionsComplete(ctx, akv.BaseURL(), certificateName, nil)
+	cancel()
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +171,9 @@ func (akv *Client) GetCertificateLastVersion(certificateName string) (string, er
 // Get the PFX of a certificate inside Azure Key Vault
 func (akv *Client) requestCertificatePFX(certificateName string, certificateVersion string) (interface{}, *x509.Certificate, error) {
 	// The full certificate, including the key, is stored as a secret in Azure Key Vault, encoded as PFX
-	pfx, err := akv.KeyVault.GetSecret(akv.ctx, akv.BaseURL(), certificateName, certificateVersion)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	pfx, err := akv.KeyVault.GetSecret(ctx, akv.BaseURL(), certificateName, certificateVersion)
+	cancel()
 	if err != nil {
 		return nil, nil, err
 	}
