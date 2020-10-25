@@ -21,32 +21,34 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 	"text/template"
 
+	"github.com/statiko-dev/statiko/agent/appmanager"
+	"github.com/statiko-dev/statiko/agent/state"
+	agentutils "github.com/statiko-dev/statiko/agent/utils"
 	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/utils"
 
 	"github.com/gobuffalo/packr/v2"
 )
 
 // List of template files
-var templateFiles = [4]string{"nginx.conf", "mime.types", "site.conf", "default-site.conf"}
+var templateFiles = [4]string{"nginx.conf", "mime.types", "site.conf"}
 
 // ConfigData is a map of each configuration file and its content
 type ConfigData map[string][]byte
 
 // NginxConfig creates the configuration for nginx
 type NginxConfig struct {
-	logger              *log.Logger
-	templates           map[string]*template.Template
-	clientCachingRegexp *regexp.Regexp
+	State      *state.AgentState
+	AppManager *appmanager.Manager
+
+	logger    *log.Logger
+	templates map[string]*template.Template
 }
 
 // Init initializes the object and loads the templates from file
@@ -59,9 +61,6 @@ func (n *NginxConfig) Init() error {
 	if err := n.loadTemplates(); err != nil {
 		return err
 	}
-
-	// Compile the regular expression for matching ClientCaching values in apps' manifests
-	n.clientCachingRegexp = regexp.MustCompile(`^[1-9][0-9]*(ms|s|m|h|d|w|M|y)$`)
 
 	return nil
 }
@@ -89,27 +88,18 @@ func (n *NginxConfig) DesiredConfiguration(sites []pb.Site) (config ConfigData, 
 		return
 	}
 
-	// Default website configuration
-	config["conf.d/_default.conf"], err = n.createConfigurationFile("default-site.conf", nil)
-	if err != nil {
-		return
-	}
-	if config["conf.d/_default.conf"] == nil {
-		err = errors.New("Invalid configuration generated for file conf.d/_default.conf")
-		return
-	}
-
 	// Configuration for each site
-	for _, s := range sites {
+	for i := 0; i < len(sites); i++ {
+		s := &sites[i]
 		// If the site/app failed to deploy, skip this
-		if state.Instance.GetSiteHealth(s.Domain) != nil {
+		if n.State.GetSiteHealth(s.Domain) != nil {
 			n.logger.Println("Skipping site with error (in DesiredConfiguration)", s.Domain)
 			continue
 		}
 
 		key := "conf.d/" + s.Domain + ".conf"
 		var val []byte
-		val, err = n.createConfigurationFile("site.conf", &s)
+		val, err = n.createConfigurationFile("site.conf", s)
 		if err != nil {
 			return
 		}
@@ -124,7 +114,7 @@ func (n *NginxConfig) DesiredConfiguration(sites []pb.Site) (config ConfigData, 
 }
 
 // ExistingConfiguration reads the list of files currently on disk, and deletes some extraneous ones already
-func (n *NginxConfig) ExistingConfiguration(sites []state.SiteState) (ConfigData, bool, error) {
+func (n *NginxConfig) ExistingConfiguration(sites []pb.Site) (ConfigData, bool, error) {
 	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
 	existing := make(ConfigData)
 	updated := false
@@ -166,10 +156,10 @@ func (n *NginxConfig) ExistingConfiguration(sites []state.SiteState) (ConfigData
 	}
 
 	// List of files we expect in the conf.d directory
-	existing["conf.d/_default.conf"] = nil
-	for _, s := range sites {
+	for i := 0; i < len(sites); i++ {
+		s := &sites[i]
 		// If the site/app failed to deploy, skip this
-		if state.Instance.GetSiteHealth(s.Domain) != nil {
+		if n.State.GetSiteHealth(s.Domain) != nil {
 			n.logger.Println("Skipping site with error (in ExistingConfiguration)", s.Domain)
 			continue
 		}
@@ -218,7 +208,7 @@ func (n *NginxConfig) ExistingConfiguration(sites []state.SiteState) (ConfigData
 }
 
 // SyncConfiguration ensures that the configuration for the webserver matches the desired state
-func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
+func (n *NginxConfig) SyncConfiguration(sites []pb.Site) (bool, error) {
 	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
 	updated := false
 
@@ -271,7 +261,7 @@ func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 		}
 
 		// If we wrote a config file for a site, test the nginx configuration to see if there's any error
-		if written && strings.HasPrefix(key, "conf.d/") && key != "conf.d/_default.conf" {
+		if written && strings.HasPrefix(key, "conf.d/") {
 			configOk, err := n.ConfigTest()
 			if err != nil {
 				return false, err
@@ -281,9 +271,9 @@ func (n *NginxConfig) SyncConfiguration(sites []state.SiteState) (bool, error) {
 				site := key[7:(len(key) - 5)]
 
 				// Add an error to the site's object
-				for _, v := range sites {
-					if v.Domain == site {
-						state.Instance.SetSiteHealth(v.Domain, errors.New("invalid nginx configuration - check manifest"))
+				for i := 0; i < len(sites); i++ {
+					if sites[i].Domain == site {
+						n.State.SetSiteHealth(sites[i].Domain, errors.New("invalid nginx configuration - check manifest"))
 						break
 					}
 				}
@@ -412,88 +402,19 @@ func (n *NginxConfig) loadTemplates() error {
 }
 
 // Create a configuration file
-func (n *NginxConfig) createConfigurationFile(templateName string, itemData *state.SiteState) ([]byte, error) {
+func (n *NginxConfig) createConfigurationFile(templateName string, itemData *pb.Site) ([]byte, error) {
 	// Check if the current node is using HTTPS
 	protocol := "http"
 	if appconfig.Config.GetBool("tls.node.enabled") {
 		protocol = "https"
 	}
 
-	// Ensure that itemData.App.Manifest is set
-	if itemData != nil {
-		if itemData.App == nil {
-			itemData.App = &state.SiteApp{}
-		}
-		if itemData.App.Manifest == nil {
-			itemData.App.Manifest = &utils.AppManifest{}
-		}
-
-		// Parse and validate the app's manifest
-		itemData.App.Manifest.Locations = make(map[string]utils.ManifestRuleOptions)
-		if itemData.App.Manifest.Rules != nil && len(itemData.App.Manifest.Rules) > 0 {
-			for _, v := range itemData.App.Manifest.Rules {
-				// Ensure that only one of the various match types (exact, prefix, match, file) is set
-				if (v.Match != "" && (v.Exact != "" || v.File != "" || v.Prefix != "")) ||
-					(v.Exact != "" && (v.Match != "" || v.File != "" || v.Prefix != "")) ||
-					(v.File != "" && (v.Match != "" || v.Exact != "" || v.Prefix != "")) ||
-					(v.Prefix != "" && (v.Match != "" || v.Exact != "" || v.File != "")) {
-					n.logger.Println("Ignoring rule that has more than one match type")
-					continue
-				}
-
-				// Get the location rule block
-				location := ""
-				if v.Exact != "" {
-					location = "= " + v.Exact
-				} else if v.Prefix != "" {
-					if v.Prefix == "/" {
-						location = "/"
-					} else {
-						location = "^~ " + v.Prefix
-					}
-				} else if v.Match != "" {
-					if v.CaseSensitive {
-						location = "~ " + v.Match
-					} else {
-						location = "~* " + v.Match
-					}
-				} else if v.File != "" {
-					switch v.File {
-					// Aliases
-					case "_images":
-						location = " ~* \\.(jpg|jpeg|png|gif|ico|svg|svgz|webp|tif|tiff|dng|psd|heif|bmp)$"
-					case "_videos":
-						location = "~* \\.(mp4|m4v|mkv|webm|avi|mpg|mpeg|ogg|wmv|flv|mov)$"
-					case "_audios":
-						location = "~* \\.(mp3|mp4|aac|m4a|flac|wav|ogg|wma)$"
-					case "_fonts":
-						location = "~* \\.(woff|woff2|eot|otf|ttf)$"
-					default:
-						// Replace all commas with |
-						v.File = strings.ReplaceAll(v.File, ",", "|")
-						// TODO: validate this with a regular expression
-						location = "~* \\.(" + v.File + ")$"
-					}
-				} else {
-					n.logger.Println("Ignoring rule that has no match type")
-					continue
-				}
-
-				// Sanitize rule options
-				options := n.sanitizeManifestRuleOptions(v.Options)
-
-				// Add the element
-				itemData.App.Manifest.Locations[location] = options
-			}
-		}
-
-		// Ensure that Page404 and Page403 don't start with a /
-		if len(itemData.App.Manifest.Page404) > 1 && itemData.App.Manifest.Page404[0] == '/' {
-			itemData.App.Manifest.Page404 = itemData.App.Manifest.Page404[1:]
-		}
-		if len(itemData.App.Manifest.Page403) > 1 && itemData.App.Manifest.Page403[0] == '/' {
-			itemData.App.Manifest.Page403 = itemData.App.Manifest.Page403[1:]
-		}
+	// Ensure these aren't nil
+	if itemData == nil {
+		itemData = &pb.Site{}
+	}
+	if itemData.App == nil {
+		itemData.App = &pb.Site_App{}
 	}
 
 	// App root
@@ -502,48 +423,28 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 		appRoot += "/"
 	}
 
+	// Get the app's manifest, if any
+	manifest := n.AppManager.ManifestForApp(itemData.App.Name)
+
 	// Get parameters
 	tplData := struct {
-		Item         *state.SiteState
+		Item         *pb.Site
+		Manifest     *agentutils.AppManifest
 		AppRoot      string
 		Port         string
 		Protocol     string
 		ManifestFile string
 		User         string
-		TLS          struct {
-			Dhparams string
-			Node     struct {
-				Enabled     bool
-				Certificate string
-				Key         string
-			}
-		}
+		Dhparams     string
 	}{
 		Item:         itemData,
+		Manifest:     manifest,
 		AppRoot:      appRoot,
 		Port:         appconfig.Config.GetString("port"),
 		Protocol:     protocol,
 		ManifestFile: appconfig.Config.GetString("manifestFile"),
 		User:         appconfig.Config.GetString("nginx.user"),
-		TLS: struct {
-			Dhparams string
-			Node     struct {
-				Enabled     bool
-				Certificate string
-				Key         string
-			}
-		}{
-			Dhparams: appRoot + "misc/dhparams.pem",
-			Node: struct {
-				Enabled     bool
-				Certificate string
-				Key         string
-			}{
-				Enabled:     appconfig.Config.GetBool("tls.node.enabled"),
-				Certificate: appRoot + "misc/node.cert.pem",
-				Key:         appRoot + "misc/node.key.pem",
-			},
-		},
+		Dhparams:     appRoot + "misc/dhparams.pem",
 	}
 
 	// Get the template
@@ -556,42 +457,6 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *sta
 	}
 
 	return buf.Bytes(), nil
-}
-
-// Validates and sanitizes an ManifestRuleOptions object in the manifest
-func (n *NginxConfig) sanitizeManifestRuleOptions(v utils.ManifestRuleOptions) utils.ManifestRuleOptions {
-	// If there's a ClientCaching value, ensure it's valid
-	if v.ClientCaching != "" {
-		if !n.clientCachingRegexp.MatchString(v.ClientCaching) {
-			n.logger.Println("Ignoring invalid value for clientCaching:", v.ClientCaching)
-			v.ClientCaching = ""
-		}
-	}
-
-	// Escape values in headers
-	if v.Headers != nil && len(v.Headers) > 0 {
-		v.CleanHeaders = make(map[string]string, 0)
-		for hk, hv := range v.Headers {
-			// Filter out disallowed headers
-			if !utils.HeaderIsAllowed(hk) {
-				n.logger.Println("Ignoring invalid header:", hk)
-				continue
-			}
-			// Escape the header
-			v.CleanHeaders[escapeConfigString(hk)] = escapeConfigString(hv)
-		}
-	}
-
-	// Validate the URL for proxying
-	if v.Proxy != "" {
-		parsed, err := url.ParseRequestURI(v.Proxy)
-		if err != nil || parsed == nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-			n.logger.Println("Ignoring invalid value for proxy:", v.Proxy)
-			v.Proxy = ""
-		}
-	}
-
-	return v
 }
 
 // Writes data to a configuration file
@@ -610,23 +475,4 @@ func writeConfigFile(path string, val []byte) error {
 		return err
 	}
 	return nil
-}
-
-// Escapes characters in strings used in nginx's config files
-func escapeConfigString(in string) (out string) {
-	out = ""
-	for _, char := range in {
-		// Escape " and \
-		if char == '"' || char == '\\' {
-			out += "\\"
-		}
-		out += string(char)
-
-		// We can't escape the $ sign, but we can use the $dollar variable
-		// See: https://serverfault.com/a/854600/93929
-		if char == '$' {
-			out += "{dollar}"
-		}
-	}
-	return
 }

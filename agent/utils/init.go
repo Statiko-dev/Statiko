@@ -17,10 +17,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package utils
 
 import (
-	pb "github.com/statiko-dev/statiko/shared/proto"
+	"log"
+	"os"
 )
 
-// EnsureAgentOptions ensures that the AgentOptions object is set
-func EnsureAgentOptions(state *pb.StateStore) error {
-	return nil
+var logger *log.Logger
+
+// Init the package
+func init() {
+	logger = log.New(os.Stdout, "utils-agent: ", log.Ldate|log.Ltime|log.LUTC)
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/sync"
+	"github.com/statiko-dev/statiko/agent/webserver"
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/fs"
@@ -44,6 +45,7 @@ type Agent struct {
 	rpcClient  *client.RPCClient
 	syncClient *sync.Sync
 	appManager *appmanager.Manager
+	webserver  *webserver.NginxConfig
 }
 
 // Run the agent app
@@ -97,11 +99,25 @@ func (a *Agent) Run() (err error) {
 		Certificates: a.certs,
 		Fs:           a.store,
 	}
-	a.appManager.Init()
+	err = a.appManager.Init()
+	if err != nil {
+		return err
+	}
+
+	// Init the webserver object
+	a.webserver = &webserver.NginxConfig{
+		State:      a.agentState,
+		AppManager: a.appManager,
+	}
+	err = a.webserver.Init()
+	if err != nil {
+		return err
+	}
 
 	// Init the sync client
 	a.syncClient = &sync.Sync{
-		State: a.agentState,
+		State:     a.agentState,
+		Webserver: a.webserver,
 	}
 	a.syncClient.Init()
 

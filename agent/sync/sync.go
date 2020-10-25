@@ -29,10 +29,9 @@ import (
 
 // Sync is the main controller for synchronizing the system's state with the desired state
 type Sync struct {
-	// State object
-	State *state.AgentState
-	// AppManager object
+	State      *state.AgentState
 	AppManager *appmanager.Manager
+	Webserver  *webserver.NginxConfig
 
 	// Semaphore that allows only one operation at time
 	semaphore chan int
@@ -139,7 +138,7 @@ func (s *Sync) runner() error {
 	restartRequired = restartRequired || res
 
 	// Second, sync the web server configuration
-	res, err = webserver.Instance.SyncConfiguration(sites)
+	res, err = s.Webserver.SyncConfiguration(sites)
 	if err != nil {
 		s.logger.Println("Error while syncing Nginx configuration:", err)
 
@@ -156,7 +155,8 @@ func (s *Sync) runner() error {
 
 	// If we've updated anything that requires restarting nginx, do it
 	if restartRequired {
-		if err := webserver.Instance.RestartServer(); err != nil {
+		err := s.Webserver.RestartServer()
+		if err != nil {
 			s.logger.Println("Error while restarting Nginx:", err)
 			return err
 		}

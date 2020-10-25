@@ -40,6 +40,7 @@ import (
 
 	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/state"
+	agentutils "github.com/statiko-dev/statiko/agent/utils"
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -56,7 +57,7 @@ type Manager struct {
 	codeSignKey *rsa.PublicKey
 	log         *log.Logger
 	box         *packr.Box
-	manifests   map[string]*utils.AppManifest
+	manifests   map[string]*agentutils.AppManifest
 }
 
 // Init the object
@@ -128,22 +129,8 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 	var u bool
 	var err error
 
-	// Folder for the default site
-	// /approot/sites/_default
-	u, err = ensureFolderWithUpdated(m.appRoot + "sites/_default")
-	if err != nil {
-		return false, err
-	}
-	updated = updated || u
-
-	// Activate the default site
-	// /approot/sites/_default/www
-	if err := m.ActivateApp("_default", "_default"); err != nil {
-		return false, err
-	}
-
 	// Iterate through the sites list
-	expectFolders := []string{"_default"}
+	expectFolders := []string{}
 	for _, s := range sites {
 		// If the app failed to deploy, skip this
 		if m.State.GetSiteHealth(s.Domain) != nil {
@@ -214,7 +201,7 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 		name := f.Name()
 		// There should only be folders
 		if f.IsDir() {
-			// Folder name must be _default or one of the domains
+			// Folder name must be one of the domains
 			if !utils.StringInSlice(expectFolders, name) {
 				// Delete the folder
 				updated = true
@@ -241,7 +228,7 @@ func (m *Manager) SyncSiteFolders(sites []*pb.Site) (bool, error) {
 // SyncApps ensures that we have the correct apps
 func (m *Manager) SyncApps(sites []*pb.Site) error {
 	// Init/reset the manifest list
-	m.manifests = make(map[string]*utils.AppManifest)
+	m.manifests = make(map[string]*agentutils.AppManifest)
 
 	// Channels used by the worker pool to fetch apps in parallel
 	jobs := make(chan *pb.Site, 4)
@@ -318,7 +305,7 @@ func (m *Manager) SyncApps(sites []*pb.Site) error {
 		name := f.Name()
 		// There should only be folders
 		if f.IsDir() {
-			// Folder name must be _default or one of the domains
+			// Folder name must be _default or one of the apps
 			if !utils.StringInSlice(expectApps, name) {
 				// Delete the folder
 				m.log.Println("Removing extraneous folder", m.appRoot+"apps/"+name)
@@ -339,11 +326,12 @@ func (m *Manager) SyncApps(sites []*pb.Site) error {
 				if err != nil {
 					return err
 				}
-				manifest := &utils.AppManifest{}
+				manifest := &agentutils.AppManifest{}
 				err = yaml.Unmarshal(readBytes, manifest)
 				if err != nil {
 					return err
 				}
+				manifest.Sanitize()
 				m.manifests[name] = manifest
 			}
 		} else {
@@ -763,7 +751,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 	return nil
 }
 
-// ManifestForApp returns the manifest for an app, if anys
-func (m *Manager) ManifestForApp(name string) *utils.AppManifest {
+// ManifestForApp returns the manifest for an app, if any
+func (m *Manager) ManifestForApp(name string) *agentutils.AppManifest {
 	return m.manifests[name]
 }
