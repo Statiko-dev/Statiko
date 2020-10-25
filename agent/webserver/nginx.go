@@ -66,7 +66,7 @@ func (n *NginxConfig) Init() error {
 }
 
 // DesiredConfiguration builds the list of files for the desired configuration for nginx
-func (n *NginxConfig) DesiredConfiguration(sites []pb.Site) (config ConfigData, err error) {
+func (n *NginxConfig) DesiredConfiguration(sites []*pb.Site) (config ConfigData, err error) {
 	config = make(ConfigData)
 
 	// Basic webserver configuration
@@ -89,8 +89,7 @@ func (n *NginxConfig) DesiredConfiguration(sites []pb.Site) (config ConfigData, 
 	}
 
 	// Configuration for each site
-	for i := 0; i < len(sites); i++ {
-		s := &sites[i]
+	for _, s := range sites {
 		// If the site/app failed to deploy, skip this
 		if n.State.GetSiteHealth(s.Domain) != nil {
 			n.logger.Println("Skipping site with error (in DesiredConfiguration)", s.Domain)
@@ -114,7 +113,7 @@ func (n *NginxConfig) DesiredConfiguration(sites []pb.Site) (config ConfigData, 
 }
 
 // ExistingConfiguration reads the list of files currently on disk, and deletes some extraneous ones already
-func (n *NginxConfig) ExistingConfiguration(sites []pb.Site) (ConfigData, bool, error) {
+func (n *NginxConfig) ExistingConfiguration(sites []*pb.Site) (ConfigData, bool, error) {
 	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
 	existing := make(ConfigData)
 	updated := false
@@ -156,8 +155,7 @@ func (n *NginxConfig) ExistingConfiguration(sites []pb.Site) (ConfigData, bool, 
 	}
 
 	// List of files we expect in the conf.d directory
-	for i := 0; i < len(sites); i++ {
-		s := &sites[i]
+	for _, s := range sites {
 		// If the site/app failed to deploy, skip this
 		if n.State.GetSiteHealth(s.Domain) != nil {
 			n.logger.Println("Skipping site with error (in ExistingConfiguration)", s.Domain)
@@ -208,7 +206,7 @@ func (n *NginxConfig) ExistingConfiguration(sites []pb.Site) (ConfigData, bool, 
 }
 
 // SyncConfiguration ensures that the configuration for the webserver matches the desired state
-func (n *NginxConfig) SyncConfiguration(sites []pb.Site) (bool, error) {
+func (n *NginxConfig) SyncConfiguration(sites []*pb.Site) (bool, error) {
 	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
 	updated := false
 

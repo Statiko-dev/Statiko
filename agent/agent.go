@@ -66,13 +66,6 @@ func (a *Agent) Run() (err error) {
 	a.agentState = &state.AgentState{}
 	a.agentState.Init()
 
-	// Request the initial state
-	state, err := a.rpcClient.GetState()
-	if err != nil {
-		return err
-	}
-	a.agentState.ReplaceState(state)
-
 	// Init and start the gRPC client
 	a.rpcClient = &client.RPCClient{
 		AgentState: a.agentState,
@@ -82,6 +75,13 @@ func (a *Agent) Run() (err error) {
 	if err != nil {
 		return err
 	}
+
+	// Request the initial state
+	state, err := a.rpcClient.GetState()
+	if err != nil {
+		return err
+	}
+	a.agentState.ReplaceState(state)
 
 	// Init the certs object
 	a.certs = &certificates.AgentCertificates{

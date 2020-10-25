@@ -16,11 +16,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package main
 
+import (
+	"log"
+)
+
 func main() {
 	// Create and run the Controller object
 	controller := &Controller{}
 	err := controller.Run()
 	if err != nil {
-		panic(err)
+		log.Panicln(err)
 	}
 }
