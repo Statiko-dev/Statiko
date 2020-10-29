@@ -18,7 +18,6 @@ package main
 
 import (
 	"crypto/rsa"
-	"errors"
 	"log"
 	"math/big"
 	"os"
@@ -26,13 +25,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/sync"
 	"github.com/statiko-dev/statiko/agent/webserver"
-	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -43,7 +43,6 @@ type Agent struct {
 	store      fs.Fs
 	agentState *state.AgentState
 	notifier   *notifications.Notifications
-	logger     *log.Logger
 	certs      *certificates.AgentCertificates
 	rpcClient  *client.RPCClient
 	syncClient *sync.Sync
@@ -53,13 +52,15 @@ type Agent struct {
 
 // Run the agent app
 func (a *Agent) Run() (err error) {
-	// Ensure that the node name is set
-	if appconfig.Config.GetString("nodeName") == "" {
-		return errors.New("nodeName must be set in the configuration")
+	// Load the configuration
+	err = a.LoadConfig()
+	if err != nil {
+		return err
 	}
 
 	// Init the store
-	fsType := appconfig.Config.GetString("repo.type")
+	// TODO: GET THIS FROM CONTROLLER
+	fsType := viper.GetString("repo.type")
 	a.store, err = fs.Get(fsType)
 	if err != nil {
 		return err

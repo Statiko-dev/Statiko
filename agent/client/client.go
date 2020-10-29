@@ -22,12 +22,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/statiko-dev/statiko/agent/state"
-	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -54,8 +54,7 @@ func (c *RPCClient) Init() {
 
 // Connect starts the connection to the gRPC server and starts all background streams
 func (c *RPCClient) Connect() (err error) {
-	addr := "localhost:2300"
-	c.logger.Println("Connecting to gRPC server at", addr)
+	c.logger.Println("Connecting to gRPC server at", viper.GetString("controllerAddress"))
 	// Underlying connection
 	connOpts := []grpc.DialOption{
 		grpc.WithBlock(),
@@ -69,7 +68,7 @@ func (c *RPCClient) Connect() (err error) {
 			Timeout: time.Duration(requestTimeout) * time.Second,
 		}),
 	}
-	c.connection, err = grpc.Dial(addr, connOpts...)
+	c.connection, err = grpc.Dial(viper.GetString("controllerAddress"), connOpts...)
 	if err != nil {
 		return err
 	}
@@ -146,7 +145,7 @@ func (c *RPCClient) startStreamChannel() {
 	defer cancel()
 
 	// Get node name
-	nodeName := appconfig.Config.GetString("nodeName")
+	nodeName := viper.GetString("nodeName")
 
 	// Connect to the stream RPC
 	stream, err := c.client.Channel(ctx, grpc.WaitForReady(true))

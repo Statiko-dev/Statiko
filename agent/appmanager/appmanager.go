@@ -33,12 +33,12 @@ import (
 
 	"github.com/google/renameio"
 	"github.com/markbates/pkger"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 
 	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/state"
 	agentutils "github.com/statiko-dev/statiko/agent/utils"
-	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
@@ -63,7 +63,7 @@ func (m *Manager) Init() error {
 	m.log = log.New(os.Stdout, "appmanager: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Init properties from config
-	m.appRoot = appconfig.Config.GetString("appRoot")
+	m.appRoot = viper.GetString("appRoot")
 	if !strings.HasSuffix(m.appRoot, "/") {
 		m.appRoot += "/"
 	}
@@ -305,7 +305,8 @@ func (m *Manager) SyncApps(sites []*pb.Site) error {
 			}
 
 			// Check if there's a manifest file
-			manifestFile := m.appRoot + "apps/" + name + "/" + appconfig.Config.GetString("manifestFile")
+			// TODO: GET THIS FROM CONTROLLER
+			manifestFile := m.appRoot + "apps/" + name + "/" + viper.GetString("manifestFile")
 			exists, err := utils.FileExists(manifestFile)
 			if err != nil {
 				return err

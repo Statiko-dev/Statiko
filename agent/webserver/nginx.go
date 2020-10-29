@@ -27,10 +27,11 @@ import (
 	"text/template"
 
 	"github.com/markbates/pkger"
+	"github.com/spf13/viper"
+
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/state"
 	agentutils "github.com/statiko-dev/statiko/agent/utils"
-	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -113,7 +114,7 @@ func (n *NginxConfig) DesiredConfiguration(sites []*pb.Site) (config ConfigData,
 
 // ExistingConfiguration reads the list of files currently on disk, and deletes some extraneous ones already
 func (n *NginxConfig) ExistingConfiguration(sites []*pb.Site) (ConfigData, bool, error) {
-	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
+	nginxConfPath := viper.GetString("nginx.configPath")
 	existing := make(ConfigData)
 	updated := false
 
@@ -206,7 +207,7 @@ func (n *NginxConfig) ExistingConfiguration(sites []*pb.Site) (ConfigData, bool,
 
 // SyncConfiguration ensures that the configuration for the webserver matches the desired state
 func (n *NginxConfig) SyncConfiguration(sites []*pb.Site) (bool, error) {
-	nginxConfPath := appconfig.Config.GetString("nginx.configPath")
+	nginxConfPath := viper.GetString("nginx.configPath")
 	updated := false
 
 	// Generate the desired configuration
@@ -288,7 +289,7 @@ func (n *NginxConfig) SyncConfiguration(sites []*pb.Site) (bool, error) {
 
 // Status returns the status of the Nginx server
 func (n *NginxConfig) Status() (bool, error) {
-	result, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.status")).Output()
+	result, err := exec.Command("sh", "-c", viper.GetString("nginx.commands.status")).Output()
 	if err != nil {
 		n.logger.Printf("Error while checking Nginx server status: %s\n", err)
 		return false, err
@@ -305,7 +306,7 @@ func (n *NginxConfig) Status() (bool, error) {
 
 // ConfigTest runs the Nginx's config test command and returns whether the configuration is valid
 func (n *NginxConfig) ConfigTest() (bool, error) {
-	result, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.test")).Output()
+	result, err := exec.Command("sh", "-c", viper.GetString("nginx.commands.test")).Output()
 	// Ignore the error "exit status 1", which means the configuration test failed
 	if err != nil && err.Error() != "exit status 1" {
 		n.logger.Printf("Error while testing Nginx server configuration: %s\n", err)
@@ -331,7 +332,7 @@ func (n *NginxConfig) EnsureServerRunning() error {
 	}
 	if !running {
 		n.logger.Println("Starting Nginx server")
-		_, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.start")).Output()
+		_, err := exec.Command("sh", "-c", viper.GetString("nginx.commands.start")).Output()
 		if err != nil {
 			n.logger.Printf("Error while starting Nginx server: %s\n", err)
 			return err
@@ -351,7 +352,7 @@ func (n *NginxConfig) RestartServer() error {
 	if running {
 		// Reload the configuration
 		n.logger.Println("Restarting Nginx server")
-		_, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.restart")).Output()
+		_, err := exec.Command("sh", "-c", viper.GetString("nginx.commands.restart")).Output()
 		if err != nil {
 			n.logger.Printf("Error while restarting Nginx server: %s\n", err)
 			return err
@@ -359,7 +360,7 @@ func (n *NginxConfig) RestartServer() error {
 	} else {
 		// Start Nginx
 		n.logger.Println("Starting Nginx server")
-		_, err := exec.Command("sh", "-c", appconfig.Config.GetString("nginx.commands.start")).Output()
+		_, err := exec.Command("sh", "-c", viper.GetString("nginx.commands.start")).Output()
 		if err != nil {
 			n.logger.Printf("Error while starting Nginx server: %s\n", err)
 			return err
@@ -402,12 +403,6 @@ func (n *NginxConfig) loadTemplates() error {
 
 // Create a configuration file
 func (n *NginxConfig) createConfigurationFile(templateName string, itemData *pb.Site) ([]byte, error) {
-	// Check if the current node is using HTTPS
-	protocol := "http"
-	if appconfig.Config.GetBool("tls.node.enabled") {
-		protocol = "https"
-	}
-
 	// Ensure these aren't nil
 	if itemData == nil {
 		itemData = &pb.Site{}
@@ -417,7 +412,7 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *pb.
 	}
 
 	// App root
-	appRoot := appconfig.Config.GetString("appRoot")
+	appRoot := viper.GetString("appRoot")
 	if !strings.HasSuffix(appRoot, "/") {
 		appRoot += "/"
 	}
@@ -431,18 +426,17 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *pb.
 		Manifest     *agentutils.AppManifest
 		AppRoot      string
 		Port         string
-		Protocol     string
 		ManifestFile string
 		User         string
 		Dhparams     string
 	}{
-		Item:         itemData,
-		Manifest:     manifest,
-		AppRoot:      appRoot,
-		Port:         appconfig.Config.GetString("port"),
-		Protocol:     protocol,
-		ManifestFile: appconfig.Config.GetString("manifestFile"),
-		User:         appconfig.Config.GetString("nginx.user"),
+		Item:     itemData,
+		Manifest: manifest,
+		AppRoot:  appRoot,
+		Port:     viper.GetString("serverPort"),
+		// TODO: GET THIS FROM CONTROLLER
+		ManifestFile: viper.GetString("manifestFile"),
+		User:         viper.GetString("nginx.user"),
 		Dhparams:     appRoot + "misc/dhparams.pem",
 	}
 
