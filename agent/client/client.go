@@ -54,6 +54,8 @@ func (c *RPCClient) Init() {
 
 // Connect starts the connection to the gRPC server and starts all background streams
 func (c *RPCClient) Connect() (err error) {
+	addr := "localhost:2300"
+	c.logger.Println("Connecting to gRPC server at", addr)
 	// Underlying connection
 	connOpts := []grpc.DialOption{
 		grpc.WithBlock(),
@@ -67,13 +69,14 @@ func (c *RPCClient) Connect() (err error) {
 			Timeout: time.Duration(requestTimeout) * time.Second,
 		}),
 	}
-	c.connection, err = grpc.Dial("localhost:2300", connOpts...)
+	c.connection, err = grpc.Dial(addr, connOpts...)
 	if err != nil {
 		return err
 	}
 
 	// Client
 	c.client = pb.NewControllerClient(c.connection)
+	c.logger.Println("Connection with gRPC server established")
 
 	// Start the background stream in another goroutine
 	go func() {

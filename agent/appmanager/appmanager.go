@@ -31,9 +31,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gobuffalo/packd"
-	"github.com/gobuffalo/packr/v2"
 	"github.com/google/renameio"
+	"github.com/markbates/pkger"
 	"gopkg.in/yaml.v2"
 
 	"github.com/statiko-dev/statiko/agent/certificates"
@@ -55,7 +54,6 @@ type Manager struct {
 
 	appRoot   string
 	log       *log.Logger
-	box       *packr.Box
 	manifests map[string]*agentutils.AppManifest
 }
 
@@ -69,9 +67,6 @@ func (m *Manager) Init() error {
 	if !strings.HasSuffix(m.appRoot, "/") {
 		m.appRoot += "/"
 	}
-
-	// Packr
-	m.box = packr.New("Default app", "../default-app/dist")
 
 	return nil
 }
@@ -384,24 +379,46 @@ func (m *Manager) WriteDefaultApp() error {
 	}
 
 	// Write the default website
-	err := m.box.Walk(func(path string, file packd.File) error {
-		defer file.Close()
-		// Ensure the folder exists
-		pos := strings.LastIndex(path, "/")
-		if pos > 0 {
-			if err := utils.EnsureFolder(m.appRoot + "apps/_default/" + path[:pos]); err != nil {
+	bundle := "github.com/statiko-dev/statiko:/default-app/dist"
+	err := pkger.Walk(bundle, func(path string, info os.FileInfo, err error) error {
+		// Remove the prefix
+		obj := path[len(bundle):]
+
+		// Check type
+		mode := info.Mode()
+		switch {
+
+		// Folder
+		case mode.IsDir():
+			// Ensure the folder exists
+			err := utils.EnsureFolder(m.appRoot + "apps/_default" + obj)
+			if err != nil {
 				return err
 			}
-		}
+			return nil
 
-		// Write the file
-		f, err := os.Create(m.appRoot + "apps/_default/" + path)
-		defer f.Close()
-		if err != nil {
-			return err
+		// Reguar file
+		case mode.IsRegular():
+			// Open the file to read
+			in, err := pkger.Open(path)
+			if err != nil {
+				return err
+			}
+			defer in.Close()
+
+			// Write the file
+			out, err := os.Create(m.appRoot + "apps/_default/" + obj)
+			defer out.Close()
+			if err != nil {
+				return err
+			}
+			io.Copy(out, in)
+			return nil
+
+		// Anything else is not supported
+		default:
+			return errors.New("for default app, only regular files and directories are supported")
 		}
-		io.Copy(f, file)
-		return nil
 	})
 	if err != nil {
 		return err

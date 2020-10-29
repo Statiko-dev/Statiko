@@ -114,8 +114,9 @@ func (a *Agent) Run() (err error) {
 
 	// Init the sync client
 	a.syncClient = &sync.Sync{
-		State:     a.agentState,
-		Webserver: a.webserver,
+		State:      a.agentState,
+		AppManager: a.appManager,
+		Webserver:  a.webserver,
 	}
 	a.syncClient.Init()
 
@@ -169,10 +170,10 @@ func (a *Agent) initAppManager() (err error) {
 	// Init the object
 	err = a.appManager.Init()
 	if err != nil {
-		return
+		return err
 	}
 
-	return
+	return nil
 }
 
 // Listens for SIGUSR1 signals and triggers a new sync

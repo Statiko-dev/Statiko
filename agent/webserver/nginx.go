@@ -26,18 +26,17 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/markbates/pkger"
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/state"
 	agentutils "github.com/statiko-dev/statiko/agent/utils"
 	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
-
-	"github.com/gobuffalo/packr/v2"
 )
 
 // List of template files
-var templateFiles = [4]string{"nginx.conf", "mime.types", "site.conf"}
+var templateFiles = [3]string{"nginx.conf", "mime.types", "site.conf"}
 
 // ConfigData is a map of each configuration file and its content
 type ConfigData map[string][]byte
@@ -372,9 +371,6 @@ func (n *NginxConfig) RestartServer() error {
 
 // Read all templates
 func (n *NginxConfig) loadTemplates() error {
-	// Packr
-	box := packr.New("Nginx templates", "nginx-template")
-
 	// Functions to add to the template
 	funcMap := template.FuncMap{
 		// Joins all values of a slice with a string separator
@@ -385,11 +381,16 @@ func (n *NginxConfig) loadTemplates() error {
 
 	// Read all templates from the list
 	for i := 0; i < len(templateFiles); i++ {
-		str, err := box.FindString(templateFiles[i])
+		f, err := pkger.Open("github.com/statiko-dev/statiko/agent:/webserver/nginx-template/" + templateFiles[i])
 		if err != nil {
 			return err
 		}
-		tpl, err := template.New(templateFiles[i]).Funcs(funcMap).Parse(str)
+		read, err := ioutil.ReadAll(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+		tpl, err := template.New(templateFiles[i]).Funcs(funcMap).Parse(string(read))
 		if err != nil {
 			return err
 		}
