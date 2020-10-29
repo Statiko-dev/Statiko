@@ -17,8 +17,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"crypto/rsa"
 	"errors"
 	"log"
+	"math/big"
 	"os"
 	"os/signal"
 	"syscall"
@@ -33,6 +35,7 @@ import (
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/fs"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // Agent is the class that manages the agent app
@@ -94,12 +97,7 @@ func (a *Agent) Run() (err error) {
 	}
 
 	// Init the app manager object
-	a.appManager = &appmanager.Manager{
-		State:        a.agentState,
-		Certificates: a.certs,
-		Fs:           a.store,
-	}
-	err = a.appManager.Init()
+	err = a.initAppManager()
 	if err != nil {
 		return err
 	}
@@ -140,6 +138,41 @@ func (a *Agent) Run() (err error) {
 	a.handleResyncSignal()
 
 	return nil
+}
+
+// Inits the appManager object
+func (a *Agent) initAppManager() (err error) {
+	// Alloc the appManager object
+	a.appManager = &appmanager.Manager{
+		State:        a.agentState,
+		Certificates: a.certs,
+		Fs:           a.store,
+	}
+
+	// Request the codesign key
+	msg, err := a.rpcClient.GetCodesignKey()
+	if err != nil {
+		return err
+	}
+	// For now, only RSA signatures are supported
+	if msg.Type == pb.CodesignKeyMessage_RSA {
+		n := &big.Int{}
+		n.SetBytes(msg.RsaKey.N)
+		key := &rsa.PublicKey{
+			N: n,
+			E: int(msg.RsaKey.E),
+		}
+		a.appManager.CodesignKey = key
+		a.appManager.CodesignRequired = msg.RequireCodesign
+	}
+
+	// Init the object
+	err = a.appManager.Init()
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 // Listens for SIGUSR1 signals and triggers a new sync

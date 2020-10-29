@@ -37,6 +37,9 @@ service Controller {
 
   // Requests a TLS certificate
   rpc GetTLSCertificate(TLSCertificateRequest) returns (TLSCertificateMessage);
+
+  // Requests the codesign public key
+  rpc GetCodesignKey(CodesignKeyRequest) returns (CodesignKeyMessage);
 }
 
 // Client stream for the Channel RPC
@@ -98,4 +101,35 @@ message GetStateRequest {}
 message TLSCertificateRequest {
   // ID of the TLS certificate to request
   string certificate_id = 1;
+}
+
+// Message for requesting the codesign key
+// This is currently an empty message
+message CodesignKeyRequest {}
+
+// Message with the codesign key
+message CodesignKeyMessage {
+  // Requires code signing
+  bool require_codesign = 1;
+
+  // Type of codesign key
+  enum KeyType {
+    // Null: there's no codesign key
+    NULL = 0;
+    // RSA public key
+    RSA = 1;
+  }
+  // Key type
+  KeyType type = 2;
+
+  // Arguments for RSA key
+  message RSAKey {
+    // Modulus
+    bytes n = 1;
+    // Exponent
+    // Note on using 32-bit integers: https://www.imperialviolet.org/2012/03/16/rsae.html
+    uint32 e = 2;
+  }
+  // RSA key when key type is RSA
+  RSAKey rsa_key = 10;
 }

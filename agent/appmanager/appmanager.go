@@ -21,9 +21,7 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -49,15 +47,16 @@ import (
 
 // Manager contains helper functions to manage apps and sites
 type Manager struct {
-	State        *state.AgentState
-	Certificates *certificates.AgentCertificates
-	Fs           fs.Fs
+	State            *state.AgentState
+	Certificates     *certificates.AgentCertificates
+	Fs               fs.Fs
+	CodesignKey      *rsa.PublicKey
+	CodesignRequired bool
 
-	appRoot     string
-	codeSignKey *rsa.PublicKey
-	log         *log.Logger
-	box         *packr.Box
-	manifests   map[string]*agentutils.AppManifest
+	appRoot   string
+	log       *log.Logger
+	box       *packr.Box
+	manifests map[string]*agentutils.AppManifest
 }
 
 // Init the object
@@ -69,11 +68,6 @@ func (m *Manager) Init() error {
 	m.appRoot = appconfig.Config.GetString("appRoot")
 	if !strings.HasSuffix(m.appRoot, "/") {
 		m.appRoot += "/"
-	}
-
-	// Load the code signing key
-	if err := m.LoadSigningKey(); err != nil {
-		return err
 	}
 
 	// Packr
@@ -442,82 +436,6 @@ func (m *Manager) ActivateApp(app string, domain string) error {
 	return nil
 }
 
-// LoadSigningKey loads the code signing public key
-func (m *Manager) LoadSigningKey() error {
-	pemKey := appconfig.Config.GetString("codesign.publicKey")
-	requireSign := appconfig.Config.GetBool("codesign.required")
-
-	// Variables
-	var (
-		block *pem.Block
-		pub   interface{}
-		err   error
-		ok    bool
-	)
-
-	// Check if we have a key, then parse it
-	if pemKey == "" {
-		goto nokey
-	}
-
-	// Check if the key is the path to a file
-	if !strings.HasPrefix(pemKey, "-----BEGIN") {
-		exists, err := utils.FileExists(pemKey)
-		if err != nil || !exists {
-			goto nokey
-		}
-
-		// Read the file
-		read, err := ioutil.ReadFile(pemKey)
-		if err != nil || read == nil || len(read) < 1 {
-			goto nokey
-		}
-		pemKey = string(read)
-	}
-
-	// Load the PEM key
-	block, _ = pem.Decode([]byte(pemKey))
-	if block == nil || len(block.Bytes) == 0 {
-		goto nokey
-	}
-
-	switch block.Type {
-	case "RSA PUBLIC KEY":
-		// PKCS#1
-		m.codeSignKey, err = x509.ParsePKCS1PublicKey(block.Bytes)
-		if err != nil || m.codeSignKey == nil {
-			m.codeSignKey = nil
-			goto nokey
-		}
-	case "PUBLIC KEY":
-		// PKIX
-		pub, err = x509.ParsePKIXPublicKey(block.Bytes)
-		if err != nil || pub == nil {
-			goto nokey
-		}
-		m.codeSignKey, ok = pub.(*rsa.PublicKey)
-		if !ok {
-			m.codeSignKey = nil
-			goto nokey
-		}
-	default:
-		goto nokey
-	}
-
-	m.log.Println("Loaded code signing key")
-
-	return nil
-
-nokey:
-	if requireSign {
-		return errors.New("codesign.required is true, but no valid key found in codesign.publicKey")
-	} else {
-		m.log.Println("[Warn] No code signing key loaded")
-	}
-
-	return nil
-}
-
 // StageApp stages an app after unpacking the bundle
 func (m *Manager) StageApp(bundle string) error {
 	// Check if the app has been staged already
@@ -662,7 +580,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 
 		// Get the signature from the blob's metadata, if any
 		// Skip if we don't have a codesign key
-		if m.codeSignKey != nil {
+		if m.CodesignKey != nil {
 			signatureB64, ok := metadata["signature"]
 			if ok && signatureB64 != "" {
 				signature, err = base64.StdEncoding.DecodeString(signatureB64)
@@ -681,7 +599,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 			fileType = typ
 		}
 	}
-	if signature == nil && appconfig.Config.GetBool("codesign.required") {
+	if signature == nil && m.CodesignRequired {
 		return errors.New("Bundle does not have a signature, but unsigned apps are not allowed by this node's configuration")
 	}
 
@@ -729,7 +647,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 		}
 	}
 	if signature != nil {
-		err = rsa.VerifyPKCS1v15(m.codeSignKey, crypto.SHA256, hashed, signature)
+		err = rsa.VerifyPKCS1v15(m.CodesignKey, crypto.SHA256, hashed, signature)
 		if err != nil {
 			// File needs to be deleted if signature is invalid
 			deleteFile = true

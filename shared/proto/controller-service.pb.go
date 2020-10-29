@@ -153,6 +153,55 @@ func (ChannelServerStream_MessageType) EnumDescriptor() ([]byte, []int) {
 	return file_controller_service_proto_rawDescGZIP(), []int{1, 0}
 }
 
+// Type of codesign key
+type CodesignKeyMessage_KeyType int32
+
+const (
+	// Null: there's no codesign key
+	CodesignKeyMessage_NULL CodesignKeyMessage_KeyType = 0
+	// RSA public key
+	CodesignKeyMessage_RSA CodesignKeyMessage_KeyType = 1
+)
+
+// Enum value maps for CodesignKeyMessage_KeyType.
+var (
+	CodesignKeyMessage_KeyType_name = map[int32]string{
+		0: "NULL",
+		1: "RSA",
+	}
+	CodesignKeyMessage_KeyType_value = map[string]int32{
+		"NULL": 0,
+		"RSA":  1,
+	}
+)
+
+func (x CodesignKeyMessage_KeyType) Enum() *CodesignKeyMessage_KeyType {
+	p := new(CodesignKeyMessage_KeyType)
+	*p = x
+	return p
+}
+
+func (x CodesignKeyMessage_KeyType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CodesignKeyMessage_KeyType) Descriptor() protoreflect.EnumDescriptor {
+	return file_controller_service_proto_enumTypes[2].Descriptor()
+}
+
+func (CodesignKeyMessage_KeyType) Type() protoreflect.EnumType {
+	return &file_controller_service_proto_enumTypes[2]
+}
+
+func (x CodesignKeyMessage_KeyType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CodesignKeyMessage_KeyType.Descriptor instead.
+func (CodesignKeyMessage_KeyType) EnumDescriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{5, 0}
+}
+
 // Client stream for the Channel RPC
 type ChannelClientStream struct {
 	state         protoimpl.MessageState
@@ -376,6 +425,113 @@ func (x *TLSCertificateRequest) GetCertificateId() string {
 	return ""
 }
 
+// Message for requesting the codesign key
+// This is currently an empty message
+type CodesignKeyRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *CodesignKeyRequest) Reset() {
+	*x = CodesignKeyRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_controller_service_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CodesignKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CodesignKeyRequest) ProtoMessage() {}
+
+func (x *CodesignKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_controller_service_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CodesignKeyRequest.ProtoReflect.Descriptor instead.
+func (*CodesignKeyRequest) Descriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{4}
+}
+
+// Message with the codesign key
+type CodesignKeyMessage struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Requires code signing
+	RequireCodesign bool `protobuf:"varint,1,opt,name=require_codesign,json=requireCodesign,proto3" json:"require_codesign,omitempty"`
+	// Key type
+	Type CodesignKeyMessage_KeyType `protobuf:"varint,2,opt,name=type,proto3,enum=statiko.CodesignKeyMessage_KeyType" json:"type,omitempty"`
+	// RSA key when key type is RSA
+	RsaKey *CodesignKeyMessage_RSAKey `protobuf:"bytes,10,opt,name=rsa_key,json=rsaKey,proto3" json:"rsa_key,omitempty"`
+}
+
+func (x *CodesignKeyMessage) Reset() {
+	*x = CodesignKeyMessage{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_controller_service_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CodesignKeyMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CodesignKeyMessage) ProtoMessage() {}
+
+func (x *CodesignKeyMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_controller_service_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CodesignKeyMessage.ProtoReflect.Descriptor instead.
+func (*CodesignKeyMessage) Descriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CodesignKeyMessage) GetRequireCodesign() bool {
+	if x != nil {
+		return x.RequireCodesign
+	}
+	return false
+}
+
+func (x *CodesignKeyMessage) GetType() CodesignKeyMessage_KeyType {
+	if x != nil {
+		return x.Type
+	}
+	return CodesignKeyMessage_NULL
+}
+
+func (x *CodesignKeyMessage) GetRsaKey() *CodesignKeyMessage_RSAKey {
+	if x != nil {
+		return x.RsaKey
+	}
+	return nil
+}
+
 // Register node message type
 type ChannelClientStream_RegisterNode struct {
 	state         protoimpl.MessageState
@@ -389,7 +545,7 @@ type ChannelClientStream_RegisterNode struct {
 func (x *ChannelClientStream_RegisterNode) Reset() {
 	*x = ChannelClientStream_RegisterNode{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_controller_service_proto_msgTypes[4]
+		mi := &file_controller_service_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -402,7 +558,7 @@ func (x *ChannelClientStream_RegisterNode) String() string {
 func (*ChannelClientStream_RegisterNode) ProtoMessage() {}
 
 func (x *ChannelClientStream_RegisterNode) ProtoReflect() protoreflect.Message {
-	mi := &file_controller_service_proto_msgTypes[4]
+	mi := &file_controller_service_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -423,6 +579,65 @@ func (x *ChannelClientStream_RegisterNode) GetNodeName() string {
 		return x.NodeName
 	}
 	return ""
+}
+
+// Arguments for RSA key
+type CodesignKeyMessage_RSAKey struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Modulus
+	N []byte `protobuf:"bytes,1,opt,name=n,proto3" json:"n,omitempty"`
+	// Exponent
+	// Note on using 32-bit integers: https://www.imperialviolet.org/2012/03/16/rsae.html
+	E uint32 `protobuf:"varint,2,opt,name=e,proto3" json:"e,omitempty"`
+}
+
+func (x *CodesignKeyMessage_RSAKey) Reset() {
+	*x = CodesignKeyMessage_RSAKey{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_controller_service_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CodesignKeyMessage_RSAKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CodesignKeyMessage_RSAKey) ProtoMessage() {}
+
+func (x *CodesignKeyMessage_RSAKey) ProtoReflect() protoreflect.Message {
+	mi := &file_controller_service_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CodesignKeyMessage_RSAKey.ProtoReflect.Descriptor instead.
+func (*CodesignKeyMessage_RSAKey) Descriptor() ([]byte, []int) {
+	return file_controller_service_proto_rawDescGZIP(), []int{5, 0}
+}
+
+func (x *CodesignKeyMessage_RSAKey) GetN() []byte {
+	if x != nil {
+		return x.N
+	}
+	return nil
+}
+
+func (x *CodesignKeyMessage_RSAKey) GetE() uint32 {
+	if x != nil {
+		return x.E
+	}
+	return 0
 }
 
 var File_controller_service_proto protoreflect.FileDescriptor
@@ -473,25 +688,47 @@ var file_controller_service_proto_rawDesc = []byte{
 	0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
 	0x73, 0x74, 0x12, 0x25, 0x0a, 0x0e, 0x63, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74,
 	0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0d, 0x63, 0x65, 0x72, 0x74,
-	0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x49, 0x64, 0x32, 0xe9, 0x01, 0x0a, 0x0a, 0x43, 0x6f,
-	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x6c, 0x65, 0x72, 0x12, 0x49, 0x0a, 0x07, 0x43, 0x68, 0x61, 0x6e,
-	0x6e, 0x65, 0x6c, 0x12, 0x1c, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x68,
-	0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x53, 0x74, 0x72, 0x65, 0x61,
-	0x6d, 0x1a, 0x1c, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x68, 0x61, 0x6e,
-	0x6e, 0x65, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x28,
-	0x01, 0x30, 0x01, 0x12, 0x3b, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12,
-	0x18, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x53, 0x74, 0x61,
-	0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e, 0x73, 0x74, 0x61, 0x74,
-	0x69, 0x6b, 0x6f, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
-	0x12, 0x53, 0x0a, 0x11, 0x47, 0x65, 0x74, 0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66,
-	0x69, 0x63, 0x61, 0x74, 0x65, 0x12, 0x1e, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e,
-	0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e,
-	0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x4d, 0x65,
-	0x73, 0x73, 0x61, 0x67, 0x65, 0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
-	0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2d, 0x64, 0x65, 0x76, 0x2f,
-	0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x65, 0x64, 0x2f, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x49, 0x64, 0x22, 0x14, 0x0a, 0x12, 0x43, 0x6f, 0x64,
+	0x65, 0x73, 0x69, 0x67, 0x6e, 0x4b, 0x65, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22,
+	0xf9, 0x01, 0x0a, 0x12, 0x43, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x4b, 0x65, 0x79, 0x4d,
+	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x29, 0x0a, 0x10, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72,
+	0x65, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08,
+	0x52, 0x0f, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x43, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67,
+	0x6e, 0x12, 0x37, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32,
+	0x23, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x6f, 0x64, 0x65, 0x73, 0x69,
+	0x67, 0x6e, 0x4b, 0x65, 0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x4b, 0x65, 0x79,
+	0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x3b, 0x0a, 0x07, 0x72, 0x73,
+	0x61, 0x5f, 0x6b, 0x65, 0x79, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x73, 0x74,
+	0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x4b, 0x65,
+	0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x52, 0x53, 0x41, 0x4b, 0x65, 0x79, 0x52,
+	0x06, 0x72, 0x73, 0x61, 0x4b, 0x65, 0x79, 0x1a, 0x24, 0x0a, 0x06, 0x52, 0x53, 0x41, 0x4b, 0x65,
+	0x79, 0x12, 0x0c, 0x0a, 0x01, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x01, 0x6e, 0x12,
+	0x0c, 0x0a, 0x01, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x01, 0x65, 0x22, 0x1c, 0x0a,
+	0x07, 0x4b, 0x65, 0x79, 0x54, 0x79, 0x70, 0x65, 0x12, 0x08, 0x0a, 0x04, 0x4e, 0x55, 0x4c, 0x4c,
+	0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x52, 0x53, 0x41, 0x10, 0x01, 0x32, 0xb5, 0x02, 0x0a, 0x0a,
+	0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x6c, 0x65, 0x72, 0x12, 0x49, 0x0a, 0x07, 0x43, 0x68,
+	0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x12, 0x1c, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e,
+	0x43, 0x68, 0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x53, 0x74, 0x72,
+	0x65, 0x61, 0x6d, 0x1a, 0x1c, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x68,
+	0x61, 0x6e, 0x6e, 0x65, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x72, 0x65, 0x61,
+	0x6d, 0x28, 0x01, 0x30, 0x01, 0x12, 0x3b, 0x0a, 0x08, 0x47, 0x65, 0x74, 0x53, 0x74, 0x61, 0x74,
+	0x65, 0x12, 0x18, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x47, 0x65, 0x74, 0x53,
+	0x74, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e, 0x73, 0x74,
+	0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61,
+	0x67, 0x65, 0x12, 0x53, 0x0a, 0x11, 0x47, 0x65, 0x74, 0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74,
+	0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65, 0x12, 0x1e, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b,
+	0x6f, 0x2e, 0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b,
+	0x6f, 0x2e, 0x54, 0x4c, 0x53, 0x43, 0x65, 0x72, 0x74, 0x69, 0x66, 0x69, 0x63, 0x61, 0x74, 0x65,
+	0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x4a, 0x0a, 0x0e, 0x47, 0x65, 0x74, 0x43, 0x6f,
+	0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x4b, 0x65, 0x79, 0x12, 0x1b, 0x2e, 0x73, 0x74, 0x61, 0x74,
+	0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x4b, 0x65, 0x79, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1b, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f,
+	0x2e, 0x43, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x4b, 0x65, 0x79, 0x4d, 0x65, 0x73, 0x73,
+	0x61, 0x67, 0x65, 0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x73, 0x74,
+	0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x65, 0x64, 0x2f, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -506,37 +743,45 @@ func file_controller_service_proto_rawDescGZIP() []byte {
 	return file_controller_service_proto_rawDescData
 }
 
-var file_controller_service_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_controller_service_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_controller_service_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_controller_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_controller_service_proto_goTypes = []interface{}{
 	(ChannelClientStream_MessageType)(0),     // 0: statiko.ChannelClientStream.MessageType
 	(ChannelServerStream_MessageType)(0),     // 1: statiko.ChannelServerStream.MessageType
-	(*ChannelClientStream)(nil),              // 2: statiko.ChannelClientStream
-	(*ChannelServerStream)(nil),              // 3: statiko.ChannelServerStream
-	(*GetStateRequest)(nil),                  // 4: statiko.GetStateRequest
-	(*TLSCertificateRequest)(nil),            // 5: statiko.TLSCertificateRequest
-	(*ChannelClientStream_RegisterNode)(nil), // 6: statiko.ChannelClientStream.RegisterNode
-	(*NodeHealth)(nil),                       // 7: statiko.NodeHealth
-	(*StateMessage)(nil),                     // 8: statiko.StateMessage
-	(*TLSCertificateMessage)(nil),            // 9: statiko.TLSCertificateMessage
+	(CodesignKeyMessage_KeyType)(0),          // 2: statiko.CodesignKeyMessage.KeyType
+	(*ChannelClientStream)(nil),              // 3: statiko.ChannelClientStream
+	(*ChannelServerStream)(nil),              // 4: statiko.ChannelServerStream
+	(*GetStateRequest)(nil),                  // 5: statiko.GetStateRequest
+	(*TLSCertificateRequest)(nil),            // 6: statiko.TLSCertificateRequest
+	(*CodesignKeyRequest)(nil),               // 7: statiko.CodesignKeyRequest
+	(*CodesignKeyMessage)(nil),               // 8: statiko.CodesignKeyMessage
+	(*ChannelClientStream_RegisterNode)(nil), // 9: statiko.ChannelClientStream.RegisterNode
+	(*CodesignKeyMessage_RSAKey)(nil),        // 10: statiko.CodesignKeyMessage.RSAKey
+	(*NodeHealth)(nil),                       // 11: statiko.NodeHealth
+	(*StateMessage)(nil),                     // 12: statiko.StateMessage
+	(*TLSCertificateMessage)(nil),            // 13: statiko.TLSCertificateMessage
 }
 var file_controller_service_proto_depIdxs = []int32{
-	0, // 0: statiko.ChannelClientStream.type:type_name -> statiko.ChannelClientStream.MessageType
-	6, // 1: statiko.ChannelClientStream.registration:type_name -> statiko.ChannelClientStream.RegisterNode
-	7, // 2: statiko.ChannelClientStream.health:type_name -> statiko.NodeHealth
-	1, // 3: statiko.ChannelServerStream.type:type_name -> statiko.ChannelServerStream.MessageType
-	8, // 4: statiko.ChannelServerStream.state:type_name -> statiko.StateMessage
-	2, // 5: statiko.Controller.Channel:input_type -> statiko.ChannelClientStream
-	4, // 6: statiko.Controller.GetState:input_type -> statiko.GetStateRequest
-	5, // 7: statiko.Controller.GetTLSCertificate:input_type -> statiko.TLSCertificateRequest
-	3, // 8: statiko.Controller.Channel:output_type -> statiko.ChannelServerStream
-	8, // 9: statiko.Controller.GetState:output_type -> statiko.StateMessage
-	9, // 10: statiko.Controller.GetTLSCertificate:output_type -> statiko.TLSCertificateMessage
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	0,  // 0: statiko.ChannelClientStream.type:type_name -> statiko.ChannelClientStream.MessageType
+	9,  // 1: statiko.ChannelClientStream.registration:type_name -> statiko.ChannelClientStream.RegisterNode
+	11, // 2: statiko.ChannelClientStream.health:type_name -> statiko.NodeHealth
+	1,  // 3: statiko.ChannelServerStream.type:type_name -> statiko.ChannelServerStream.MessageType
+	12, // 4: statiko.ChannelServerStream.state:type_name -> statiko.StateMessage
+	2,  // 5: statiko.CodesignKeyMessage.type:type_name -> statiko.CodesignKeyMessage.KeyType
+	10, // 6: statiko.CodesignKeyMessage.rsa_key:type_name -> statiko.CodesignKeyMessage.RSAKey
+	3,  // 7: statiko.Controller.Channel:input_type -> statiko.ChannelClientStream
+	5,  // 8: statiko.Controller.GetState:input_type -> statiko.GetStateRequest
+	6,  // 9: statiko.Controller.GetTLSCertificate:input_type -> statiko.TLSCertificateRequest
+	7,  // 10: statiko.Controller.GetCodesignKey:input_type -> statiko.CodesignKeyRequest
+	4,  // 11: statiko.Controller.Channel:output_type -> statiko.ChannelServerStream
+	12, // 12: statiko.Controller.GetState:output_type -> statiko.StateMessage
+	13, // 13: statiko.Controller.GetTLSCertificate:output_type -> statiko.TLSCertificateMessage
+	8,  // 14: statiko.Controller.GetCodesignKey:output_type -> statiko.CodesignKeyMessage
+	11, // [11:15] is the sub-list for method output_type
+	7,  // [7:11] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_controller_service_proto_init() }
@@ -597,7 +842,43 @@ func file_controller_service_proto_init() {
 			}
 		}
 		file_controller_service_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CodesignKeyRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_controller_service_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CodesignKeyMessage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_controller_service_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ChannelClientStream_RegisterNode); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_controller_service_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CodesignKeyMessage_RSAKey); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -614,8 +895,8 @@ func file_controller_service_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_controller_service_proto_rawDesc,
-			NumEnums:      2,
-			NumMessages:   5,
+			NumEnums:      3,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
@@ -651,6 +932,8 @@ type ControllerClient interface {
 	GetState(ctx context.Context, in *GetStateRequest, opts ...grpc.CallOption) (*StateMessage, error)
 	// Requests a TLS certificate
 	GetTLSCertificate(ctx context.Context, in *TLSCertificateRequest, opts ...grpc.CallOption) (*TLSCertificateMessage, error)
+	// Requests the codesign public key
+	GetCodesignKey(ctx context.Context, in *CodesignKeyRequest, opts ...grpc.CallOption) (*CodesignKeyMessage, error)
 }
 
 type controllerClient struct {
@@ -710,6 +993,15 @@ func (c *controllerClient) GetTLSCertificate(ctx context.Context, in *TLSCertifi
 	return out, nil
 }
 
+func (c *controllerClient) GetCodesignKey(ctx context.Context, in *CodesignKeyRequest, opts ...grpc.CallOption) (*CodesignKeyMessage, error) {
+	out := new(CodesignKeyMessage)
+	err := c.cc.Invoke(ctx, "/statiko.Controller/GetCodesignKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControllerServer is the server API for Controller service.
 type ControllerServer interface {
 	// Bi-directional stream that is used for:
@@ -721,6 +1013,8 @@ type ControllerServer interface {
 	GetState(context.Context, *GetStateRequest) (*StateMessage, error)
 	// Requests a TLS certificate
 	GetTLSCertificate(context.Context, *TLSCertificateRequest) (*TLSCertificateMessage, error)
+	// Requests the codesign public key
+	GetCodesignKey(context.Context, *CodesignKeyRequest) (*CodesignKeyMessage, error)
 }
 
 // UnimplementedControllerServer can be embedded to have forward compatible implementations.
@@ -735,6 +1029,9 @@ func (*UnimplementedControllerServer) GetState(context.Context, *GetStateRequest
 }
 func (*UnimplementedControllerServer) GetTLSCertificate(context.Context, *TLSCertificateRequest) (*TLSCertificateMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTLSCertificate not implemented")
+}
+func (*UnimplementedControllerServer) GetCodesignKey(context.Context, *CodesignKeyRequest) (*CodesignKeyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCodesignKey not implemented")
 }
 
 func RegisterControllerServer(s *grpc.Server, srv ControllerServer) {
@@ -803,6 +1100,24 @@ func _Controller_GetTLSCertificate_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Controller_GetCodesignKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CodesignKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControllerServer).GetCodesignKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/statiko.Controller/GetCodesignKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControllerServer).GetCodesignKey(ctx, req.(*CodesignKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Controller_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "statiko.Controller",
 	HandlerType: (*ControllerServer)(nil),
@@ -814,6 +1129,10 @@ var _Controller_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTLSCertificate",
 			Handler:    _Controller_GetTLSCertificate_Handler,
+		},
+		{
+			MethodName: "GetCodesignKey",
+			Handler:    _Controller_GetCodesignKey_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -20,8 +20,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
+	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -182,4 +184,33 @@ func (s *RPCServer) GetTLSCertificate(ctx context.Context, in *pb.TLSCertificate
 		CertificatePem: string(cert),
 		KeyPem:         string(key),
 	}, nil
+}
+
+// GetCodesignKey is a simple RPC that returns the codesign public key
+func (s *RPCServer) GetCodesignKey(ctx context.Context, in *pb.CodesignKeyRequest) (msg *pb.CodesignKeyMessage, err error) {
+	msg = &pb.CodesignKeyMessage{
+		RequireCodesign: appconfig.Config.GetBool("codesign.required"),
+	}
+
+	// Get the codesign key
+	key := s.State.GetCodesignKey()
+
+	// If we don't have a key
+	if key == nil || key.E == 0 || key.N == nil {
+		msg.Type = pb.CodesignKeyMessage_NULL
+		return msg, nil
+	}
+
+	// If we have a key, ensure the exponent is within the bounds we support (uint32)
+	if key.E < 1 || key.E > math.MaxUint32 {
+		return nil, errors.New("key's exponent is outside of bounds")
+	}
+
+	// Create the response message with the RSA key
+	msg.Type = pb.CodesignKeyMessage_RSA
+	msg.RsaKey = &pb.CodesignKeyMessage_RSAKey{
+		N: key.N.Bytes(),
+		E: uint32(key.E),
+	}
+	return msg, nil
 }

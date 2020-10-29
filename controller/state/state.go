@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package state
 
 import (
+	"crypto/rsa"
 	"errors"
 	"log"
 	"os"
@@ -43,6 +44,7 @@ type Manager struct {
 	logger             *log.Logger
 	signaler           *utils.Signaler
 	semaphore          *sync.Mutex
+	codesignKey        *rsa.PublicKey
 }
 
 // Init loads the state from the store

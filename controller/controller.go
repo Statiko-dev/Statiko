@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -62,6 +63,9 @@ func (c *Controller) Run() (err error) {
 	err = c.state.Init()
 	if err != nil {
 		return err
+	}
+	if !c.state.LoadCodesignKey() && appconfig.Config.GetBool("codesign.required") {
+		return errors.New("codesign.required is true, but no valid key found in codesign.publicKey")
 	}
 
 	// Init the notifications client
