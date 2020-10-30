@@ -48,10 +48,11 @@ type Agent struct {
 	appManager  *appmanager.Manager
 	webserver   *webserver.NginxConfig
 	clusterOpts *pb.ClusterOptions
+	stateCh     chan int
 }
 
 // Run the agent app
-func (a *Agent) Run() (err error) {
+func (a *Agent) Run(ctx context.Context) (err error) {
 	// Init logger
 	a.logger = log.New(os.Stdout, "agent: ", log.Ldate|log.Ltime|log.LUTC)
 
@@ -61,31 +62,61 @@ func (a *Agent) Run() (err error) {
 		return err
 	}
 
-	// Init the store
-	// TODO: GET THIS FROM CONTROLLER
-	fsType := viper.GetString("repo.type")
-	a.store, err = fs.Get(fsType)
+	// Init and start the gRPC client
+	a.rpcClient = &client.RPCClient{}
+	a.rpcClient.Init()
+	connectedCh, err := a.rpcClient.Connect()
 	if err != nil {
 		return err
 	}
 
+	// Channel receiving new states
+	a.stateCh = make(chan int)
+	defer close(a.stateCh)
+
+	// Channel receiving SIGUSR1 signals
+	sigCh := make(chan os.Signal, 2)
+	signal.Notify(sigCh, syscall.SIGUSR1)
+	defer close(sigCh)
+
+	// Listen for the various signals
+	for {
+		select {
+		// When the connection with the controller is established via gRPC and the node has registered itself successfully
+		case <-connectedCh:
+			a.logger.Println("Node registered and ready")
+			err := a.ready()
+			if err != nil {
+				return err
+			}
+
+		// On state updates, queue a sync
+		case <-a.stateCh:
+			a.logger.Println("Received new state, triggering a re-sync")
+			// Force a sync, asynchronously
+			go a.syncClient.QueueRun()
+
+		// On SIGUSR1 signals, queue a sync
+		case <-sigCh:
+			a.logger.Println("Received SIGUSR1, triggering a re-sync")
+			// Force a sync, asynchronously
+			go a.syncClient.QueueRun()
+
+		// Context termination
+		case <-ctx.Done():
+			a.logger.Println("Context canceled")
+			// Disconnect
+			err := a.rpcClient.Disconnect()
+			return err
+		}
+	}
+}
+
+// Function executed every time the node is ready: after the node has connected to the controller and registered itself
+func (a *Agent) ready() (err error) {
 	// Init the state object
 	a.agentState = &state.AgentState{}
 	a.agentState.Init()
-
-	// Context for the agent app
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Init and start the gRPC client
-	a.rpcClient = &client.RPCClient{
-		Ctx: ctx,
-	}
-	a.rpcClient.Init()
-	err = a.rpcClient.Connect()
-	if err != nil {
-		return err
-	}
 
 	// Callback for receiving new states
 	a.rpcClient.StateUpdate = func(state *pb.StateMessage) {
@@ -104,6 +135,17 @@ func (a *Agent) Run() (err error) {
 		return err
 	}
 	a.agentState.ReplaceState(state)
+
+	// Subscribe to receive new state updates
+	a.agentState.Subscribe(a.stateCh)
+
+	// Init the store
+	// TODO: GET THIS FROM CONTROLLER
+	fsType := viper.GetString("repo.type")
+	a.store, err = fs.Get(fsType)
+	if err != nil {
+		return err
+	}
 
 	// Init the certs object
 	a.certs = &certificates.AgentCertificates{
@@ -146,63 +188,20 @@ func (a *Agent) Run() (err error) {
 	}
 	a.syncClient.Init()
 
-	// Handle state changes and SIGUSR1 signals
-	// Queue a sync on every new state received from the controller and when we get SIGUSR1 signals
-	go a.handleUpdates(ctx)
-
 	// Perform an initial state sync
 	// Do this in a synchronous way to ensure the node starts up properly
-	if err := a.syncClient.Run(); err != nil {
-		panic(err)
+	err = a.syncClient.Run()
+	if err != nil {
+		return err
 	}
 
 	/*
 		// Ensure Nginx is running
-		if err := webserver.Instance.EnsureServerRunning(); err != nil {
-			panic(err)
+		err = webserver.Instance.EnsureServerRunning()
+		if err != nil {
+			return err
 		}
 	*/
 
-	// Prevent this from returning until the context is canceled (which never happens)
-	<-ctx.Done()
-
 	return nil
-}
-
-// Subscribes to changes to the state and to SIGUSR1 signals and triggers a new sync
-func (a *Agent) handleUpdates(ctx context.Context) {
-	// Channel receiving new states
-	stateCh := make(chan int)
-	a.agentState.Subscribe(stateCh)
-
-	// Channel receiving SIGUSR1 signals
-	sigCh := make(chan os.Signal, 2)
-	signal.Notify(sigCh, syscall.SIGUSR1)
-
-	// Cleanup
-	defer func() {
-		a.agentState.Unsubscribe(stateCh)
-		close(stateCh)
-		close(sigCh)
-	}()
-
-	// Wait for signals
-	for {
-		select {
-		// On state updates
-		case <-stateCh:
-			a.logger.Println("Received new state, triggering a re-sync")
-			// Force a sync, asynchronously
-			go a.syncClient.QueueRun()
-		// On signals
-		case <-sigCh:
-			a.logger.Println("Received SIGUSR1, triggering a re-sync")
-			// Force a sync, asynchronously
-			go a.syncClient.QueueRun()
-		// Context termination
-		case <-ctx.Done():
-			a.logger.Println("Context canceled")
-			return
-		}
-	}
 }

@@ -42,11 +42,11 @@ type StateUpdateCallback func(*pb.StateMessage)
 // RPCClient is the gRPC client for communicating with the cluster manager
 type RPCClient struct {
 	StateUpdate StateUpdateCallback
-	Ctx         context.Context
 
-	client     pb.ControllerClient
-	connection *grpc.ClientConn
-	logger     *log.Logger
+	client      pb.ControllerClient
+	connection  *grpc.ClientConn
+	logger      *log.Logger
+	connectedCh chan bool
 }
 
 // Init the gRPC client
@@ -56,7 +56,8 @@ func (c *RPCClient) Init() {
 }
 
 // Connect starts the connection to the gRPC server and starts all background streams
-func (c *RPCClient) Connect() (err error) {
+// Returns a channel that gets a message every time a connection is established
+func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 	c.logger.Println("Connecting to gRPC server at", viper.GetString("controllerAddress"))
 	// Underlying connection
 	connOpts := []grpc.DialOption{
@@ -71,14 +72,17 @@ func (c *RPCClient) Connect() (err error) {
 			Timeout: time.Duration(requestTimeout) * time.Second,
 		}),
 	}
-	c.connection, err = grpc.DialContext(c.Ctx, viper.GetString("controllerAddress"), connOpts...)
+	c.connection, err = grpc.DialContext(context.Background(), viper.GetString("controllerAddress"), connOpts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Client
 	c.client = pb.NewControllerClient(c.connection)
 	c.logger.Println("Connection with gRPC server established")
+
+	// Channel that receives a message every time we establish a connection
+	c.connectedCh = make(chan bool)
 
 	// Start the background stream in another goroutine
 	go func() {
@@ -90,11 +94,12 @@ func (c *RPCClient) Connect() (err error) {
 		}
 	}()
 
-	return nil
+	return c.connectedCh, nil
 }
 
 // Disconnect closes the connection with the gRPC server
 func (c *RPCClient) Disconnect() error {
+	close(c.connectedCh)
 	conn := c.connection
 	c.connection = nil
 	err := conn.Close()
@@ -102,7 +107,8 @@ func (c *RPCClient) Disconnect() error {
 }
 
 // Reconnect re-connects to the gRPC server
-func (c *RPCClient) Reconnect() error {
+// Returns a new channel that gets a message every time a connection is established
+func (c *RPCClient) Reconnect() (chan bool, error) {
 	if c.connection != nil {
 		// Ignore errors here
 		_ = c.Disconnect()
@@ -112,7 +118,7 @@ func (c *RPCClient) Reconnect() error {
 
 // GetState requests the latest state from the cluster manager
 func (c *RPCClient) GetState() (*pb.StateMessage, error) {
-	ctx, cancel := context.WithTimeout(c.Ctx, time.Duration(requestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
@@ -122,7 +128,7 @@ func (c *RPCClient) GetState() (*pb.StateMessage, error) {
 
 // GetTLSCertificate requests a TLS certificate from the cluster manager
 func (c *RPCClient) GetTLSCertificate(certificateId string) (*pb.TLSCertificateMessage, error) {
-	ctx, cancel := context.WithTimeout(c.Ctx, time.Duration(requestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
@@ -134,7 +140,7 @@ func (c *RPCClient) GetTLSCertificate(certificateId string) (*pb.TLSCertificateM
 
 // GetClusterOptions requests the cluster options object
 func (c *RPCClient) GetClusterOptions() (*pb.ClusterOptions, error) {
-	ctx, cancel := context.WithTimeout(c.Ctx, time.Duration(requestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
@@ -144,7 +150,7 @@ func (c *RPCClient) GetClusterOptions() (*pb.ClusterOptions, error) {
 
 // Starts the stream channel with the server
 func (c *RPCClient) startStreamChannel() {
-	ctx, cancel := context.WithCancel(c.Ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Get node name
@@ -204,6 +210,8 @@ forloop:
 			case pb.ChannelServerStream_OK:
 				c.logger.Println("Node registered correctly")
 				registered = true
+				// Notify the app that we have a successful connection
+				c.connectedCh <- true
 
 			// Server sent an error
 			case pb.ChannelServerStream_ERROR:

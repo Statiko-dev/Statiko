@@ -27,14 +27,21 @@ import (
 	//"github.com/statiko-dev/statiko/notifications"
 )
 
+// Semaphore that allows only one operation at time
+// This is a package-wide variable because it has to apply to all instances of Sync, as there really can't be more than 1 sync running
+var semaphore chan int
+
+// Init package-wide properties
+func init() {
+	semaphore = make(chan int, 1)
+}
+
 // Sync is the main controller for synchronizing the system's state with the desired state
 type Sync struct {
 	State      *state.AgentState
 	AppManager *appmanager.Manager
 	Webserver  *webserver.NginxConfig
 
-	// Semaphore that allows only one operation at time
-	semaphore chan int
 	// Semaphore that indicates if there's already one sync waiting
 	isWaiting chan int
 	// Boolean notifying if the first sync has completed
@@ -50,7 +57,6 @@ type Sync struct {
 // Init the object
 func (s *Sync) Init() {
 	// Init properties
-	s.semaphore = make(chan int, 1)
 	s.isWaiting = make(chan int, 1)
 	s.startupComplete = false
 
@@ -72,7 +78,7 @@ func (s *Sync) QueueRun() {
 	default:
 		return
 	}
-	s.semaphore <- 1
+	semaphore <- 1
 	<-s.isWaiting
 	s.syncError = nil
 	go func() {
@@ -82,17 +88,17 @@ func (s *Sync) QueueRun() {
 			s.logger.Println("Error returned by async run", s.syncError)
 			s.sendErrorNotification("Unrecoverable error running state synchronization: " + s.syncError.Error())
 		}
-		<-s.semaphore
+		<-semaphore
 	}()
 }
 
 // Run ensures the system is in the correct state
 // You should use QueueRun in most cases
 func (s *Sync) Run() error {
-	s.semaphore <- 1
+	semaphore <- 1
 	s.syncError = s.runner()
 	s.startupComplete = true
-	<-s.semaphore
+	<-semaphore
 	if s.syncError != nil {
 		s.sendErrorNotification("Unrecoverable error running state synchronization: " + s.syncError.Error())
 	}
@@ -101,7 +107,7 @@ func (s *Sync) Run() error {
 
 // IsRunning returns true if the sync is running in background
 func (s *Sync) IsRunning() bool {
-	return len(s.semaphore) > 0
+	return len(semaphore) > 0
 }
 
 // LastSync returns the time when the last sync started

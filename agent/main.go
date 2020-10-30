@@ -17,13 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"context"
 	"log"
 )
 
 func main() {
 	// Create and run the Agent object
 	controller := &Agent{}
-	err := controller.Run()
+	err := controller.Run(context.Background())
 	if err != nil {
 		log.Panicln(err)
 	}

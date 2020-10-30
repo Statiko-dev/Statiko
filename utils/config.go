@@ -18,7 +18,6 @@ package utils
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/spf13/viper"
@@ -35,9 +34,6 @@ type ConfigEntry struct {
 
 // Loadconfig loads the configuration for a node (both controller and agent)
 func LoadConfig(envPrefix string, nodeType string, entries map[string]ConfigEntry) error {
-	// Init a logger
-	logger = log.New(os.Stdout, "config: ", log.Ldate|log.Ltime|log.LUTC)
-
 	// Check if we have an environment set
 	env := os.Getenv(envPrefix + "ENV")
 	if env == "" {
