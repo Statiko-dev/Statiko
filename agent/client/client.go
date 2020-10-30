@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/statiko-dev/statiko/agent/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -37,9 +36,13 @@ const requestTimeout = 15
 // Interval between keepalive requests, in seconds
 const keepaliveInterval = 600
 
+// Callback invoked when a new state is received from the controller
+type StateUpdateCallback func(*pb.StateMessage)
+
 // RPCClient is the gRPC client for communicating with the cluster manager
 type RPCClient struct {
-	AgentState *state.AgentState
+	StateUpdate StateUpdateCallback
+	Ctx         context.Context
 
 	client     pb.ControllerClient
 	connection *grpc.ClientConn
@@ -68,7 +71,7 @@ func (c *RPCClient) Connect() (err error) {
 			Timeout: time.Duration(requestTimeout) * time.Second,
 		}),
 	}
-	c.connection, err = grpc.Dial(viper.GetString("controllerAddress"), connOpts...)
+	c.connection, err = grpc.DialContext(c.Ctx, viper.GetString("controllerAddress"), connOpts...)
 	if err != nil {
 		return err
 	}
@@ -109,7 +112,7 @@ func (c *RPCClient) Reconnect() error {
 
 // GetState requests the latest state from the cluster manager
 func (c *RPCClient) GetState() (*pb.StateMessage, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(c.Ctx, time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
@@ -119,7 +122,7 @@ func (c *RPCClient) GetState() (*pb.StateMessage, error) {
 
 // GetTLSCertificate requests a TLS certificate from the cluster manager
 func (c *RPCClient) GetTLSCertificate(certificateId string) (*pb.TLSCertificateMessage, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(c.Ctx, time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
@@ -131,7 +134,7 @@ func (c *RPCClient) GetTLSCertificate(certificateId string) (*pb.TLSCertificateM
 
 // GetClusterOptions requests the cluster options object
 func (c *RPCClient) GetClusterOptions() (*pb.ClusterOptions, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(c.Ctx, time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
@@ -141,7 +144,7 @@ func (c *RPCClient) GetClusterOptions() (*pb.ClusterOptions, error) {
 
 // Starts the stream channel with the server
 func (c *RPCClient) startStreamChannel() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Ctx)
 	defer cancel()
 
 	// Get node name
@@ -222,8 +225,10 @@ forloop:
 				// Ensure we have a state in the message
 				if in.Message.State != nil {
 					c.logger.Println("Received new state")
-					// Update the state in the manager
-					c.AgentState.ReplaceState(in.Message.State)
+					// Invoke the callback with the new state
+					if c.StateUpdate != nil {
+						c.StateUpdate(in.Message.State)
+					}
 				}
 
 			// Health ping

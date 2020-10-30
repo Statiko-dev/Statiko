@@ -144,6 +144,7 @@ forloop:
 			if err != nil {
 				return err
 			}
+			s.logger.Println("Sending new state to clients", state.Version)
 			stream.Send(&pb.ChannelServerStream{
 				Type:  pb.ChannelServerStream_STATE_MESSAGE,
 				State: state.StateMessage(),

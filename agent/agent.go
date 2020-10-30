@@ -17,11 +17,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/spf13/viper"
 
@@ -38,6 +38,7 @@ import (
 
 // Agent is the class that manages the agent app
 type Agent struct {
+	logger      *log.Logger
 	store       fs.Fs
 	agentState  *state.AgentState
 	notifier    *notifications.Notifications
@@ -51,6 +52,9 @@ type Agent struct {
 
 // Run the agent app
 func (a *Agent) Run() (err error) {
+	// Init logger
+	a.logger = log.New(os.Stdout, "agent: ", log.Ldate|log.Ltime|log.LUTC)
+
 	// Load the configuration
 	err = a.LoadConfig()
 	if err != nil {
@@ -69,14 +73,23 @@ func (a *Agent) Run() (err error) {
 	a.agentState = &state.AgentState{}
 	a.agentState.Init()
 
+	// Context for the agent app
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Init and start the gRPC client
 	a.rpcClient = &client.RPCClient{
-		AgentState: a.agentState,
+		Ctx: ctx,
 	}
 	a.rpcClient.Init()
 	err = a.rpcClient.Connect()
 	if err != nil {
 		return err
+	}
+
+	// Callback for receiving new states
+	a.rpcClient.StateUpdate = func(state *pb.StateMessage) {
+		a.agentState.ReplaceState(state)
 	}
 
 	// Request the options for the cluster
@@ -103,7 +116,13 @@ func (a *Agent) Run() (err error) {
 	}
 
 	// Init the app manager object
-	err = a.initAppManager()
+	a.appManager = &appmanager.Manager{
+		State:        a.agentState,
+		Certificates: a.certs,
+		Fs:           a.store,
+		ClusterOpts:  a.clusterOpts,
+	}
+	err = a.appManager.Init()
 	if err != nil {
 		return err
 	}
@@ -127,13 +146,15 @@ func (a *Agent) Run() (err error) {
 	}
 	a.syncClient.Init()
 
+	// Handle state changes and SIGUSR1 signals
+	// Queue a sync on every new state received from the controller and when we get SIGUSR1 signals
+	go a.handleUpdates(ctx)
+
 	// Perform an initial state sync
 	// Do this in a synchronous way to ensure the node starts up properly
 	if err := a.syncClient.Run(); err != nil {
 		panic(err)
 	}
-
-	time.Sleep(2 * time.Hour)
 
 	/*
 		// Ensure Nginx is running
@@ -142,41 +163,46 @@ func (a *Agent) Run() (err error) {
 		}
 	*/
 
-	// Handle SIGUSR1 signals
-	a.handleResyncSignal()
+	// Prevent this from returning until the context is canceled (which never happens)
+	<-ctx.Done()
 
 	return nil
 }
 
-// Inits the appManager object
-func (a *Agent) initAppManager() (err error) {
-	// Alloc the appManager object
-	a.appManager = &appmanager.Manager{
-		State:        a.agentState,
-		Certificates: a.certs,
-		Fs:           a.store,
-		ClusterOpts:  a.clusterOpts,
-	}
+// Subscribes to changes to the state and to SIGUSR1 signals and triggers a new sync
+func (a *Agent) handleUpdates(ctx context.Context) {
+	// Channel receiving new states
+	stateCh := make(chan int)
+	a.agentState.Subscribe(stateCh)
 
-	// Init the object
-	err = a.appManager.Init()
-	if err != nil {
-		return err
-	}
+	// Channel receiving SIGUSR1 signals
+	sigCh := make(chan os.Signal, 2)
+	signal.Notify(sigCh, syscall.SIGUSR1)
 
-	return nil
-}
+	// Cleanup
+	defer func() {
+		a.agentState.Unsubscribe(stateCh)
+		close(stateCh)
+		close(sigCh)
+	}()
 
-// Listens for SIGUSR1 signals and triggers a new sync
-func (a *Agent) handleResyncSignal() {
-	sigc := make(chan os.Signal, 2)
-	signal.Notify(sigc, syscall.SIGUSR1)
-	go func() {
-		for range sigc {
-			log.Println("Received SIGUSR1, trigger a re-sync")
-
+	// Wait for signals
+	for {
+		select {
+		// On state updates
+		case <-stateCh:
+			a.logger.Println("Received new state, triggering a re-sync")
 			// Force a sync, asynchronously
 			go a.syncClient.QueueRun()
+		// On signals
+		case <-sigCh:
+			a.logger.Println("Received SIGUSR1, triggering a re-sync")
+			// Force a sync, asynchronously
+			go a.syncClient.QueueRun()
+		// Context termination
+		case <-ctx.Done():
+			a.logger.Println("Context canceled")
+			return
 		}
-	}()
+	}
 }

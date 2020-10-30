@@ -77,6 +77,14 @@ func (a *AgentState) ReplaceState(state *pb.StateMessage) {
 	a.signaler.Broadcast()
 }
 
+// GetVersion returns the version of the state in use
+func (a *AgentState) GetVersion() uint64 {
+	if a.state == nil {
+		return 0
+	}
+	return a.state.Version
+}
+
 // LastUpdated returns the time the state was updated last
 func (a *AgentState) LastUpdated() *time.Time {
 	return a.updated

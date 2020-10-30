@@ -156,10 +156,14 @@ func (m *Manager) ReplaceState(state *pb.StateStore) error {
 	return nil
 }
 
-// setUpdated sets the updated time in the object
+// setUpdated sets the updated time in the object and sends the signal with the state update
 func (m *Manager) setUpdated() {
+	// Update the time in the object
 	now := time.Now()
 	m.updated = &now
+
+	// Broadcast the signal
+	_ = m.signaler.Broadcast()
 }
 
 // LastUpdated returns the time the state was updated last
