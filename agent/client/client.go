@@ -129,14 +129,14 @@ func (c *RPCClient) GetTLSCertificate(certificateId string) (*pb.TLSCertificateM
 	return c.client.GetTLSCertificate(ctx, in, grpc.WaitForReady(true))
 }
 
-// GetCodesignKey requests the codesign key from the cluster manager
-func (c *RPCClient) GetCodesignKey() (*pb.CodesignKeyMessage, error) {
+// GetClusterOptions requests the cluster options object
+func (c *RPCClient) GetClusterOptions() (*pb.ClusterOptions, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
-	in := &pb.CodesignKeyRequest{}
-	return c.client.GetCodesignKey(ctx, in, grpc.WaitForReady(true))
+	in := &pb.ClusterOptionsRequest{}
+	return c.client.GetClusterOptions(ctx, in, grpc.WaitForReady(true))
 }
 
 // Starts the stream channel with the server

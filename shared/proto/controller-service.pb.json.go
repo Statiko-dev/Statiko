@@ -100,7 +100,7 @@ func (msg *TLSCertificateRequest) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *CodesignKeyRequest) MarshalJSON() ([]byte, error) {
+func (msg *ClusterOptionsRequest) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	err := (&jsonpb.Marshaler{
 		EnumsAsInts:  false,
@@ -111,43 +111,7 @@ func (msg *CodesignKeyRequest) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *CodesignKeyRequest) UnmarshalJSON(b []byte) error {
-	return (&jsonpb.Unmarshaler{
-		AllowUnknownFields: false,
-	}).Unmarshal(bytes.NewReader(b), msg)
-}
-
-// MarshalJSON implements json.Marshaler
-func (msg *CodesignKeyMessage) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	err := (&jsonpb.Marshaler{
-		EnumsAsInts:  false,
-		EmitDefaults: false,
-		OrigName:     false,
-	}).Marshal(&buf, msg)
-	return buf.Bytes(), err
-}
-
-// UnmarshalJSON implements json.Unmarshaler
-func (msg *CodesignKeyMessage) UnmarshalJSON(b []byte) error {
-	return (&jsonpb.Unmarshaler{
-		AllowUnknownFields: false,
-	}).Unmarshal(bytes.NewReader(b), msg)
-}
-
-// MarshalJSON implements json.Marshaler
-func (msg *CodesignKeyMessage_RSAKey) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	err := (&jsonpb.Marshaler{
-		EnumsAsInts:  false,
-		EmitDefaults: false,
-		OrigName:     false,
-	}).Marshal(&buf, msg)
-	return buf.Bytes(), err
-}
-
-// UnmarshalJSON implements json.Unmarshaler
-func (msg *CodesignKeyMessage_RSAKey) UnmarshalJSON(b []byte) error {
+func (msg *ClusterOptionsRequest) UnmarshalJSON(b []byte) error {
 	return (&jsonpb.Unmarshaler{
 		AllowUnknownFields: false,
 	}).Unmarshal(bytes.NewReader(b), msg)

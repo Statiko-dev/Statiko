@@ -1,0 +1,56 @@
+/*
+Copyright © 2020 Alessandro Segala (@ItalyPaleAle)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+syntax = "proto3";
+
+package statiko;
+
+option go_package = "github.com/statiko-dev/statiko/shared/proto";
+
+// Message with the cluster options
+message ClusterOptions {
+  // Codesign options message
+  message Codesign {
+    // Requires code signing
+    bool require_codesign = 1;
+  
+    // Type of codesign key
+    enum KeyType {
+      // Null: there's no codesign key
+      NULL = 0;
+      // RSA public key
+      RSA = 1;
+    }
+    // Key type
+    KeyType type = 2;
+  
+    // Arguments for RSA key
+    message RSAKey {
+      // Modulus
+      bytes n = 1;
+      // Exponent
+      // Note on using 32-bit integers: https://www.imperialviolet.org/2012/03/16/rsae.html
+      uint32 e = 2;
+    }
+    // RSA key when key type is RSA
+    RSAKey rsa_key = 10;
+  }
+  // Codesign options
+  Codesign codesign = 1;
+
+  // Manifest file name
+  string manifest_file = 2;
+}

@@ -46,15 +46,15 @@ import (
 
 // Manager contains helper functions to manage apps and sites
 type Manager struct {
-	State            *state.AgentState
-	Certificates     *certificates.AgentCertificates
-	Fs               fs.Fs
-	CodesignKey      *rsa.PublicKey
-	CodesignRequired bool
+	State        *state.AgentState
+	Certificates *certificates.AgentCertificates
+	Fs           fs.Fs
+	ClusterOpts  *pb.ClusterOptions
 
-	appRoot   string
-	log       *log.Logger
-	manifests map[string]*agentutils.AppManifest
+	codesignKey *rsa.PublicKey
+	appRoot     string
+	log         *log.Logger
+	manifests   map[string]*agentutils.AppManifest
 }
 
 // Init the object
@@ -67,6 +67,9 @@ func (m *Manager) Init() error {
 	if !strings.HasSuffix(m.appRoot, "/") {
 		m.appRoot += "/"
 	}
+
+	// Init properties from the ClusterOpts
+	m.codesignKey = m.ClusterOpts.CodesignKey()
 
 	return nil
 }
@@ -305,8 +308,7 @@ func (m *Manager) SyncApps(sites []*pb.Site) error {
 			}
 
 			// Check if there's a manifest file
-			// TODO: GET THIS FROM CONTROLLER
-			manifestFile := m.appRoot + "apps/" + name + "/" + viper.GetString("manifestFile")
+			manifestFile := m.appRoot + "apps/" + name + "/" + m.ClusterOpts.ManifestFile
 			exists, err := utils.FileExists(manifestFile)
 			if err != nil {
 				return err
@@ -598,7 +600,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 
 		// Get the signature from the blob's metadata, if any
 		// Skip if we don't have a codesign key
-		if m.CodesignKey != nil {
+		if m.codesignKey != nil {
 			signatureB64, ok := metadata["signature"]
 			if ok && signatureB64 != "" {
 				signature, err = base64.StdEncoding.DecodeString(signatureB64)
@@ -617,7 +619,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 			fileType = typ
 		}
 	}
-	if signature == nil && m.CodesignRequired {
+	if signature == nil && m.ClusterOpts.Codesign.RequireCodesign {
 		return errors.New("Bundle does not have a signature, but unsigned apps are not allowed by this node's configuration")
 	}
 
@@ -665,7 +667,7 @@ func (m *Manager) FetchBundle(bundle string) error {
 		}
 	}
 	if signature != nil {
-		err = rsa.VerifyPKCS1v15(m.CodesignKey, crypto.SHA256, hashed, signature)
+		err = rsa.VerifyPKCS1v15(m.codesignKey, crypto.SHA256, hashed, signature)
 		if err != nil {
 			// File needs to be deleted if signature is invalid
 			deleteFile = true

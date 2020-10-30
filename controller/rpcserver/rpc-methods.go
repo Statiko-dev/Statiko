@@ -186,31 +186,38 @@ func (s *RPCServer) GetTLSCertificate(ctx context.Context, in *pb.TLSCertificate
 	}, nil
 }
 
-// GetCodesignKey is a simple RPC that returns the codesign public key
-func (s *RPCServer) GetCodesignKey(ctx context.Context, in *pb.CodesignKeyRequest) (msg *pb.CodesignKeyMessage, err error) {
-	msg = &pb.CodesignKeyMessage{
-		RequireCodesign: appconfig.Config.GetBool("codesign.required"),
+// GetClusterOptions is a simple RPC that returns the cluster options
+func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptionsRequest) (msg *pb.ClusterOptions, err error) {
+	msg = &pb.ClusterOptions{
+		ManifestFile: appconfig.Config.GetString("manifestFile"),
 	}
 
-	// Get the codesign key
-	key := s.State.GetCodesignKey()
+	// Codesign options
+	{
+		msg.Codesign = &pb.ClusterOptions_Codesign{
+			RequireCodesign: appconfig.Config.GetBool("codesign.required"),
+		}
 
-	// If we don't have a key
-	if key == nil || key.E == 0 || key.N == nil {
-		msg.Type = pb.CodesignKeyMessage_NULL
-		return msg, nil
-	}
+		// Get the codesign key
+		key := s.State.GetCodesignKey()
 
-	// If we have a key, ensure the exponent is within the bounds we support (uint32)
-	if key.E < 1 || key.E > math.MaxUint32 {
-		return nil, errors.New("key's exponent is outside of bounds")
-	}
+		// If we don't have a key
+		if key == nil || key.E == 0 || key.N == nil {
+			msg.Codesign.Type = pb.ClusterOptions_Codesign_NULL
+			return msg, nil
+		}
 
-	// Create the response message with the RSA key
-	msg.Type = pb.CodesignKeyMessage_RSA
-	msg.RsaKey = &pb.CodesignKeyMessage_RSAKey{
-		N: key.N.Bytes(),
-		E: uint32(key.E),
+		// If we have a key, ensure the exponent is within the bounds we support (uint32)
+		if key.E < 1 || key.E > math.MaxUint32 {
+			return nil, errors.New("key's exponent is outside of bounds")
+		}
+
+		// Create the response message with the RSA key
+		msg.Codesign.Type = pb.ClusterOptions_Codesign_RSA
+		msg.Codesign.RsaKey = &pb.ClusterOptions_Codesign_RSAKey{
+			N: key.N.Bytes(),
+			E: uint32(key.E),
+		}
 	}
 	return msg, nil
 }

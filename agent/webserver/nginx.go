@@ -44,8 +44,9 @@ type ConfigData map[string][]byte
 
 // NginxConfig creates the configuration for nginx
 type NginxConfig struct {
-	State      *state.AgentState
-	AppManager *appmanager.Manager
+	State       *state.AgentState
+	AppManager  *appmanager.Manager
+	ClusterOpts *pb.ClusterOptions
 
 	logger    *log.Logger
 	templates map[string]*template.Template
@@ -430,12 +431,11 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *pb.
 		User         string
 		Dhparams     string
 	}{
-		Item:     itemData,
-		Manifest: manifest,
-		AppRoot:  appRoot,
-		Port:     viper.GetString("serverPort"),
-		// TODO: GET THIS FROM CONTROLLER
-		ManifestFile: viper.GetString("manifestFile"),
+		Item:         itemData,
+		Manifest:     manifest,
+		AppRoot:      appRoot,
+		Port:         viper.GetString("serverPort"),
+		ManifestFile: n.ClusterOpts.ManifestFile,
 		User:         viper.GetString("nginx.user"),
 		Dhparams:     appRoot + "misc/dhparams.pem",
 	}

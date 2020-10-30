@@ -17,7 +17,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package proto
 
 import (
+	"crypto/rsa"
 	"crypto/x509"
+	"math/big"
 	"sort"
 
 	"github.com/statiko-dev/statiko/utils"
@@ -111,4 +113,26 @@ func (x *TLSCertificate) SetCertificateProperties(certX509 *x509.Certificate) {
 	if !certX509.NotAfter.IsZero() {
 		x.XExp = certX509.NotAfter.Unix()
 	}
+}
+
+// CodesignKey returns the public part of the codesign key as a rsa.PublicKey object
+func (x *ClusterOptions) CodesignKey() *rsa.PublicKey {
+	if x == nil || x.Codesign == nil {
+		return nil
+	}
+
+	// We only support RSA keys (for now?)
+	if x.Codesign.Type != ClusterOptions_Codesign_RSA {
+		return nil
+	}
+
+	// Get the rsa.PublicKey object from the modulus and exponent
+	n := &big.Int{}
+	n.SetBytes(x.Codesign.RsaKey.N)
+	key := &rsa.PublicKey{
+		N: n,
+		E: int(x.Codesign.RsaKey.E),
+	}
+
+	return key
 }

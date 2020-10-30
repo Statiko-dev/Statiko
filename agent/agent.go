@@ -17,9 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"crypto/rsa"
 	"log"
-	"math/big"
 	"os"
 	"os/signal"
 	"syscall"
@@ -40,14 +38,15 @@ import (
 
 // Agent is the class that manages the agent app
 type Agent struct {
-	store      fs.Fs
-	agentState *state.AgentState
-	notifier   *notifications.Notifications
-	certs      *certificates.AgentCertificates
-	rpcClient  *client.RPCClient
-	syncClient *sync.Sync
-	appManager *appmanager.Manager
-	webserver  *webserver.NginxConfig
+	store       fs.Fs
+	agentState  *state.AgentState
+	notifier    *notifications.Notifications
+	certs       *certificates.AgentCertificates
+	rpcClient   *client.RPCClient
+	syncClient  *sync.Sync
+	appManager  *appmanager.Manager
+	webserver   *webserver.NginxConfig
+	clusterOpts *pb.ClusterOptions
 }
 
 // Run the agent app
@@ -80,6 +79,12 @@ func (a *Agent) Run() (err error) {
 		return err
 	}
 
+	// Request the options for the cluster
+	a.clusterOpts, err = a.rpcClient.GetClusterOptions()
+	if err != nil {
+		return err
+	}
+
 	// Request the initial state
 	state, err := a.rpcClient.GetState()
 	if err != nil {
@@ -105,8 +110,9 @@ func (a *Agent) Run() (err error) {
 
 	// Init the webserver object
 	a.webserver = &webserver.NginxConfig{
-		State:      a.agentState,
-		AppManager: a.appManager,
+		State:       a.agentState,
+		AppManager:  a.appManager,
+		ClusterOpts: a.clusterOpts,
 	}
 	err = a.webserver.Init()
 	if err != nil {
@@ -149,23 +155,7 @@ func (a *Agent) initAppManager() (err error) {
 		State:        a.agentState,
 		Certificates: a.certs,
 		Fs:           a.store,
-	}
-
-	// Request the codesign key
-	msg, err := a.rpcClient.GetCodesignKey()
-	if err != nil {
-		return err
-	}
-	// For now, only RSA signatures are supported
-	if msg.Type == pb.CodesignKeyMessage_RSA {
-		n := &big.Int{}
-		n.SetBytes(msg.RsaKey.N)
-		key := &rsa.PublicKey{
-			N: n,
-			E: int(msg.RsaKey.E),
-		}
-		a.appManager.CodesignKey = key
-		a.appManager.CodesignRequired = msg.RequireCodesign
+		ClusterOpts:  a.clusterOpts,
 	}
 
 	// Init the object
