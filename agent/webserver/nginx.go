@@ -420,6 +420,10 @@ func (n *NginxConfig) createConfigurationFile(templateName string, itemData *pb.
 
 	// Get the app's manifest, if any
 	manifest := n.AppManager.ManifestForApp(itemData.App.Name)
+	// Ensure the object isn't nil
+	if manifest == nil {
+		manifest = &agentutils.AppManifest{}
+	}
 
 	// Get parameters
 	tplData := struct {
