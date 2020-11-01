@@ -33,29 +33,12 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"golang.org/x/crypto/pkcs12"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
 // Timeout (in seconds) for operations
 const requestTimeout = 15 * time.Second
-
-// Singleton for Client
-var instance *Client
-
-// GetInstance returns the (initialized) singleton
-func GetInstance() *Client {
-	if instance == nil {
-		// Initialize the singleton
-		instance = &Client{
-			VaultName: appconfig.Config.GetString("certs.azureKeyVault.name"),
-		}
-		if err := instance.Init(); err != nil {
-			panic(err)
-		}
-	}
-	return instance
-}
 
 // Client can extract public keys and certificates (e.g. TLS certificates) stored in Azure Key Vault
 type Client struct {
@@ -67,28 +50,14 @@ type Client struct {
 }
 
 // Init the object
-func (akv *Client) Init() error {
+func (akv *Client) Init(sp *pb.ClusterOptions_AzureServicePrincipal) error {
 	akv.logger = log.New(os.Stdout, "azure-key-vault: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Init the Key Vault client
-	if err := akv.initKeyVaultClient(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// BaseURL returns the base URL for all operations with the Key Vault
-func (akv *Client) BaseURL() string {
-	return fmt.Sprintf("https://%s.%s", akv.VaultName, azure.PublicCloud.KeyVaultDNSSuffix)
-}
-
-// Initializes and authenticates the client to interact with Azure Key Vault
-func (akv *Client) initKeyVaultClient() error {
 	// Create a new client
 	akv.KeyVault = keyvault.New()
 
-	authorizer, err := utils.GetAzureAuthorizer("keyvault")
+	// Authorize with Key Vault
+	authorizer, err := utils.GetAzureAuthorizer("keyvault", sp)
 	if err != nil {
 		return err
 	}
@@ -96,6 +65,11 @@ func (akv *Client) initKeyVaultClient() error {
 	akv.authenticated = true
 
 	return nil
+}
+
+// BaseURL returns the base URL for all operations with the Key Vault
+func (akv *Client) BaseURL() string {
+	return fmt.Sprintf("https://%s.%s", akv.VaultName, azure.PublicCloud.KeyVaultDNSSuffix)
 }
 
 // Returns the last version of a key

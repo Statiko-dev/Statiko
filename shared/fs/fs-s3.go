@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/minio/minio-go"
-	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // S3 stores files on a S3-compatible service
@@ -32,32 +32,36 @@ type S3 struct {
 	bucketName string
 }
 
-func (f *S3) Init() error {
+func (f *S3) Init(optsI interface{}) error {
+	// Cast opts to pb.ClusterOptions_StorageS3
+	opts, ok := optsI.(*pb.ClusterOptions_StorageS3)
+	if !ok || opts == nil {
+		return errors.New("invalid options object")
+	}
+
 	// Get the access key
-	accessKeyId := appconfig.Config.GetString("repo.s3.accessKeyId")
-	secretAccessKey := appconfig.Config.GetString("repo.s3.secretAccessKey")
-	if accessKeyId == "" || secretAccessKey == "" {
-		return errors.New("repo.s3.accessKeyId and repo.s3.secretAccessKey must be set")
+	if opts.AccessKeyId == "" || opts.SecretAccessKey == "" {
+		return errors.New("options `accessKeyId` and `secretAccessKey` must be set")
 	}
 
 	// Bucket name
-	f.bucketName = appconfig.Config.GetString("repo.s3.bucket")
+	f.bucketName = opts.GetBucket()
 	if f.bucketName == "" {
-		return errors.New("repo.s3.bucket must be set")
+		return errors.New("option `bucket` must be set")
 	}
 
-	// Endpoint; defaults value is "s3.amazonaws.com"
-	endpoint := appconfig.Config.GetString("repo.s3.endpoint")
+	// Endpoint; default value is "s3.amazonaws.com"
+	endpoint := opts.GetEndpoint()
 	if endpoint == "" {
-		return errors.New("repo.s3.endpoint must be set")
+		endpoint = "s3.amazonaws.com"
 	}
 
 	// Enable TLS
-	tls := !appconfig.Config.GetBool("repo.s3.noTLS")
+	tls := !opts.NoTls
 
 	// Initialize minio client object for connecting to S3
 	var err error
-	f.client, err = minio.New(endpoint, accessKeyId, secretAccessKey, tls)
+	f.client, err = minio.New(endpoint, opts.AccessKeyId, opts.SecretAccessKey, tls)
 	if err != nil {
 		return err
 	}

@@ -29,7 +29,9 @@ import (
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/rpcserver"
 	"github.com/statiko-dev/statiko/controller/state"
+	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
 	//"github.com/statiko-dev/statiko/controller/worker"
 )
@@ -43,6 +45,7 @@ type Controller struct {
 	certs    *certificates.Certificates
 	apiSrv   *api.APIServer
 	rcpSrv   *rpcserver.RPCServer
+	akv      *azurekeyvault.Client
 	logger   *log.Logger
 }
 
@@ -84,10 +87,23 @@ func (c *Controller) Run() (err error) {
 		return err
 	}
 
+	// Init the Azure Key Vault client if we need it
+	akvName := appconfig.Config.GetString("azureKeyVault.name")
+	if akvName != "" {
+		c.akv = &azurekeyvault.Client{
+			VaultName: akvName,
+		}
+		err = c.akv.Init(controllerutils.GetClusterOptionsAzureSP("azureKeyVault"))
+		if err != nil {
+			return err
+		}
+	}
+
 	// Init the certs object
 	c.certs = &certificates.Certificates{
 		State:   c.state,
 		Cluster: c.cluster,
+		AKV:     c.akv,
 	}
 	err = c.certs.Init()
 	if err != nil {
@@ -123,6 +139,7 @@ func (c *Controller) Run() (err error) {
 		Store:   c.store,
 		State:   c.state,
 		Cluster: c.cluster,
+		AKV:     c.akv,
 	}
 	c.apiSrv.Init()
 	go c.apiSrv.Start()

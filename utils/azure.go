@@ -25,37 +25,38 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
-
-	"github.com/statiko-dev/statiko/appconfig"
 )
 
-var (
-	azureEnv         *azure.Environment
-	azureOAuthConfig *adal.OAuthConfig
-)
+// Interface for an object that provides the methods for getting an Azure Service Principal
+// This should be used with pb.ClusterOptions_AzureServicePrincipal
+type azureSPProvider interface {
+	GetTenantId() string
+	GetClientId() string
+	GetClientSecret() string
+}
 
 // Initializes the authentication objects for Azure
-func initAzure() error {
-	tenantID := appconfig.Config.GetString("azure.tenantId")
-	if tenantID == "" {
-		return errors.New("azure.tenantId must be defined")
+func initAzure(sp azureSPProvider) (*azure.Environment, *adal.OAuthConfig, error) {
+	tid := sp.GetTenantId()
+	if tid == "" {
+		return nil, nil, errors.New("sp.TenantId must be defined")
 	}
 
 	// Get Azure environment properties
 	env, err := azure.EnvironmentFromName("AZUREPUBLICCLOUD")
-	azureEnv = &env
+	azureEnv := &env
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	azureOAuthConfig, err = adal.NewOAuthConfig(azureEnv.ActiveDirectoryEndpoint, tenantID)
+	azureOAuthConfig, err := adal.NewOAuthConfig(azureEnv.ActiveDirectoryEndpoint, tid)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if azureOAuthConfig == nil {
-		return fmt.Errorf("unable to configure authentication for Azure tenant %s", tenantID)
+		return nil, nil, fmt.Errorf("unable to configure authentication for Azure tenant %s", tid)
 	}
 
-	return nil
+	return azureEnv, azureOAuthConfig, nil
 }
 
 // GetAzureEndpoint returns the endpoint for the Azure service
@@ -63,13 +64,10 @@ func initAzure() error {
 // - "azure" for Azure Resource Manager
 // - "keyvault" for Azure Key Vault
 // - "storage" for Azure Storage
-func GetAzureEndpoint(service string) (endpoint string, err error) {
-	// Check if we've built the objects already
-	if azureOAuthConfig == nil || azureEnv == nil {
-		err = initAzure()
-		if err != nil {
-			return
-		}
+func GetAzureEndpoint(service string, sp azureSPProvider) (endpoint string, err error) {
+	azureEnv, _, err := initAzure(sp)
+	if err != nil {
+		return
 	}
 
 	switch service {
@@ -90,25 +88,20 @@ func GetAzureEndpoint(service string) (endpoint string, err error) {
 }
 
 // GetAzureStorageEndpointSuffix returns the endpoint suffix for Azure Storage in this environment
-func GetAzureStorageEndpointSuffix() (string, error) {
-	if azureEnv == nil {
-		err := initAzure()
-		if err != nil {
-			return "", err
-		}
+func GetAzureStorageEndpointSuffix(sp azureSPProvider) (string, error) {
+	azureEnv, _, err := initAzure(sp)
+	if err != nil {
+		return "", err
 	}
 
 	return azureEnv.StorageEndpointSuffix, nil
 }
 
 // GetAzureOAuthConfig returns the adal.OAuthConfig object that can be used to authenticate against Azure resources
-func GetAzureOAuthConfig() (*adal.OAuthConfig, error) {
-	// Check if we've built the objects already
-	if azureOAuthConfig == nil || azureEnv == nil {
-		err := initAzure()
-		if err != nil {
-			return nil, err
-		}
+func GetAzureOAuthConfig(sp azureSPProvider) (*adal.OAuthConfig, error) {
+	_, azureOAuthConfig, err := initAzure(sp)
+	if err != nil {
+		return nil, err
 	}
 
 	return azureOAuthConfig, nil
@@ -116,9 +109,9 @@ func GetAzureOAuthConfig() (*adal.OAuthConfig, error) {
 
 // GetAzureAuthorizer returns the autorest.Authorizer object for the Azure SDK, for a given service
 // See GetAzureEndpoint for the list of services
-func GetAzureAuthorizer(service string) (autorest.Authorizer, error) {
+func GetAzureAuthorizer(service string, sp azureSPProvider) (autorest.Authorizer, error) {
 	// Get the Service Principal token
-	spt, err := GetAzureServicePrincipalToken(service)
+	spt, err := GetAzureServicePrincipalToken(service, sp)
 	if err != nil {
 		return nil, err
 	}
@@ -132,26 +125,26 @@ func GetAzureAuthorizer(service string) (autorest.Authorizer, error) {
 // GetAzureServicePrincipalToken returns a Service Principal token inside an adal.ServicePrincipalToken object, for a given service
 // Note that the returned token needs to be refreshed with the `Refresh()` method right away before it can be used
 // See GetAzureEndpoint for the list of services
-func GetAzureServicePrincipalToken(service string) (*adal.ServicePrincipalToken, error) {
+func GetAzureServicePrincipalToken(service string, sp azureSPProvider) (*adal.ServicePrincipalToken, error) {
 	// Get the OAuth configuration
-	oauthConfig, err := GetAzureOAuthConfig()
+	oauthConfig, err := GetAzureOAuthConfig(sp)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the endpoint
-	endpoint, err := GetAzureEndpoint(service)
+	endpoint, err := GetAzureEndpoint(service, sp)
 	if err != nil {
 		return nil, err
 	}
 
 	// Service Principal-based authorization
-	clientID := appconfig.Config.GetString("azure.clientId")
-	clientSecret := appconfig.Config.GetString("azure.clientSecret")
-	if clientID == "" || clientSecret == "" {
-		return nil, errors.New("azure.clientId and azure.sp.clientSecret must be defined")
+	clientId := sp.GetClientId()
+	clientSecret := sp.GetClientSecret()
+	if clientId == "" || clientSecret == "" {
+		return nil, errors.New("sp.ClientId and sp.ClientSecret must be defined")
 	}
-	spt, err := adal.NewServicePrincipalToken(*oauthConfig, clientID, clientSecret, endpoint)
+	spt, err := adal.NewServicePrincipalToken(*oauthConfig, clientId, clientSecret, endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -160,9 +153,9 @@ func GetAzureServicePrincipalToken(service string) (*adal.ServicePrincipalToken,
 }
 
 // GetAzureStorageCredentials returns a azblob.Credential object that can be used to authenticate an Azure Blob Storage SDK pipeline
-func GetAzureStorageCredentials() (azblob.Credential, error) {
+func GetAzureStorageCredentials(sp azureSPProvider) (azblob.Credential, error) {
 	// Azure Storage authorization
-	spt, err := GetAzureServicePrincipalToken("storage")
+	spt, err := GetAzureServicePrincipalToken("storage", sp)
 	if err != nil {
 		return nil, err
 	}

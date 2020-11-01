@@ -32,6 +32,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/sync"
 	"github.com/statiko-dev/statiko/agent/webserver"
 	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -48,6 +49,7 @@ type Agent struct {
 	appManager  *appmanager.Manager
 	webserver   *webserver.NginxConfig
 	clusterOpts *pb.ClusterOptions
+	akv         *azurekeyvault.Client
 	stateCh     chan int
 }
 
@@ -147,10 +149,23 @@ func (a *Agent) ready() (err error) {
 		return err
 	}
 
+	// Init the Azure Key Vault client if we need it
+	akvName := a.clusterOpts.AzureKeyVault.VaultName
+	if akvName != "" {
+		a.akv = &azurekeyvault.Client{
+			VaultName: akvName,
+		}
+		err = a.akv.Init(a.clusterOpts.AzureKeyVault.Auth)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Init the certs object
 	a.certs = &certificates.AgentCertificates{
 		State: a.agentState,
 		RPC:   a.rpcClient,
+		AKV:   a.akv,
 	}
 	err = a.certs.Init()
 	if err != nil {

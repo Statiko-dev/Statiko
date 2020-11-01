@@ -34,7 +34,7 @@ var (
 	metadata map[string]string
 )
 
-const testFileName = "../.e2e-test/fixtures/simone-mascellari-h1SSRcFuHMk-unsplash.jpg"
+const testFileName = "../../tests/assets/simone-mascellari-h1SSRcFuHMk-unsplash.jpg"
 const testFileDigest = "29118369f295f81324bbff85e370f8da6c33ea27498733a293d5ce5b361b7ca0"
 const testFileSize = 275857
 

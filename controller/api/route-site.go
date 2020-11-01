@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package api
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/certificates"
-	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -112,78 +112,11 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 
 	// Check if we have an imported certificate
 	if site.ImportedTlsId != "" {
-		// Check if the cert is from Azure Key Vault
-		if strings.HasPrefix(strings.ToLower(site.ImportedTlsId), "akv:") {
-			// Ensure we have a name and optionally a version
-			pos := strings.Index(site.ImportedTlsId, "/")
-			var name, version string
-			if pos == -1 {
-				name = site.ImportedTlsId[4:]
-			} else {
-				name = site.ImportedTlsId[4:pos]
-				version = site.ImportedTlsId[(pos + 1):]
-			}
-
-			// If the version is empty (or "latest"), then get the latest version
-			if version == "" || strings.ToLower(version) == "latest" {
-				var err error
-				version, err = azurekeyvault.GetInstance().GetCertificateLastVersion(name)
-				if err != nil {
-					c.AbortWithError(http.StatusInternalServerError, err)
-					return
-				}
-				if version == "" {
-					c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-						"error": "TLS certificate does not exist in Azure Key Vault",
-					})
-					return
-				}
-			} else {
-				// Ensure that the certificate exists
-				exists, err := azurekeyvault.GetInstance().CertificateExists(name)
-				if err != nil {
-					c.AbortWithError(http.StatusInternalServerError, err)
-					return
-				}
-				if !exists {
-					c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-						"error": "TLS certificate does not exist in Azure Key Vault",
-					})
-					return
-				}
-			}
-
-			// Retrieve the certificate so we can inspect it
-			_, _, _, certX509, err := azurekeyvault.GetInstance().GetCertificate(name, version)
-			if err != nil {
-				c.AbortWithError(http.StatusInternalServerError, err)
-				return
-			}
-			if certX509 == nil {
-				c.AbortWithStatusJSON(http.StatusConflict, gin.H{
-					"error": "empty certificate properties returned by Azure Key Vault",
-				})
-				return
-			}
-
-			// Set the updated value
-			site.ImportedTlsId = "akv:" + name + "/" + version
-		} else {
-			// This is a certificate in the state store
-			// Ensure it exists and it's not self-signed or from ACME
-			obj, err := s.State.GetCertificateInfo(site.ImportedTlsId)
-			if err != nil {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-					"error": "Error with imported certificate: " + err.Error(),
-				})
-				return
-			}
-			if obj == nil || obj.Type == pb.TLSCertificate_SELF_SIGNED || obj.Type == pb.TLSCertificate_ACME {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-					"error": "Imported certificate not found or certificate is not an imported one",
-				})
-				return
-			}
+		// The value might be updated
+		site.ImportedTlsId = s.validateCert(c, site.ImportedTlsId)
+		if site.ImportedTlsId == "" {
+			// The function already aborts the request, so we just need to return
+			return
 		}
 	}
 
@@ -370,17 +303,10 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 
 			// If we're setting a certificate, ensure it exists and it's not self-signed or from ACME
 			if certId != "" {
-				obj, err := s.State.GetCertificateInfo(certId)
-				if err != nil {
-					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-						"error": "Error with imported certificate: " + err.Error(),
-					})
-					return
-				}
-				if obj == nil || obj.Type == pb.TLSCertificate_SELF_SIGNED || obj.Type == pb.TLSCertificate_ACME {
-					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-						"error": "Imported certificate not found or certificate is not an imported one",
-					})
+				// The value might be updated
+				certId = s.validateCert(c, certId)
+				if certId == "" {
+					// The function already aborts the request, so we just need to return
 					return
 				}
 			}
@@ -501,4 +427,86 @@ func (s *APIServer) genTls(site *pb.Site) (certId string, err error) {
 	}
 
 	return certId, nil
+}
+
+// Validates a certificate ID
+func (s *APIServer) validateCert(c *gin.Context, certId string) string {
+	if strings.HasPrefix(strings.ToLower(certId), "akv:") {
+		if s.AKV == nil {
+			c.AbortWithError(http.StatusInternalServerError, errors.New("requesting a certificate from Azure Key Vault, but the AKV object is nil"))
+			return ""
+		}
+
+		// Ensure we have a name and optionally a version
+		pos := strings.Index(certId, "/")
+		var name, version string
+		if pos == -1 {
+			name = certId[4:]
+		} else {
+			name = certId[4:pos]
+			version = certId[(pos + 1):]
+		}
+
+		// If the version is empty (or "latest"), then get the latest version
+		if version == "" || strings.ToLower(version) == "latest" {
+			var err error
+			version, err = s.AKV.GetCertificateLastVersion(name)
+			if err != nil {
+				c.AbortWithError(http.StatusInternalServerError, err)
+				return ""
+			}
+			if version == "" {
+				c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+					"error": "TLS certificate does not exist in Azure Key Vault",
+				})
+				return ""
+			}
+		} else {
+			// Ensure that the certificate exists
+			exists, err := s.AKV.CertificateExists(name)
+			if err != nil {
+				c.AbortWithError(http.StatusInternalServerError, err)
+				return ""
+			}
+			if !exists {
+				c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+					"error": "TLS certificate does not exist in Azure Key Vault",
+				})
+				return ""
+			}
+		}
+
+		// Retrieve the certificate so we can inspect it
+		_, _, _, certX509, err := s.AKV.GetCertificate(name, version)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return ""
+		}
+		if certX509 == nil {
+			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+				"error": "empty certificate properties returned by Azure Key Vault",
+			})
+			return ""
+		}
+
+		// Set the updated value
+		certId = "akv:" + name + "/" + version
+	} else {
+		// This is a certificate in the state store
+		// Ensure it exists and it's not self-signed or from ACME
+		obj, err := s.State.GetCertificateInfo(certId)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Error with imported certificate: " + err.Error(),
+			})
+			return ""
+		}
+		if obj == nil || obj.Type == pb.TLSCertificate_SELF_SIGNED || obj.Type == pb.TLSCertificate_ACME {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error": "Imported certificate not found or certificate is not an imported one",
+			})
+			return ""
+		}
+	}
+	return certId
 }

@@ -21,22 +21,22 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 func TestLocalInit(t *testing.T) {
+	opts := &pb.ClusterOptions_StorageLocal{}
 	t.Run("empty path", func(t *testing.T) {
 		o := &Local{}
-		appconfig.Config.Set("repo.local.path", "")
-		err := o.Init()
+		err := o.Init(opts)
 		if err == nil {
 			t.Fatal("Expected error, but got none")
 		}
 	})
 	t.Run("init correctly", func(t *testing.T) {
 		obj = &Local{}
-		appconfig.Config.Set("repo.local.path", dir)
-		err := obj.Init()
+		opts.Path = dir
+		err := obj.Init(opts)
 		if err != nil {
 			t.Fatal(err)
 		}

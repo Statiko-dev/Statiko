@@ -39,14 +39,18 @@ type stateStoreCert interface {
 }
 
 // GetCertificate returns a certificate key and cert by ID from the certificate cache
-func GetCertificate(certificateId string, state stateStoreCert) (key []byte, cert []byte, err error) {
+func GetCertificate(certificateId string, state stateStoreCert, akv *azurekeyvault.Client) (key []byte, cert []byte, err error) {
 	// Check if the certificate type
 	switch {
 
 	// Certificate from Azure Key Vault
 	case strings.HasPrefix(certificateId, "akv:"):
+		if akv == nil {
+			return nil, nil, errors.New("requesting a certificate from Azure Key Vault, but AKV client is nil")
+		}
+
 		// Request the certificate
-		key, cert, err = GetAKVCertificate(certificateId)
+		key, cert, err = GetAKVCertificate(certificateId, akv)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -70,7 +74,7 @@ func GetCertificate(certificateId string, state stateStoreCert) (key []byte, cer
 }
 
 // GetAKVCertificate returns a certificate from Azure Key Vault
-func GetAKVCertificate(certificateId string) (key []byte, cert []byte, err error) {
+func GetAKVCertificate(certificateId string, akv *azurekeyvault.Client) (key []byte, cert []byte, err error) {
 	// Get the name and version
 	pos := strings.Index(certificateId, "/")
 	var name, version string
@@ -82,7 +86,7 @@ func GetAKVCertificate(certificateId string) (key []byte, cert []byte, err error
 	}
 
 	// Get the certificate and key
-	version, cert, key, _, err = azurekeyvault.GetInstance().GetCertificate(name, version)
+	version, cert, key, _, err = akv.GetCertificate(name, version)
 	if err != nil {
 		return nil, nil, err
 	}

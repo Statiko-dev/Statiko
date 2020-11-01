@@ -94,6 +94,15 @@ type ClusterOptions struct {
 	Codesign *ClusterOptions_Codesign `protobuf:"bytes,1,opt,name=codesign,proto3" json:"codesign,omitempty"`
 	// Manifest file name
 	ManifestFile string `protobuf:"bytes,2,opt,name=manifest_file,json=manifestFile,proto3" json:"manifest_file,omitempty"`
+	// Storage options
+	//
+	// Types that are assignable to Storage:
+	//	*ClusterOptions_Local
+	//	*ClusterOptions_Azure
+	//	*ClusterOptions_S3
+	Storage isClusterOptions_Storage `protobuf_oneof:"storage"`
+	// Azure Key Vault options
+	AzureKeyVault *ClusterOptions_AzureKeyVault `protobuf:"bytes,30,opt,name=azure_key_vault,json=azureKeyVault,proto3" json:"azure_key_vault,omitempty"`
 }
 
 func (x *ClusterOptions) Reset() {
@@ -141,6 +150,63 @@ func (x *ClusterOptions) GetManifestFile() string {
 	}
 	return ""
 }
+
+func (m *ClusterOptions) GetStorage() isClusterOptions_Storage {
+	if m != nil {
+		return m.Storage
+	}
+	return nil
+}
+
+func (x *ClusterOptions) GetLocal() *ClusterOptions_StorageLocal {
+	if x, ok := x.GetStorage().(*ClusterOptions_Local); ok {
+		return x.Local
+	}
+	return nil
+}
+
+func (x *ClusterOptions) GetAzure() *ClusterOptions_StorageAzure {
+	if x, ok := x.GetStorage().(*ClusterOptions_Azure); ok {
+		return x.Azure
+	}
+	return nil
+}
+
+func (x *ClusterOptions) GetS3() *ClusterOptions_StorageS3 {
+	if x, ok := x.GetStorage().(*ClusterOptions_S3); ok {
+		return x.S3
+	}
+	return nil
+}
+
+func (x *ClusterOptions) GetAzureKeyVault() *ClusterOptions_AzureKeyVault {
+	if x != nil {
+		return x.AzureKeyVault
+	}
+	return nil
+}
+
+type isClusterOptions_Storage interface {
+	isClusterOptions_Storage()
+}
+
+type ClusterOptions_Local struct {
+	Local *ClusterOptions_StorageLocal `protobuf:"bytes,10,opt,name=local,proto3,oneof"`
+}
+
+type ClusterOptions_Azure struct {
+	Azure *ClusterOptions_StorageAzure `protobuf:"bytes,11,opt,name=azure,proto3,oneof"`
+}
+
+type ClusterOptions_S3 struct {
+	S3 *ClusterOptions_StorageS3 `protobuf:"bytes,12,opt,name=s3,proto3,oneof"`
+}
+
+func (*ClusterOptions_Local) isClusterOptions_Storage() {}
+
+func (*ClusterOptions_Azure) isClusterOptions_Storage() {}
+
+func (*ClusterOptions_S3) isClusterOptions_Storage() {}
 
 // Codesign options message
 type ClusterOptions_Codesign struct {
@@ -209,6 +275,341 @@ func (x *ClusterOptions_Codesign) GetRsaKey() *ClusterOptions_Codesign_RSAKey {
 	return nil
 }
 
+// Service Principal for Azure resources
+type ClusterOptions_AzureServicePrincipal struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Client ID
+	ClientId string `protobuf:"bytes,1,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
+	// Client secret
+	ClientSecret string `protobuf:"bytes,2,opt,name=client_secret,json=clientSecret,proto3" json:"client_secret,omitempty"`
+	// Tenant ID
+	TenantId string `protobuf:"bytes,3,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+}
+
+func (x *ClusterOptions_AzureServicePrincipal) Reset() {
+	*x = ClusterOptions_AzureServicePrincipal{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cluster_options_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClusterOptions_AzureServicePrincipal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterOptions_AzureServicePrincipal) ProtoMessage() {}
+
+func (x *ClusterOptions_AzureServicePrincipal) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_options_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterOptions_AzureServicePrincipal.ProtoReflect.Descriptor instead.
+func (*ClusterOptions_AzureServicePrincipal) Descriptor() ([]byte, []int) {
+	return file_cluster_options_proto_rawDescGZIP(), []int{0, 1}
+}
+
+func (x *ClusterOptions_AzureServicePrincipal) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *ClusterOptions_AzureServicePrincipal) GetClientSecret() string {
+	if x != nil {
+		return x.ClientSecret
+	}
+	return ""
+}
+
+func (x *ClusterOptions_AzureServicePrincipal) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+// Options for storage when using the "local" type
+type ClusterOptions_StorageLocal struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Path to the folder on disk
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+}
+
+func (x *ClusterOptions_StorageLocal) Reset() {
+	*x = ClusterOptions_StorageLocal{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cluster_options_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClusterOptions_StorageLocal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterOptions_StorageLocal) ProtoMessage() {}
+
+func (x *ClusterOptions_StorageLocal) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_options_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterOptions_StorageLocal.ProtoReflect.Descriptor instead.
+func (*ClusterOptions_StorageLocal) Descriptor() ([]byte, []int) {
+	return file_cluster_options_proto_rawDescGZIP(), []int{0, 2}
+}
+
+func (x *ClusterOptions_StorageLocal) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+// Options for storage when using the "Azure Storage" type
+type ClusterOptions_StorageAzure struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Storage account name
+	Account string `protobuf:"bytes,1,opt,name=account,proto3" json:"account,omitempty"`
+	// Container
+	Container string `protobuf:"bytes,2,opt,name=container,proto3" json:"container,omitempty"`
+	// Access key (alternative to SP)
+	AccessKey string `protobuf:"bytes,3,opt,name=access_key,json=accessKey,proto3" json:"access_key,omitempty"`
+	// Service Principal (alternative to access key)
+	Auth *ClusterOptions_AzureServicePrincipal `protobuf:"bytes,4,opt,name=auth,proto3" json:"auth,omitempty"`
+}
+
+func (x *ClusterOptions_StorageAzure) Reset() {
+	*x = ClusterOptions_StorageAzure{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cluster_options_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClusterOptions_StorageAzure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterOptions_StorageAzure) ProtoMessage() {}
+
+func (x *ClusterOptions_StorageAzure) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_options_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterOptions_StorageAzure.ProtoReflect.Descriptor instead.
+func (*ClusterOptions_StorageAzure) Descriptor() ([]byte, []int) {
+	return file_cluster_options_proto_rawDescGZIP(), []int{0, 3}
+}
+
+func (x *ClusterOptions_StorageAzure) GetAccount() string {
+	if x != nil {
+		return x.Account
+	}
+	return ""
+}
+
+func (x *ClusterOptions_StorageAzure) GetContainer() string {
+	if x != nil {
+		return x.Container
+	}
+	return ""
+}
+
+func (x *ClusterOptions_StorageAzure) GetAccessKey() string {
+	if x != nil {
+		return x.AccessKey
+	}
+	return ""
+}
+
+func (x *ClusterOptions_StorageAzure) GetAuth() *ClusterOptions_AzureServicePrincipal {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
+// Options for storage when using the "S3" type
+type ClusterOptions_StorageS3 struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Access key ID
+	AccessKeyId string `protobuf:"bytes,1,opt,name=access_key_id,json=accessKeyId,proto3" json:"access_key_id,omitempty"`
+	// Secret access key
+	SecretAccessKey string `protobuf:"bytes,2,opt,name=secret_access_key,json=secretAccessKey,proto3" json:"secret_access_key,omitempty"`
+	// Bucket name
+	Bucket string `protobuf:"bytes,3,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	// Endpoint; default value is "s3.amazonaws.com"
+	Endpoint string `protobuf:"bytes,4,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	// Disable TLS
+	NoTls bool `protobuf:"varint,5,opt,name=no_tls,json=noTls,proto3" json:"no_tls,omitempty"`
+}
+
+func (x *ClusterOptions_StorageS3) Reset() {
+	*x = ClusterOptions_StorageS3{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cluster_options_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClusterOptions_StorageS3) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterOptions_StorageS3) ProtoMessage() {}
+
+func (x *ClusterOptions_StorageS3) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_options_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterOptions_StorageS3.ProtoReflect.Descriptor instead.
+func (*ClusterOptions_StorageS3) Descriptor() ([]byte, []int) {
+	return file_cluster_options_proto_rawDescGZIP(), []int{0, 4}
+}
+
+func (x *ClusterOptions_StorageS3) GetAccessKeyId() string {
+	if x != nil {
+		return x.AccessKeyId
+	}
+	return ""
+}
+
+func (x *ClusterOptions_StorageS3) GetSecretAccessKey() string {
+	if x != nil {
+		return x.SecretAccessKey
+	}
+	return ""
+}
+
+func (x *ClusterOptions_StorageS3) GetBucket() string {
+	if x != nil {
+		return x.Bucket
+	}
+	return ""
+}
+
+func (x *ClusterOptions_StorageS3) GetEndpoint() string {
+	if x != nil {
+		return x.Endpoint
+	}
+	return ""
+}
+
+func (x *ClusterOptions_StorageS3) GetNoTls() bool {
+	if x != nil {
+		return x.NoTls
+	}
+	return false
+}
+
+// Configuration for Azure Key Vault
+type ClusterOptions_AzureKeyVault struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of the Key Vault
+	VaultName string `protobuf:"bytes,1,opt,name=vault_name,json=vaultName,proto3" json:"vault_name,omitempty"`
+	// Service Principal
+	Auth *ClusterOptions_AzureServicePrincipal `protobuf:"bytes,2,opt,name=auth,proto3" json:"auth,omitempty"`
+}
+
+func (x *ClusterOptions_AzureKeyVault) Reset() {
+	*x = ClusterOptions_AzureKeyVault{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_cluster_options_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClusterOptions_AzureKeyVault) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterOptions_AzureKeyVault) ProtoMessage() {}
+
+func (x *ClusterOptions_AzureKeyVault) ProtoReflect() protoreflect.Message {
+	mi := &file_cluster_options_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterOptions_AzureKeyVault.ProtoReflect.Descriptor instead.
+func (*ClusterOptions_AzureKeyVault) Descriptor() ([]byte, []int) {
+	return file_cluster_options_proto_rawDescGZIP(), []int{0, 5}
+}
+
+func (x *ClusterOptions_AzureKeyVault) GetVaultName() string {
+	if x != nil {
+		return x.VaultName
+	}
+	return ""
+}
+
+func (x *ClusterOptions_AzureKeyVault) GetAuth() *ClusterOptions_AzureServicePrincipal {
+	if x != nil {
+		return x.Auth
+	}
+	return nil
+}
+
 // Arguments for RSA key
 type ClusterOptions_Codesign_RSAKey struct {
 	state         protoimpl.MessageState
@@ -225,7 +626,7 @@ type ClusterOptions_Codesign_RSAKey struct {
 func (x *ClusterOptions_Codesign_RSAKey) Reset() {
 	*x = ClusterOptions_Codesign_RSAKey{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_cluster_options_proto_msgTypes[2]
+		mi := &file_cluster_options_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -238,7 +639,7 @@ func (x *ClusterOptions_Codesign_RSAKey) String() string {
 func (*ClusterOptions_Codesign_RSAKey) ProtoMessage() {}
 
 func (x *ClusterOptions_Codesign_RSAKey) ProtoReflect() protoreflect.Message {
-	mi := &file_cluster_options_proto_msgTypes[2]
+	mi := &file_cluster_options_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -273,14 +674,30 @@ var File_cluster_options_proto protoreflect.FileDescriptor
 var file_cluster_options_proto_rawDesc = []byte{
 	0x0a, 0x15, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x2d, 0x6f, 0x70, 0x74, 0x69, 0x6f, 0x6e,
 	0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x07, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f,
-	0x22, 0xef, 0x02, 0x0a, 0x0e, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x4f, 0x70, 0x74, 0x69,
+	0x22, 0xdd, 0x09, 0x0a, 0x0e, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x4f, 0x70, 0x74, 0x69,
 	0x6f, 0x6e, 0x73, 0x12, 0x3c, 0x0a, 0x08, 0x63, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e,
 	0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x43,
 	0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x52, 0x08, 0x63, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67,
 	0x6e, 0x12, 0x23, 0x0a, 0x0d, 0x6d, 0x61, 0x6e, 0x69, 0x66, 0x65, 0x73, 0x74, 0x5f, 0x66, 0x69,
 	0x6c, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x6d, 0x61, 0x6e, 0x69, 0x66, 0x65,
-	0x73, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x1a, 0xf9, 0x01, 0x0a, 0x08, 0x43, 0x6f, 0x64, 0x65, 0x73,
+	0x73, 0x74, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x3c, 0x0a, 0x05, 0x6c, 0x6f, 0x63, 0x61, 0x6c, 0x18,
+	0x0a, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e,
+	0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x53,
+	0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x48, 0x00, 0x52, 0x05, 0x6c,
+	0x6f, 0x63, 0x61, 0x6c, 0x12, 0x3c, 0x0a, 0x05, 0x61, 0x7a, 0x75, 0x72, 0x65, 0x18, 0x0b, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x6c,
+	0x75, 0x73, 0x74, 0x65, 0x72, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x53, 0x74, 0x6f,
+	0x72, 0x61, 0x67, 0x65, 0x41, 0x7a, 0x75, 0x72, 0x65, 0x48, 0x00, 0x52, 0x05, 0x61, 0x7a, 0x75,
+	0x72, 0x65, 0x12, 0x33, 0x0a, 0x02, 0x73, 0x33, 0x18, 0x0c, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x21,
+	0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72,
+	0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x53,
+	0x33, 0x48, 0x00, 0x52, 0x02, 0x73, 0x33, 0x12, 0x4d, 0x0a, 0x0f, 0x61, 0x7a, 0x75, 0x72, 0x65,
+	0x5f, 0x6b, 0x65, 0x79, 0x5f, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x18, 0x1e, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x25, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x6c, 0x75, 0x73, 0x74,
+	0x65, 0x72, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x41, 0x7a, 0x75, 0x72, 0x65, 0x4b,
+	0x65, 0x79, 0x56, 0x61, 0x75, 0x6c, 0x74, 0x52, 0x0d, 0x61, 0x7a, 0x75, 0x72, 0x65, 0x4b, 0x65,
+	0x79, 0x56, 0x61, 0x75, 0x6c, 0x74, 0x1a, 0xf9, 0x01, 0x0a, 0x08, 0x43, 0x6f, 0x64, 0x65, 0x73,
 	0x69, 0x67, 0x6e, 0x12, 0x29, 0x0a, 0x10, 0x72, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x5f, 0x63,
 	0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0f, 0x72,
 	0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x43, 0x6f, 0x64, 0x65, 0x73, 0x69, 0x67, 0x6e, 0x12, 0x3c,
@@ -296,10 +713,49 @@ var file_cluster_options_proto_rawDesc = []byte{
 	0x01, 0x28, 0x0c, 0x52, 0x01, 0x6e, 0x12, 0x0c, 0x0a, 0x01, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
 	0x0d, 0x52, 0x01, 0x65, 0x22, 0x1c, 0x0a, 0x07, 0x4b, 0x65, 0x79, 0x54, 0x79, 0x70, 0x65, 0x12,
 	0x08, 0x0a, 0x04, 0x4e, 0x55, 0x4c, 0x4c, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x52, 0x53, 0x41,
-	0x10, 0x01, 0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x73, 0x74, 0x61,
-	0x74, 0x69, 0x6b, 0x6f, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x65, 0x64, 0x2f, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x10, 0x01, 0x1a, 0x76, 0x0a, 0x15, 0x41, 0x7a, 0x75, 0x72, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69,
+	0x63, 0x65, 0x50, 0x72, 0x69, 0x6e, 0x63, 0x69, 0x70, 0x61, 0x6c, 0x12, 0x1b, 0x0a, 0x09, 0x63,
+	0x6c, 0x69, 0x65, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
+	0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x49, 0x64, 0x12, 0x23, 0x0a, 0x0d, 0x63, 0x6c, 0x69, 0x65,
+	0x6e, 0x74, 0x5f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x0c, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x53, 0x65, 0x63, 0x72, 0x65, 0x74, 0x12, 0x1b, 0x0a,
+	0x09, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x08, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x74, 0x49, 0x64, 0x1a, 0x22, 0x0a, 0x0c, 0x53, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x61,
+	0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x1a, 0xa8,
+	0x01, 0x0a, 0x0c, 0x53, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x41, 0x7a, 0x75, 0x72, 0x65, 0x12,
+	0x18, 0x0a, 0x07, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x07, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x1c, 0x0a, 0x09, 0x63, 0x6f, 0x6e,
+	0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x63, 0x6f,
+	0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x12, 0x1d, 0x0a, 0x0a, 0x61, 0x63, 0x63, 0x65, 0x73,
+	0x73, 0x5f, 0x6b, 0x65, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x61, 0x63, 0x63,
+	0x65, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x12, 0x41, 0x0a, 0x04, 0x61, 0x75, 0x74, 0x68, 0x18, 0x04,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x2d, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43,
+	0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x41, 0x7a,
+	0x75, 0x72, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x72, 0x69, 0x6e, 0x63, 0x69,
+	0x70, 0x61, 0x6c, 0x52, 0x04, 0x61, 0x75, 0x74, 0x68, 0x1a, 0xa6, 0x01, 0x0a, 0x09, 0x53, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x53, 0x33, 0x12, 0x22, 0x0a, 0x0d, 0x61, 0x63, 0x63, 0x65, 0x73,
+	0x73, 0x5f, 0x6b, 0x65, 0x79, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b,
+	0x61, 0x63, 0x63, 0x65, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x49, 0x64, 0x12, 0x2a, 0x0a, 0x11, 0x73,
+	0x65, 0x63, 0x72, 0x65, 0x74, 0x5f, 0x61, 0x63, 0x63, 0x65, 0x73, 0x73, 0x5f, 0x6b, 0x65, 0x79,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0f, 0x73, 0x65, 0x63, 0x72, 0x65, 0x74, 0x41, 0x63,
+	0x63, 0x65, 0x73, 0x73, 0x4b, 0x65, 0x79, 0x12, 0x16, 0x0a, 0x06, 0x62, 0x75, 0x63, 0x6b, 0x65,
+	0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x62, 0x75, 0x63, 0x6b, 0x65, 0x74, 0x12,
+	0x1a, 0x0a, 0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x08, 0x65, 0x6e, 0x64, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x15, 0x0a, 0x06, 0x6e,
+	0x6f, 0x5f, 0x74, 0x6c, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x08, 0x52, 0x05, 0x6e, 0x6f, 0x54,
+	0x6c, 0x73, 0x1a, 0x71, 0x0a, 0x0d, 0x41, 0x7a, 0x75, 0x72, 0x65, 0x4b, 0x65, 0x79, 0x56, 0x61,
+	0x75, 0x6c, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x5f, 0x6e, 0x61, 0x6d,
+	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x76, 0x61, 0x75, 0x6c, 0x74, 0x4e, 0x61,
+	0x6d, 0x65, 0x12, 0x41, 0x0a, 0x04, 0x61, 0x75, 0x74, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x2d, 0x2e, 0x73, 0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2e, 0x43, 0x6c, 0x75, 0x73, 0x74,
+	0x65, 0x72, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x41, 0x7a, 0x75, 0x72, 0x65, 0x53,
+	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x72, 0x69, 0x6e, 0x63, 0x69, 0x70, 0x61, 0x6c, 0x52,
+	0x04, 0x61, 0x75, 0x74, 0x68, 0x42, 0x09, 0x0a, 0x07, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65,
+	0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73,
+	0x74, 0x61, 0x74, 0x69, 0x6b, 0x6f, 0x2d, 0x64, 0x65, 0x76, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x69,
+	0x6b, 0x6f, 0x2f, 0x73, 0x68, 0x61, 0x72, 0x65, 0x64, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -315,22 +771,33 @@ func file_cluster_options_proto_rawDescGZIP() []byte {
 }
 
 var file_cluster_options_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_cluster_options_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_cluster_options_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_cluster_options_proto_goTypes = []interface{}{
-	(ClusterOptions_Codesign_KeyType)(0),   // 0: statiko.ClusterOptions.Codesign.KeyType
-	(*ClusterOptions)(nil),                 // 1: statiko.ClusterOptions
-	(*ClusterOptions_Codesign)(nil),        // 2: statiko.ClusterOptions.Codesign
-	(*ClusterOptions_Codesign_RSAKey)(nil), // 3: statiko.ClusterOptions.Codesign.RSAKey
+	(ClusterOptions_Codesign_KeyType)(0),         // 0: statiko.ClusterOptions.Codesign.KeyType
+	(*ClusterOptions)(nil),                       // 1: statiko.ClusterOptions
+	(*ClusterOptions_Codesign)(nil),              // 2: statiko.ClusterOptions.Codesign
+	(*ClusterOptions_AzureServicePrincipal)(nil), // 3: statiko.ClusterOptions.AzureServicePrincipal
+	(*ClusterOptions_StorageLocal)(nil),          // 4: statiko.ClusterOptions.StorageLocal
+	(*ClusterOptions_StorageAzure)(nil),          // 5: statiko.ClusterOptions.StorageAzure
+	(*ClusterOptions_StorageS3)(nil),             // 6: statiko.ClusterOptions.StorageS3
+	(*ClusterOptions_AzureKeyVault)(nil),         // 7: statiko.ClusterOptions.AzureKeyVault
+	(*ClusterOptions_Codesign_RSAKey)(nil),       // 8: statiko.ClusterOptions.Codesign.RSAKey
 }
 var file_cluster_options_proto_depIdxs = []int32{
 	2, // 0: statiko.ClusterOptions.codesign:type_name -> statiko.ClusterOptions.Codesign
-	0, // 1: statiko.ClusterOptions.Codesign.type:type_name -> statiko.ClusterOptions.Codesign.KeyType
-	3, // 2: statiko.ClusterOptions.Codesign.rsa_key:type_name -> statiko.ClusterOptions.Codesign.RSAKey
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 1: statiko.ClusterOptions.local:type_name -> statiko.ClusterOptions.StorageLocal
+	5, // 2: statiko.ClusterOptions.azure:type_name -> statiko.ClusterOptions.StorageAzure
+	6, // 3: statiko.ClusterOptions.s3:type_name -> statiko.ClusterOptions.StorageS3
+	7, // 4: statiko.ClusterOptions.azure_key_vault:type_name -> statiko.ClusterOptions.AzureKeyVault
+	0, // 5: statiko.ClusterOptions.Codesign.type:type_name -> statiko.ClusterOptions.Codesign.KeyType
+	8, // 6: statiko.ClusterOptions.Codesign.rsa_key:type_name -> statiko.ClusterOptions.Codesign.RSAKey
+	3, // 7: statiko.ClusterOptions.StorageAzure.auth:type_name -> statiko.ClusterOptions.AzureServicePrincipal
+	3, // 8: statiko.ClusterOptions.AzureKeyVault.auth:type_name -> statiko.ClusterOptions.AzureServicePrincipal
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_cluster_options_proto_init() }
@@ -364,6 +831,66 @@ func file_cluster_options_proto_init() {
 			}
 		}
 		file_cluster_options_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClusterOptions_AzureServicePrincipal); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cluster_options_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClusterOptions_StorageLocal); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cluster_options_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClusterOptions_StorageAzure); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cluster_options_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClusterOptions_StorageS3); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cluster_options_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ClusterOptions_AzureKeyVault); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_cluster_options_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ClusterOptions_Codesign_RSAKey); i {
 			case 0:
 				return &v.state
@@ -376,13 +903,18 @@ func file_cluster_options_proto_init() {
 			}
 		}
 	}
+	file_cluster_options_proto_msgTypes[0].OneofWrappers = []interface{}{
+		(*ClusterOptions_Local)(nil),
+		(*ClusterOptions_Azure)(nil),
+		(*ClusterOptions_S3)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_cluster_options_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   3,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

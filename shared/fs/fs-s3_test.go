@@ -20,40 +20,35 @@ import (
 	"os"
 	"testing"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 func TestS3Init(t *testing.T) {
+	opts := &pb.ClusterOptions_StorageS3{
+		Endpoint: os.Getenv("REPO_S3_ENDPOINT"),
+		NoTls:    utils.IsTruthy(os.Getenv("REPO_S3_NO_TLS")),
+	}
 	t.Run("empty credentials", func(t *testing.T) {
 		o := &S3{}
-
-		appconfig.Config.Set("repo.s3.accessKeyId", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.accessKeyId, but got none")
+		if o.Init(opts) == nil {
+			t.Fatal("Expected error for missing accessKeyId, but got none")
 		}
-		appconfig.Config.Set("repo.s3.accessKeyId", os.Getenv("REPO_S3_ACCESS_KEY_ID"))
+		opts.AccessKeyId = os.Getenv("REPO_S3_ACCESS_KEY_ID")
 
-		appconfig.Config.Set("repo.s3.secretAccessKey", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.secretAccessKey, but got none")
+		if o.Init(opts) == nil {
+			t.Fatal("Expected error for missing secretAccessKey, but got none")
 		}
-		appconfig.Config.Set("repo.s3.secretAccessKey", os.Getenv("REPO_S3_SECRET_ACCESS_KEY"))
+		opts.SecretAccessKey = os.Getenv("REPO_S3_SECRET_ACCESS_KEY")
 
-		appconfig.Config.Set("repo.s3.bucket", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.bucket, but got none")
+		if o.Init(opts) == nil {
+			t.Fatal("Expected error for missing bucket, but got none")
 		}
-		appconfig.Config.Set("repo.s3.bucket", os.Getenv("REPO_S3_BUCKET"))
-
-		appconfig.Config.Set("repo.s3.endpoint", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.s3.endpoint, but got none")
-		}
-		appconfig.Config.Set("repo.s3.endpoint", os.Getenv("REPO_S3_ENDPOINT"))
+		opts.Bucket = os.Getenv("REPO_S3_BUCKET")
 	})
 	t.Run("init correctly", func(t *testing.T) {
 		obj = &S3{}
-		if err := obj.Init(); err != nil {
+		if err := obj.Init(opts); err != nil {
 			t.Fatal(err)
 		}
 	})

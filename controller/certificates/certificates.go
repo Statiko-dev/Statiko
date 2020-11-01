@@ -22,6 +22,7 @@ import (
 
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
+	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/certutils"
 )
 
@@ -29,6 +30,7 @@ import (
 type Certificates struct {
 	State   *state.Manager
 	Cluster *cluster.Cluster
+	AKV     *azurekeyvault.Client
 	logger  *log.Logger
 }
 
@@ -43,5 +45,5 @@ func (c *Certificates) Init() error {
 // GetCertificate returns a certificate key and cert by ID
 func (c *Certificates) GetCertificate(certificateId string) (key []byte, cert []byte, err error) {
 	// Return from the certutils package
-	return certutils.GetCertificate(certificateId, c.State)
+	return certutils.GetCertificate(certificateId, c.State, c.AKV)
 }

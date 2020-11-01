@@ -20,30 +20,29 @@ import (
 	"os"
 	"testing"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 func TestAzureStorageInit(t *testing.T) {
+	opts := &pb.ClusterOptions_StorageAzure{}
 	t.Run("empty credentials", func(t *testing.T) {
 		o := &AzureStorage{}
 
-		appconfig.Config.Set("repo.azure.account", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.azure.account, but got none")
+		if o.Init(opts) == nil {
+			t.Fatal("Expected error for missing account, but got none")
 		}
-		appconfig.Config.Set("repo.azure.account", os.Getenv("REPO_AZURE_ACCOUNT"))
+		opts.Account = os.Getenv("REPO_AZURE_ACCOUNT")
 
-		appconfig.Config.Set("repo.azure.container", "")
-		if o.Init() == nil {
-			t.Fatal("Expected error for missing repo.azure.container, but got none")
+		if o.Init(opts) == nil {
+			t.Fatal("Expected error for missing container, but got none")
 		}
-		appconfig.Config.Set("repo.azure.container", "fs-test")
+		opts.Container = "fs-test"
 
-		// Uses the service principal for authenticating
+		// Uses the service principal for authentication
 	})
 	t.Run("init correctly", func(t *testing.T) {
 		obj = &AzureStorage{}
-		if err := obj.Init(); err != nil {
+		if err := obj.Init(opts); err != nil {
 			t.Fatal(err)
 		}
 	})

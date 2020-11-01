@@ -25,19 +25,19 @@ import (
 )
 
 // Get returns a store for the given type
-func Get(typ string) (store Fs, err error) {
+func Get(typ string, opts interface{}) (store Fs, err error) {
 	store = nil
 
 	switch typ {
 	case "file", "local":
 		store = &Local{}
-		err = store.Init()
+		err = store.Init(opts)
 	case "azure", "azureblob":
 		store = &AzureStorage{}
-		err = store.Init()
+		err = store.Init(opts)
 	case "s3", "minio":
 		store = &S3{}
-		err = store.Init()
+		err = store.Init(opts)
 	default:
 		err = fmt.Errorf("invalid repo type")
 	}
@@ -48,7 +48,7 @@ func Get(typ string) (store Fs, err error) {
 // Fs is the interface for the filesystem
 type Fs interface {
 	// Init the object
-	Init() error
+	Init(opts interface{}) error
 
 	// Get returns a stream to a file in the filesystem
 	Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error)

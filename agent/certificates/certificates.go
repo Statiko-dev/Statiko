@@ -23,6 +23,7 @@ import (
 
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
+	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/certutils"
 )
 
@@ -30,6 +31,7 @@ import (
 type AgentCertificates struct {
 	State  *state.AgentState
 	RPC    *client.RPCClient
+	AKV    *azurekeyvault.Client
 	logger *log.Logger
 }
 
@@ -48,7 +50,7 @@ func (c *AgentCertificates) GetCertificate(certificateId string) (key []byte, ce
 	}
 
 	// Check if the certificate is in the cache (or if it's from an external source like Azure Key Vault)
-	key, cert, err = certutils.GetCertificate(certificateId, c.State)
+	key, cert, err = certutils.GetCertificate(certificateId, c.State, c.AKV)
 	if err == nil && len(key) > 0 && len(cert) > 0 {
 		return key, cert, nil
 	}

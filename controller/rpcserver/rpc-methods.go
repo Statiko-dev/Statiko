@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/statiko-dev/statiko/appconfig"
+	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -210,7 +211,7 @@ func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptions
 
 		// If we have a key, ensure the exponent is within the bounds we support (uint32)
 		if key.E < 1 || key.E > math.MaxUint32 {
-			return nil, errors.New("key's exponent is outside of bounds")
+			return nil, errors.New("codesign key's exponent is outside of bounds")
 		}
 
 		// Create the response message with the RSA key
@@ -220,5 +221,18 @@ func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptions
 			E: uint32(key.E),
 		}
 	}
+
+	// Azure Key Vault
+	if vaultName := appconfig.Config.GetString("azureKeyVault.name"); vaultName != "" {
+		auth := controllerutils.GetClusterOptionsAzureSP("azureKeyVault")
+		if auth == nil {
+			return nil, errors.New("azureKeyVault.auth.[tenantId|clientId|clientSecret] are required when azureKeyVault.name is set")
+		}
+		msg.AzureKeyVault = &pb.ClusterOptions_AzureKeyVault{
+			VaultName: vaultName,
+			Auth:      auth,
+		}
+	}
+
 	return msg, nil
 }

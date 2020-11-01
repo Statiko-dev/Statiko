@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -36,11 +36,17 @@ type Local struct {
 	basePath string
 }
 
-func (f *Local) Init() error {
+func (f *Local) Init(optsI interface{}) error {
+	// Cast opts to pb.ClusterOptions_StorageLocal
+	opts, ok := optsI.(*pb.ClusterOptions_StorageLocal)
+	if !ok || opts == nil {
+		return errors.New("invalid options object")
+	}
+
 	// Get the path
-	path := appconfig.Config.GetString("repo.local.path")
+	path := opts.GetPath()
 	if path == "" {
-		return errors.New("repo.local.path must be set")
+		return errors.New("configuration option `path` must be set")
 	}
 
 	// Get the absolute path

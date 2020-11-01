@@ -25,7 +25,8 @@ import (
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
 	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/statiko-dev/statiko/appconfig"
+
+	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -37,19 +38,27 @@ type AzureStorage struct {
 	storageURL         string
 }
 
-func (f *AzureStorage) Init() error {
+func (f *AzureStorage) Init(optsI interface{}) error {
+	// Cast opts to pb.ClusterOptions_StorageAzure
+	opts, ok := optsI.(*pb.ClusterOptions_StorageAzure)
+	if !ok || opts == nil {
+		return errors.New("invalid options object")
+	}
+
+	fmt.Println(opts.Account, opts.Container)
+
 	// Get the storage account name and key
-	f.storageAccountName = appconfig.Config.GetString("repo.azure.account")
-	f.storageContainer = appconfig.Config.GetString("repo.azure.container")
+	f.storageAccountName = opts.GetAccount()
+	f.storageContainer = opts.GetContainer()
 	if f.storageAccountName == "" || f.storageContainer == "" {
-		return errors.New("configuration options repo.azure.account and repo.azure.container must be set")
+		return errors.New("configuration options `account` and `container` must be set")
 	}
 
 	// Storage endpoint
 	f.storageURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s", f.storageAccountName, f.storageContainer)
 
 	// Authenticate with Azure Storage using an access key
-	key := appconfig.Config.GetString("repo.azure.accessKey")
+	key := opts.GetAccessKey()
 	var err error
 	var credential azblob.Credential
 	if key != "" {
@@ -57,7 +66,7 @@ func (f *AzureStorage) Init() error {
 		credential, err = azblob.NewSharedKeyCredential(f.storageAccountName, key)
 	} else {
 		// Try to authenticate using a Service Principal
-		credential, err = utils.GetAzureStorageCredentials()
+		credential, err = utils.GetAzureStorageCredentials(opts.GetAuth())
 	}
 	if err != nil {
 		return err

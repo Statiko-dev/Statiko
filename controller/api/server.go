@@ -31,6 +31,7 @@ import (
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
+	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
 )
 
@@ -39,6 +40,7 @@ type APIServer struct {
 	Store   fs.Fs
 	State   *state.Manager
 	Cluster *cluster.Cluster
+	AKV     *azurekeyvault.Client
 
 	logger    *log.Logger
 	router    *gin.Engine

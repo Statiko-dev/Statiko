@@ -53,4 +53,63 @@ message ClusterOptions {
 
   // Manifest file name
   string manifest_file = 2;
+
+  // Service Principal for Azure resources
+  message AzureServicePrincipal {
+    // Client ID
+    string client_id = 1;
+    // Client secret
+    string client_secret = 2;
+    // Tenant ID
+    string tenant_id = 3;
+  }
+
+  // Options for storage when using the "local" type
+  message StorageLocal {
+    // Path to the folder on disk
+    string path = 1;
+  }
+
+  // Options for storage when using the "Azure Storage" type
+  message StorageAzure {
+    // Storage account name
+    string account = 1;
+    // Container
+    string container = 2;
+    // Access key (alternative to SP)
+    string access_key = 3;
+    // Service Principal (alternative to access key)
+    AzureServicePrincipal auth = 4;
+  }
+  
+  // Options for storage when using the "S3" type
+  message StorageS3 {
+    // Access key ID
+    string access_key_id = 1;
+    // Secret access key
+    string secret_access_key = 2;
+    // Bucket name
+    string bucket = 3;
+    // Endpoint; default value is "s3.amazonaws.com"
+    string endpoint = 4;
+    // Disable TLS
+    bool no_tls = 5;
+  }
+
+  // Storage options
+  oneof storage {
+    StorageLocal local = 10;
+    StorageAzure azure = 11;
+    StorageS3 s3 = 12;
+  }
+
+  // Configuration for Azure Key Vault
+  message AzureKeyVault {
+    // Name of the Key Vault
+    string vault_name = 1;
+    // Service Principal
+    AzureServicePrincipal auth = 2;
+  }
+  // Azure Key Vault options
+  AzureKeyVault azure_key_vault = 30;
 }
