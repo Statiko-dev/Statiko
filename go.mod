@@ -21,7 +21,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/markbates/pkger v0.17.1
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/minio/minio-go/v7 v7.0.5
 	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.7.1

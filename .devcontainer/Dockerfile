@@ -37,7 +37,12 @@ RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/l
   && curl -sf https://gobinaries.com/github.com/gobuffalo/packr/packr2@v2.8.0 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/markbates/pkger/cmd/pkger@v0.17.1 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/fullstorydev/grpcurl/cmd/grpcurl | PREFIX=/usr/local/bin sh \
-  && su dev -c "GO111MODULE=off go get -v github.com/matm/gocov-html github.com/axw/gocov/gocov github.com/golang/protobuf/protoc-gen-go github.com/mitchellh/protoc-gen-go-json" 2>&1 \
+  && curl -sf https://gobinaries.com/github.com/axw/gocov/gocov | PREFIX=/usr/local/bin sh \
+  # Fork of github.com/matm/gocov-html but with tags so it works with gobinaries.com
+  && curl -sf https://gobinaries.com/github.com/ItalyPaleAle/gocov-html | PREFIX=/usr/local/bin sh \
+  # Fork of github.com/mitchellh/protoc-gen-go-json but with tags so it works with gobinaries.com
+  && curl -sf https://gobinaries.com/github.com/ItalyPaleAle/protoc-gen-go-json | PREFIX=/usr/local/bin sh \
+  && curl -sf https://gobinaries.com/github.com/golang/protobuf/protoc-gen-go@v1.4.3 | PREFIX=/usr/local/bin sh \
   # Protobuf compiler
   && export PROTOC_VERSION="3.13.0" \
   && PB_REL="https://github.com/protocolbuffers/protobuf/releases" \
@@ -53,7 +58,8 @@ RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/l
 RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
 
 # Enable ZSH plugins
-RUN su dev -c "sed -i 's/plugins=(git)/plugins=(git dotenv)/g' /home/dev/.zshrc"
+RUN su dev -c "sed -i 's/plugins=(git)/plugins=(git dotenv)/g' /home/dev/.zshrc" \
+  && echo "ZSH_DOTENV_PROMPT=false" >> /home/dev/.zshrc
 
 # Expose ports
 EXPOSE 80 443 2265

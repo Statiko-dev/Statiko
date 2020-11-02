@@ -53,6 +53,8 @@ type Fs interface {
 	// Get returns a stream to a file in the filesystem
 	Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error)
 
+	// TODO: GetWithContext
+
 	// List returns the list of files in the filesystem
 	List() ([]FileInfo, error)
 
@@ -68,11 +70,17 @@ type Fs interface {
 	// GetMetadata returns the metadata for the file only
 	GetMetadata(name string) (metadata map[string]string, err error)
 
+	// TODO: GetMetadataWithContext
+
 	// SetMetadata updates a file's metadata in the filesystem
 	SetMetadata(name string, metadata map[string]string) error
 
+	// TODO: SetMetadataWithContext
+
 	// Delete a file from the filesystem
 	Delete(name string) (err error)
+
+	// TODO: DeleteWithContext
 }
 
 // FileInfo object returned by the List methods

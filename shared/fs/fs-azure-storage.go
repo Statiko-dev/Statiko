@@ -45,8 +45,6 @@ func (f *AzureStorage) Init(optsI interface{}) error {
 		return errors.New("invalid options object")
 	}
 
-	fmt.Println(opts.Account, opts.Container)
-
 	// Get the storage account name and key
 	f.storageAccountName = opts.GetAccount()
 	f.storageContainer = opts.GetContainer()
@@ -54,8 +52,25 @@ func (f *AzureStorage) Init(optsI interface{}) error {
 		return errors.New("configuration options `account` and `container` must be set")
 	}
 
-	// Storage endpoint
-	f.storageURL = fmt.Sprintf("https://%s.blob.core.windows.net/%s", f.storageAccountName, f.storageContainer)
+	// Check if we're using TLS
+	protocol := "https"
+	if opts.NoTls {
+		protocol = "http"
+	}
+
+	// Check if need to use a custom storage endpoint (e.g. for Azurite)
+	if opts.CustomEndpoint != "" {
+		f.storageURL = fmt.Sprintf("%s://%s/%s/%s", protocol, opts.CustomEndpoint, f.storageAccountName, f.storageContainer)
+	} else {
+		// Storage account endpoint suffix to support Azure China, Azure Germany, Azure Gov, or Azure Stack
+		endpointSuffix := opts.EndpointSuffix
+		if endpointSuffix == "" {
+			endpointSuffix = "core.windows.net"
+		}
+
+		// Storage endpoint
+		f.storageURL = fmt.Sprintf("%s://%s.blob.%s/%s", protocol, f.storageAccountName, endpointSuffix, f.storageContainer)
+	}
 
 	// Authenticate with Azure Storage using an access key
 	key := opts.GetAccessKey()

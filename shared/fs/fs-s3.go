@@ -22,13 +22,15 @@ import (
 	"io"
 	"strings"
 
-	"github.com/minio/minio-go"
+	minio "github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // S3 stores files on a S3-compatible service
 type S3 struct {
-	client     *minio.Client
+	client     *minio.Core
 	bucketName string
 }
 
@@ -60,8 +62,13 @@ func (f *S3) Init(optsI interface{}) error {
 	tls := !opts.NoTls
 
 	// Initialize minio client object for connecting to S3
+	// Core is a lower-level API, which is easier for us when requesting data
+	minioOpts := &minio.Options{
+		Creds:  credentials.NewStaticV4(opts.AccessKeyId, opts.SecretAccessKey, ""),
+		Secure: tls,
+	}
 	var err error
-	f.client, err = minio.New(endpoint, opts.AccessKeyId, opts.SecretAccessKey, tls)
+	f.client, err = minio.NewCore(endpoint, minioOpts)
 	if err != nil {
 		return err
 	}
@@ -76,25 +83,23 @@ func (f *S3) Get(name string) (found bool, data io.ReadCloser, metadata map[stri
 	}
 
 	// Request the file from S3
-	obj, err := f.client.GetObject(f.bucketName, name, minio.GetObjectOptions{})
+	obj, stat, _, err := f.client.GetObject(context.Background(), f.bucketName, name, minio.GetObjectOptions{})
 	if err != nil {
-		obj.Close()
-		obj = nil
-		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
-			found = false
+		if obj != nil {
+			obj.Close()
+		}
+		// Check if it's a minio error and it's a not found one
+		e, ok := err.(minio.ErrorResponse)
+		if ok && e.Code == "NoSuchKey" {
 			err = nil
+			found = false
 		}
 		return
 	}
 
 	// Check if the file exists but it's empty
-	stat, err := obj.Stat()
-	if err != nil || stat.Size == 0 {
+	if stat.Size == 0 {
 		obj.Close()
-		obj = nil
-		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
-			err = nil
-		}
 		found = false
 		return
 	}
@@ -124,30 +129,8 @@ func (f *S3) List() ([]FileInfo, error) {
 }
 
 func (f *S3) ListWithContext(ctx context.Context) ([]FileInfo, error) {
-	// Channel to cancel the operation
-	doneCh := make(chan struct{})
-	doneSent := false
-	defer func() {
-		if !doneSent {
-			doneCh <- struct{}{}
-		}
-		close(doneCh)
-	}()
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				doneCh <- struct{}{}
-				doneSent = true
-				return
-			case <-doneCh:
-				return
-			}
-		}
-	}()
-
 	// Request the list of files
-	resp := f.client.ListObjectsV2(f.bucketName, "", false, doneCh)
+	resp := f.client.Client.ListObjects(ctx, f.bucketName, minio.ListObjectsOptions{})
 
 	// Iterate through the response
 	list := make([]FileInfo, 0)
@@ -176,7 +159,7 @@ func (f *S3) SetWithContext(ctx context.Context, name string, in io.Reader, meta
 
 	// Check if the target exists already
 	// Expect this to return an error that says NoSuchKey
-	_, err = f.client.StatObject(f.bucketName, name, minio.StatObjectOptions{})
+	_, err = f.client.StatObject(ctx, f.bucketName, name, minio.StatObjectOptions{})
 	if err == nil {
 		return ErrExist
 	} else if minio.ToErrorResponse(err).Code != "NoSuchKey" {
@@ -187,7 +170,7 @@ func (f *S3) SetWithContext(ctx context.Context, name string, in io.Reader, meta
 	if metadata != nil && len(metadata) == 0 {
 		metadata = nil
 	}
-	_, err = f.client.PutObjectWithContext(ctx, f.bucketName, name, in, -1, minio.PutObjectOptions{
+	_, err = f.client.Client.PutObject(ctx, f.bucketName, name, in, -1, minio.PutObjectOptions{
 		UserMetadata: metadata,
 	})
 	if err != nil {
@@ -203,7 +186,7 @@ func (f *S3) GetMetadata(name string) (metadata map[string]string, err error) {
 	}
 
 	// Request the metadata from S3
-	stat, err := f.client.StatObject(f.bucketName, name, minio.StatObjectOptions{})
+	stat, err := f.client.StatObject(context.Background(), f.bucketName, name, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			err = ErrNotExist
@@ -231,21 +214,24 @@ func (f *S3) SetMetadata(name string, metadata map[string]string) error {
 		return ErrNameEmptyInvalid
 	}
 
-	if metadata == nil || len(metadata) == 0 {
-		metadata = map[string]string{
-			// Fix an issue with Minio not being able to delete metadata
-			// See: https://github.com/minio/minio-go/issues/1295
-			"": "",
-		}
+	// Create a copy of the object to the same location to add metadata
+	src := minio.CopySrcOptions{
+		Bucket: f.bucketName,
+		Object: name,
+	}
+	dst := minio.CopyDestOptions{
+		Bucket:          f.bucketName,
+		Object:          name,
+		ReplaceMetadata: true,
 	}
 
-	// Create a copy of the object to the same location to add metadata
-	src := minio.NewSourceInfo(f.bucketName, name, nil)
-	dst, err := minio.NewDestinationInfo(f.bucketName, name, nil, metadata)
-	if err != nil {
-		return err
+	// Set metadata
+	// If left unset, metadata is removed
+	if len(metadata) > 0 {
+		dst.UserMetadata = metadata
 	}
-	err = f.client.CopyObject(dst, src)
+
+	_, err := f.client.Client.CopyObject(context.Background(), dst, src)
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return ErrNotExist
@@ -262,7 +248,7 @@ func (f *S3) Delete(name string) (err error) {
 	}
 
 	// Check if the object exists
-	_, err = f.client.StatObject(f.bucketName, name, minio.StatObjectOptions{})
+	_, err = f.client.StatObject(context.Background(), f.bucketName, name, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			err = ErrNotExist
@@ -270,5 +256,5 @@ func (f *S3) Delete(name string) (err error) {
 		return
 	}
 
-	return f.client.RemoveObject(f.bucketName, name)
+	return f.client.RemoveObject(context.Background(), f.bucketName, name, minio.RemoveObjectOptions{})
 }

@@ -24,6 +24,8 @@ import (
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
+var localTempDir string
+
 func TestLocalInit(t *testing.T) {
 	opts := &pb.ClusterOptions_StorageLocal{}
 	t.Run("empty path", func(t *testing.T) {
@@ -34,8 +36,11 @@ func TestLocalInit(t *testing.T) {
 		}
 	})
 	t.Run("init correctly", func(t *testing.T) {
+		// Temp directory
+		localTempDir = t.TempDir()
+
 		obj = &Local{}
-		opts.Path = dir
+		opts.Path = localTempDir
 		err := obj.Init(opts)
 		if err != nil {
 			t.Fatal(err)
@@ -56,7 +61,7 @@ func TestLocalSet(t *testing.T) {
 	sharedSetTest(t, obj)()
 
 	t.Run("inspect folder", func(t *testing.T) {
-		list, err := ioutil.ReadDir(dir)
+		list, err := ioutil.ReadDir(localTempDir)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -80,6 +80,12 @@ message ClusterOptions {
     string access_key = 3;
     // Service Principal (alternative to access key)
     AzureServicePrincipal auth = 4;
+    // Custom endpoint suffix (to support Azure China, Azure Germany, Azure Gov, or Azure Stack)
+    string endpoint_suffix = 5;
+    // Custom storage endpoint (e.g. to support Azurite) - this has priority over endpoint_suffix
+    string custom_endpoint = 6;
+    // Disable TLS
+    bool no_tls = 7;
   }
   
   // Options for storage when using the "S3" type

@@ -29,7 +29,6 @@ import (
 )
 
 var (
-	dir      string
 	obj      Fs
 	metadata map[string]string
 )
@@ -40,13 +39,6 @@ const testFileSize = 275857
 
 // TestMain initializes all tests for this package
 func TestMain(m *testing.M) {
-	// Temp dir
-	var err error
-	dir, err = ioutil.TempDir("", "statikotest")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// Metadata
 	metadata = make(map[string]string)
 	metadata["foo"] = "bar"
@@ -54,12 +46,6 @@ func TestMain(m *testing.M) {
 
 	// Run tests
 	rc := m.Run()
-
-	// Cleanup
-	err = os.RemoveAll(dir)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	// Exit
 	os.Exit(rc)
