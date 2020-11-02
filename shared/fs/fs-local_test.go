@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
+	"context"
 	"io/ioutil"
 	"reflect"
 	"testing"
@@ -52,7 +53,7 @@ func TestLocalSet(t *testing.T) {
 	t.Run("invalid name", func(t *testing.T) {
 		in := openTestFile()
 		defer in.Close()
-		err := obj.Set(".metadata.file", in, nil)
+		err := obj.Set(context.Background(), ".metadata.file", in, nil)
 		if err != ErrNameEmptyInvalid {
 			t.Error("Expected ErrNameEmptyInvalid, got", err)
 		}
@@ -80,7 +81,7 @@ func TestLocalSet(t *testing.T) {
 
 func TestLocalGet(t *testing.T) {
 	t.Run("invalid name", func(t *testing.T) {
-		_, _, _, err := obj.Get(".metadata.file")
+		_, _, _, err := obj.Get(context.Background(), ".metadata.file")
 		if err != ErrNameEmptyInvalid {
 			t.Error("Expected ErrNameEmptyInvalid, got", err)
 		}
@@ -103,7 +104,7 @@ func TestLocalSetMetadata(t *testing.T) {
 
 func TestLocalDelete(t *testing.T) {
 	t.Run("invalid name", func(t *testing.T) {
-		err := obj.Delete(".metadata.file")
+		err := obj.Delete(context.Background(), ".metadata.file")
 		if err != ErrNameEmptyInvalid {
 			t.Error("Expected ErrNameEmptyInvalid, got", err)
 		}

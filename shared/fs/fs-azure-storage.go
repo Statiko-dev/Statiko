@@ -95,7 +95,7 @@ func (f *AzureStorage) Init(optsI interface{}) error {
 	return nil
 }
 
-func (f *AzureStorage) Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
+func (f *AzureStorage) Get(ctx context.Context, name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
 	if name == "" {
 		err = ErrNameEmptyInvalid
 		return
@@ -111,7 +111,7 @@ func (f *AzureStorage) Get(name string) (found bool, data io.ReadCloser, metadat
 	blockBlobURL := azblob.NewBlockBlobURL(*u, f.storagePipeline)
 
 	// Download the file
-	resp, err := blockBlobURL.Download(context.Background(), 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
+	resp, err := blockBlobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false)
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
 			err = fmt.Errorf("network error while downloading the file: %s", err.Error())
@@ -144,11 +144,7 @@ func (f *AzureStorage) Get(name string) (found bool, data io.ReadCloser, metadat
 	return
 }
 
-func (f *AzureStorage) List() ([]FileInfo, error) {
-	return f.ListWithContext(context.Background())
-}
-
-func (f *AzureStorage) ListWithContext(ctx context.Context) ([]FileInfo, error) {
+func (f *AzureStorage) List(ctx context.Context) ([]FileInfo, error) {
 	// Create the container URL
 	u, err := url.Parse(f.storageURL)
 	if err != nil {
@@ -199,11 +195,7 @@ func (f *AzureStorage) ListWithContext(ctx context.Context) ([]FileInfo, error) 
 	return list, nil
 }
 
-func (f *AzureStorage) Set(name string, in io.Reader, metadata map[string]string) (err error) {
-	return f.SetWithContext(context.Background(), name, in, metadata)
-}
-
-func (f *AzureStorage) SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
+func (f *AzureStorage) Set(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
@@ -245,7 +237,7 @@ func (f *AzureStorage) SetWithContext(ctx context.Context, name string, in io.Re
 		_, err = blockBlobURL.SetMetadata(ctx, metadata, azblob.BlobAccessConditions{})
 		if err != nil {
 			// Delete the file
-			_ = f.Delete(name)
+			_ = f.Delete(ctx, name)
 			return fmt.Errorf("error while setting metadata in Azure Storage: %v", err)
 		}
 	}
@@ -253,7 +245,7 @@ func (f *AzureStorage) SetWithContext(ctx context.Context, name string, in io.Re
 	return nil
 }
 
-func (f *AzureStorage) GetMetadata(name string) (metadata map[string]string, err error) {
+func (f *AzureStorage) GetMetadata(ctx context.Context, name string) (metadata map[string]string, err error) {
 	if name == "" {
 		return nil, ErrNameEmptyInvalid
 	}
@@ -266,7 +258,7 @@ func (f *AzureStorage) GetMetadata(name string) (metadata map[string]string, err
 	blockBlobURL := azblob.NewBlockBlobURL(*u, f.storagePipeline)
 
 	// Download the file
-	resp, err := blockBlobURL.GetProperties(context.Background(), azblob.BlobAccessConditions{})
+	resp, err := blockBlobURL.GetProperties(ctx, azblob.BlobAccessConditions{})
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
 			err = fmt.Errorf("network error while downloading the file: %s", err.Error())
@@ -283,7 +275,7 @@ func (f *AzureStorage) GetMetadata(name string) (metadata map[string]string, err
 	return metadata, nil
 }
 
-func (f *AzureStorage) SetMetadata(name string, metadata map[string]string) error {
+func (f *AzureStorage) SetMetadata(ctx context.Context, name string, metadata map[string]string) error {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
@@ -300,7 +292,7 @@ func (f *AzureStorage) SetMetadata(name string, metadata map[string]string) erro
 	blockBlobURL := azblob.NewBlockBlobURL(*u, f.storagePipeline)
 
 	// Set metadata
-	_, err = blockBlobURL.SetMetadata(context.Background(), metadata, azblob.BlobAccessConditions{})
+	_, err = blockBlobURL.SetMetadata(ctx, metadata, azblob.BlobAccessConditions{})
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
 			return fmt.Errorf("network error while setting metadata: %s", err.Error())
@@ -315,7 +307,7 @@ func (f *AzureStorage) SetMetadata(name string, metadata map[string]string) erro
 	return nil
 }
 
-func (f *AzureStorage) Delete(name string) (err error) {
+func (f *AzureStorage) Delete(ctx context.Context, name string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
@@ -328,7 +320,7 @@ func (f *AzureStorage) Delete(name string) (err error) {
 	blockBlobURL := azblob.NewBlockBlobURL(*u, f.storagePipeline)
 
 	// Delete the blob
-	_, err = blockBlobURL.Delete(context.Background(), azblob.DeleteSnapshotsOptionInclude, azblob.BlobAccessConditions{})
+	_, err = blockBlobURL.Delete(ctx, azblob.DeleteSnapshotsOptionInclude, azblob.BlobAccessConditions{})
 	if err != nil {
 		if stgErr, ok := err.(azblob.StorageError); !ok {
 			return fmt.Errorf("network error while deleting the file: %s", err.Error())

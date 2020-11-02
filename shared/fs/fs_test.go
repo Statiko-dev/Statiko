@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package fs
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -67,10 +68,11 @@ func calculateDigest(data []byte) string {
 
 func sharedSetTest(t *testing.T, obj Fs) func() {
 	return func() {
+		ctx := context.Background()
 		t.Run("empty name", func(t *testing.T) {
 			in := openTestFile()
 			defer in.Close()
-			err := obj.Set("", in, nil)
+			err := obj.Set(ctx, "", in, nil)
 			if err != ErrNameEmptyInvalid {
 				t.Error("Expected ErrNameEmptyInvalid, got", err)
 			}
@@ -78,7 +80,7 @@ func sharedSetTest(t *testing.T, obj Fs) func() {
 		t.Run("normal", func(t *testing.T) {
 			in := openTestFile()
 			defer in.Close()
-			err := obj.Set("testphoto.jpg", in, nil)
+			err := obj.Set(ctx, "testphoto.jpg", in, nil)
 			if err != nil {
 				t.Error("Got error", err)
 			}
@@ -86,7 +88,7 @@ func sharedSetTest(t *testing.T, obj Fs) func() {
 		t.Run("file exists", func(t *testing.T) {
 			in := openTestFile()
 			defer in.Close()
-			err := obj.Set("testphoto.jpg", in, nil)
+			err := obj.Set(ctx, "testphoto.jpg", in, nil)
 			if err != ErrExist {
 				t.Error("Expected ErrExist, got", err)
 			}
@@ -94,7 +96,7 @@ func sharedSetTest(t *testing.T, obj Fs) func() {
 		t.Run("with metadata", func(t *testing.T) {
 			in := openTestFile()
 			defer in.Close()
-			err := obj.Set("testphoto2.jpg", in, metadata)
+			err := obj.Set(ctx, "testphoto2.jpg", in, metadata)
 			if err != nil {
 				t.Error("Got error", err)
 			}
@@ -104,14 +106,15 @@ func sharedSetTest(t *testing.T, obj Fs) func() {
 
 func sharedGetTest(t *testing.T, obj Fs) func() {
 	return func() {
+		ctx := context.Background()
 		t.Run("empty name", func(t *testing.T) {
-			_, _, _, err := obj.Get("")
+			_, _, _, err := obj.Get(ctx, "")
 			if err != ErrNameEmptyInvalid {
 				t.Error("Expected ErrNameEmptyInvalid, got", err)
 			}
 		})
 		t.Run("not existing", func(t *testing.T) {
-			found, _, mData, err := obj.Get("notexist")
+			found, _, mData, err := obj.Get(ctx, "notexist")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
@@ -123,7 +126,7 @@ func sharedGetTest(t *testing.T, obj Fs) func() {
 			}
 		})
 		t.Run("normal", func(t *testing.T) {
-			found, data, mData, err := obj.Get("testphoto.jpg")
+			found, data, mData, err := obj.Get(ctx, "testphoto.jpg")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
@@ -145,7 +148,7 @@ func sharedGetTest(t *testing.T, obj Fs) func() {
 			}
 		})
 		t.Run("with metadata", func(t *testing.T) {
-			found, data, mData, err := obj.Get("testphoto2.jpg")
+			found, data, mData, err := obj.Get(ctx, "testphoto2.jpg")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
@@ -174,7 +177,7 @@ func sharedGetTest(t *testing.T, obj Fs) func() {
 
 func sharedListTest(t *testing.T, obj Fs) func() {
 	return func() {
-		list, err := obj.List()
+		list, err := obj.List(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -208,20 +211,21 @@ func sharedListTest(t *testing.T, obj Fs) func() {
 
 func sharedGetMetadataTest(t *testing.T, obj Fs) func() {
 	return func() {
+		ctx := context.Background()
 		t.Run("empty name", func(t *testing.T) {
-			_, err := obj.GetMetadata("")
+			_, err := obj.GetMetadata(ctx, "")
 			if err != ErrNameEmptyInvalid {
 				t.Error("Expected ErrNameEmptyInvalid, got", err)
 			}
 		})
 		t.Run("not existing", func(t *testing.T) {
-			_, err := obj.GetMetadata("notexist")
+			_, err := obj.GetMetadata(ctx, "notexist")
 			if err != ErrNotExist {
 				t.Fatal("Expected ErrNotExist, got", err)
 			}
 		})
 		t.Run("with metadata", func(t *testing.T) {
-			res, err := obj.GetMetadata("testphoto2.jpg")
+			res, err := obj.GetMetadata(ctx, "testphoto2.jpg")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -230,7 +234,7 @@ func sharedGetMetadataTest(t *testing.T, obj Fs) func() {
 			}
 		})
 		t.Run("without metadata", func(t *testing.T) {
-			res, err := obj.GetMetadata("testphoto.jpg")
+			res, err := obj.GetMetadata(ctx, "testphoto.jpg")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -243,29 +247,30 @@ func sharedGetMetadataTest(t *testing.T, obj Fs) func() {
 
 func sharedSetMetadataTest(t *testing.T, obj Fs) func() {
 	return func() {
+		ctx := context.Background()
 		setMetadata := map[string]string{
 			"foo": "bar",
 		}
 		t.Run("empty name", func(t *testing.T) {
-			err := obj.SetMetadata("", setMetadata)
+			err := obj.SetMetadata(ctx, "", setMetadata)
 			if err != ErrNameEmptyInvalid {
 				t.Error("Expected ErrNameEmptyInvalid, got", err)
 			}
 		})
 		t.Run("not existing", func(t *testing.T) {
-			err := obj.SetMetadata("notexist", setMetadata)
+			err := obj.SetMetadata(ctx, "notexist", setMetadata)
 			if err != ErrNotExist {
 				t.Fatal("Expected ErrNotExist, got", err)
 			}
 		})
 		t.Run("add metadata", func(t *testing.T) {
-			err := obj.SetMetadata("testphoto.jpg", setMetadata)
+			err := obj.SetMetadata(ctx, "testphoto.jpg", setMetadata)
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
 		})
 		t.Run("check metadata added", func(t *testing.T) {
-			found, _, mData, err := obj.Get("testphoto.jpg")
+			found, _, mData, err := obj.Get(ctx, "testphoto.jpg")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
@@ -281,13 +286,13 @@ func sharedSetMetadataTest(t *testing.T, obj Fs) func() {
 		})
 		setMetadata["hello"] = "world"
 		t.Run("update metadata", func(t *testing.T) {
-			err := obj.SetMetadata("testphoto.jpg", setMetadata)
+			err := obj.SetMetadata(ctx, "testphoto.jpg", setMetadata)
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
 		})
 		t.Run("check metadata added", func(t *testing.T) {
-			found, _, mData, err := obj.Get("testphoto.jpg")
+			found, _, mData, err := obj.Get(ctx, "testphoto.jpg")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
@@ -302,13 +307,13 @@ func sharedSetMetadataTest(t *testing.T, obj Fs) func() {
 			}
 		})
 		t.Run("remove metadata", func(t *testing.T) {
-			err := obj.SetMetadata("testphoto.jpg", nil)
+			err := obj.SetMetadata(ctx, "testphoto.jpg", nil)
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
 		})
 		t.Run("check metadata removed", func(t *testing.T) {
-			found, _, mData, err := obj.Get("testphoto.jpg")
+			found, _, mData, err := obj.Get(ctx, "testphoto.jpg")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
@@ -324,26 +329,27 @@ func sharedSetMetadataTest(t *testing.T, obj Fs) func() {
 
 func sharedDeleteTest(t *testing.T, obj Fs) func() {
 	return func() {
+		ctx := context.Background()
 		t.Run("empty name", func(t *testing.T) {
-			err := obj.Delete("")
+			err := obj.Delete(ctx, "")
 			if err != ErrNameEmptyInvalid {
 				t.Error("Expected ErrNameEmptyInvalid, got", err)
 			}
 		})
 		t.Run("not existing", func(t *testing.T) {
-			err := obj.Delete("notexist")
+			err := obj.Delete(ctx, "notexist")
 			if err != ErrNotExist {
 				t.Fatal("Expected ErrNotExist, got", err)
 			}
 		})
 		t.Run("normal", func(t *testing.T) {
-			err := obj.Delete("testphoto.jpg")
+			err := obj.Delete(ctx, "testphoto.jpg")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}
 		})
 		t.Run("with metadata", func(t *testing.T) {
-			err := obj.Delete("testphoto2.jpg")
+			err := obj.Delete(ctx, "testphoto2.jpg")
 			if err != nil {
 				t.Fatal("Expected err to be nil, got", err)
 			}

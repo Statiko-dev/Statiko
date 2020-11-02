@@ -91,7 +91,7 @@ func (s *APIServer) AppUploadHandler(c *gin.Context) {
 	}
 
 	// Store the file
-	err = s.Store.SetWithContext(c.Request.Context(), name, in, metadata)
+	err = s.Store.Set(c.Request.Context(), name, in, metadata)
 	if err != nil {
 		if err == fs.ErrExist {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{
@@ -134,7 +134,7 @@ func (s *APIServer) AppUpdateHandler(c *gin.Context) {
 	}
 
 	// Get the current metadata
-	metadata, err := s.Store.GetMetadata(name)
+	metadata, err := s.Store.GetMetadata(c.Request.Context(), name)
 	if err != nil {
 		if err == fs.ErrNotExist {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
@@ -174,7 +174,7 @@ func (s *APIServer) AppUpdateHandler(c *gin.Context) {
 	}
 
 	// Update the metadata
-	err = s.Store.SetMetadata(name, metadata)
+	err = s.Store.SetMetadata(c.Request.Context(), name, metadata)
 	if err != nil {
 		if err == fs.ErrNotExist {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
@@ -193,7 +193,7 @@ func (s *APIServer) AppUpdateHandler(c *gin.Context) {
 // AppListHandler is the handler for GET /app which returns the list of apps
 func (s *APIServer) AppListHandler(c *gin.Context) {
 	// Get the list
-	list, err := s.Store.ListWithContext(c.Request.Context())
+	list, err := s.Store.List(c.Request.Context())
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -216,7 +216,7 @@ func (s *APIServer) AppDeleteHandler(c *gin.Context) {
 	}
 
 	// Delete the app
-	err := s.Store.Delete(name)
+	err := s.Store.Delete(c.Request.Context(), name)
 	if err != nil {
 		if err == fs.ErrNotExist {
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{

@@ -32,8 +32,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-
-	"github.com/statiko-dev/statiko/appconfig"
 )
 
 // RequestJSON fetches a JSON document from the web
@@ -126,16 +124,6 @@ func UnserializeECDSAKey(pemEncoded []byte) (*ecdsa.PrivateKey, error) {
 	}
 
 	return privateKey, nil
-}
-
-// NodeAddress returns the address of the node
-func NodeAddress() string {
-	// Address of the node; fallback to the node name if empty
-	address := appconfig.Config.GetString("tls.node.address")
-	if address == "" {
-		address = appconfig.Config.GetString("nodeName")
-	}
-	return address
 }
 
 var appNameRegEx *regexp.Regexp

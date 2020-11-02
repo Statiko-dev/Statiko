@@ -76,14 +76,14 @@ func (f *S3) Init(optsI interface{}) error {
 	return nil
 }
 
-func (f *S3) Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
+func (f *S3) Get(ctx context.Context, name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
 	if name == "" {
 		err = ErrNameEmptyInvalid
 		return
 	}
 
 	// Request the file from S3
-	obj, stat, _, err := f.client.GetObject(context.Background(), f.bucketName, name, minio.GetObjectOptions{})
+	obj, stat, _, err := f.client.GetObject(ctx, f.bucketName, name, minio.GetObjectOptions{})
 	if err != nil {
 		if obj != nil {
 			obj.Close()
@@ -124,11 +124,7 @@ func (f *S3) Get(name string) (found bool, data io.ReadCloser, metadata map[stri
 	return
 }
 
-func (f *S3) List() ([]FileInfo, error) {
-	return f.ListWithContext(context.Background())
-}
-
-func (f *S3) ListWithContext(ctx context.Context) ([]FileInfo, error) {
+func (f *S3) List(ctx context.Context) ([]FileInfo, error) {
 	// Request the list of files
 	resp := f.client.Client.ListObjects(ctx, f.bucketName, minio.ListObjectsOptions{})
 
@@ -148,11 +144,7 @@ func (f *S3) ListWithContext(ctx context.Context) ([]FileInfo, error) {
 	return list, nil
 }
 
-func (f *S3) Set(name string, in io.Reader, metadata map[string]string) (err error) {
-	return f.SetWithContext(context.Background(), name, in, metadata)
-}
-
-func (f *S3) SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
+func (f *S3) Set(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
@@ -180,13 +172,13 @@ func (f *S3) SetWithContext(ctx context.Context, name string, in io.Reader, meta
 	return nil
 }
 
-func (f *S3) GetMetadata(name string) (metadata map[string]string, err error) {
+func (f *S3) GetMetadata(ctx context.Context, name string) (metadata map[string]string, err error) {
 	if name == "" {
 		return nil, ErrNameEmptyInvalid
 	}
 
 	// Request the metadata from S3
-	stat, err := f.client.StatObject(context.Background(), f.bucketName, name, minio.StatObjectOptions{})
+	stat, err := f.client.StatObject(ctx, f.bucketName, name, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			err = ErrNotExist
@@ -209,7 +201,7 @@ func (f *S3) GetMetadata(name string) (metadata map[string]string, err error) {
 	return metadata, nil
 }
 
-func (f *S3) SetMetadata(name string, metadata map[string]string) error {
+func (f *S3) SetMetadata(ctx context.Context, name string, metadata map[string]string) error {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
@@ -231,7 +223,7 @@ func (f *S3) SetMetadata(name string, metadata map[string]string) error {
 		dst.UserMetadata = metadata
 	}
 
-	_, err := f.client.Client.CopyObject(context.Background(), dst, src)
+	_, err := f.client.Client.CopyObject(ctx, dst, src)
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return ErrNotExist
@@ -242,13 +234,13 @@ func (f *S3) SetMetadata(name string, metadata map[string]string) error {
 	return nil
 }
 
-func (f *S3) Delete(name string) (err error) {
+func (f *S3) Delete(ctx context.Context, name string) (err error) {
 	if name == "" {
 		return ErrNameEmptyInvalid
 	}
 
 	// Check if the object exists
-	_, err = f.client.StatObject(context.Background(), f.bucketName, name, minio.StatObjectOptions{})
+	_, err = f.client.StatObject(ctx, f.bucketName, name, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			err = ErrNotExist
@@ -256,5 +248,5 @@ func (f *S3) Delete(name string) (err error) {
 		return
 	}
 
-	return f.client.RemoveObject(context.Background(), f.bucketName, name, minio.RemoveObjectOptions{})
+	return f.client.RemoveObject(ctx, f.bucketName, name, minio.RemoveObjectOptions{})
 }

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	minio "github.com/minio/minio-go/v7"
+
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )

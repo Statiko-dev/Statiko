@@ -23,8 +23,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/spf13/viper"
-
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/client"
@@ -142,9 +140,14 @@ func (a *Agent) ready() (err error) {
 	a.agentState.Subscribe(a.stateCh)
 
 	// Init the store
-	// TODO: GET THIS FROM CONTROLLER
-	fsType := viper.GetString("repo.type")
-	a.store, err = fs.Get(fsType)
+	switch a.clusterOpts.Storage.(type) {
+	case *pb.ClusterOptions_Local:
+		a.store, err = fs.Get("local", a.clusterOpts.Storage)
+	case *pb.ClusterOptions_Azure:
+		a.store, err = fs.Get("azure", a.clusterOpts.Storage)
+	case *pb.ClusterOptions_S3:
+		a.store, err = fs.Get("s3", a.clusterOpts.Storage)
+	}
 	if err != nil {
 		return err
 	}

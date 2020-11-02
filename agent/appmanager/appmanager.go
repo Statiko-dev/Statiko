@@ -18,6 +18,7 @@ package appmanager
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -573,7 +574,7 @@ func (m *Manager) workerStageApp(id int, jobs <-chan *pb.Site, res chan<- int) {
 // FetchBundle downloads the application's bundle
 func (m *Manager) FetchBundle(bundle string) error {
 	// Get the archive
-	found, data, metadata, err := m.Fs.Get(bundle)
+	found, data, metadata, err := m.Fs.Get(context.Background(), bundle)
 	if err != nil {
 		return err
 	}

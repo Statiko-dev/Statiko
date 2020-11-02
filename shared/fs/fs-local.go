@@ -71,7 +71,7 @@ func (f *Local) Init(optsI interface{}) error {
 	return nil
 }
 
-func (f *Local) Get(name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
+func (f *Local) Get(ctx context.Context, name string) (found bool, data io.ReadCloser, metadata map[string]string, err error) {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		err = ErrNameEmptyInvalid
 		return
@@ -131,7 +131,8 @@ func (f *Local) Get(name string) (found bool, data io.ReadCloser, metadata map[s
 	return
 }
 
-func (f *Local) List() ([]FileInfo, error) {
+func (f *Local) List(ctx context.Context) ([]FileInfo, error) {
+	// This filesystem does not support a context
 	// List files
 	read, err := ioutil.ReadDir(f.basePath)
 	if err != nil {
@@ -155,16 +156,7 @@ func (f *Local) List() ([]FileInfo, error) {
 	return list, nil
 }
 
-func (f *Local) ListWithContext(ctx context.Context) ([]FileInfo, error) {
-	// This filesystem does not support a context
-	return f.List()
-}
-
-func (f *Local) Set(name string, in io.Reader, metadata map[string]string) (err error) {
-	return f.SetWithContext(context.Background(), name, in, metadata)
-}
-
-func (f *Local) SetWithContext(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
+func (f *Local) Set(ctx context.Context, name string, in io.Reader, metadata map[string]string) (err error) {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		return ErrNameEmptyInvalid
 	}
@@ -207,7 +199,7 @@ func (f *Local) SetWithContext(ctx context.Context, name string, in io.Reader, m
 		enc, err = json.Marshal(metadata)
 		if err != nil {
 			// Delete the file
-			_ = f.Delete(name)
+			_ = f.Delete(ctx, name)
 			return
 		}
 
@@ -215,7 +207,7 @@ func (f *Local) SetWithContext(ctx context.Context, name string, in io.Reader, m
 		err = ioutil.WriteFile(f.basePath+".metadata."+name, enc, 0644)
 		if err != nil {
 			// Delete the file
-			_ = f.Delete(name)
+			_ = f.Delete(ctx, name)
 			return
 		}
 	}
@@ -223,7 +215,7 @@ func (f *Local) SetWithContext(ctx context.Context, name string, in io.Reader, m
 	return nil
 }
 
-func (f *Local) GetMetadata(name string) (metadata map[string]string, err error) {
+func (f *Local) GetMetadata(ctx context.Context, name string) (metadata map[string]string, err error) {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		return nil, ErrNameEmptyInvalid
 	}
@@ -255,7 +247,7 @@ func (f *Local) GetMetadata(name string) (metadata map[string]string, err error)
 	return metadata, nil
 }
 
-func (f *Local) SetMetadata(name string, metadata map[string]string) error {
+func (f *Local) SetMetadata(ctx context.Context, name string, metadata map[string]string) error {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		return ErrNameEmptyInvalid
 	}
@@ -297,7 +289,7 @@ func (f *Local) SetMetadata(name string, metadata map[string]string) error {
 	return nil
 }
 
-func (f *Local) Delete(name string) error {
+func (f *Local) Delete(ctx context.Context, name string) error {
 	if name == "" || strings.HasPrefix(name, ".metadata.") {
 		return ErrNameEmptyInvalid
 	}
