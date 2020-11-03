@@ -24,7 +24,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/shared/notifications"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/utils"

@@ -29,9 +29,9 @@ import (
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/sync"
 	"github.com/statiko-dev/statiko/agent/webserver"
-	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
+	"github.com/statiko-dev/statiko/shared/notifications"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -125,6 +125,13 @@ func (a *Agent) ready() (err error) {
 
 	// Request the options for the cluster
 	a.clusterOpts, err = a.rpcClient.GetClusterOptions()
+	if err != nil {
+		return err
+	}
+
+	// Init the notifications client
+	a.notifier = &notifications.Notifications{}
+	err = a.notifier.Init(a.clusterOpts.Notifications)
 	if err != nil {
 		return err
 	}

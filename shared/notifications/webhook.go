@@ -25,23 +25,37 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
+
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // NotificationWebhook is the class that sends notifications to a webhook
 type NotificationWebhook struct {
 	url        string
+	payloadKey string
 	httpClient *http.Client
 }
 
 // Init method
-func (n *NotificationWebhook) Init() error {
-	// URL
-	url := appconfig.Config.GetString("notifications.webhook.url")
-	if url == "" {
-		return errors.New("Empty webhook URL in configuration")
+func (n *NotificationWebhook) Init(optsI interface{}) error {
+	opts, ok := optsI.(*pb.ClusterOptions_NotificationsWebhook)
+	if !ok {
+		return errors.New("invalid options object")
 	}
-	n.url = url
+
+	// URL
+	if opts.Url == "" {
+		return errors.New("empty webhook URL in configuration")
+	}
+	n.url = opts.Url
+
+	// Payload key
+	n.payloadKey = opts.PayloadKey
+	if n.payloadKey == "" {
+		// Default value is "message"
+		n.payloadKey = "message"
+	}
 
 	// HTTP Client
 	n.httpClient = &http.Client{
@@ -54,12 +68,11 @@ func (n *NotificationWebhook) Init() error {
 // SendNotification method
 func (n *NotificationWebhook) SendNotification(message string) error {
 	// Add the node name at the beginning of the message
-	message = fmt.Sprintf("[statiko] (%s) %s", appconfig.Config.GetString("nodeName"), message)
+	message = fmt.Sprintf("[statiko] (%s) %s", viper.GetString("nodeName"), message)
 
 	// Request body is a JSON message in the format: `{<key>: string}`
-	key := appconfig.Config.GetString("notifications.webhook.payloadKey")
 	payload := make(map[string]string, 1)
-	payload[key] = message
+	payload[n.payloadKey] = message
 	buf := new(bytes.Buffer)
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
 		return err

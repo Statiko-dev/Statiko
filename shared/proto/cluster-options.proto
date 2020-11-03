@@ -118,4 +118,19 @@ message ClusterOptions {
   }
   // Azure Key Vault options
   AzureKeyVault azure_key_vault = 30;
+
+  // Webhook notifications options
+  message NotificationsWebhook {
+    string url = 1;
+    string payload_key = 2;
+  }
+
+  // Configuration for notifications
+  message NotificationsOpts {
+    oneof opts {
+      NotificationsWebhook webhook = 1;
+    }
+  }
+  // Notification methods
+  repeated NotificationsOpts notifications = 40;
 }

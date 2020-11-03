@@ -19,65 +19,56 @@ package notifications
 import (
 	"log"
 	"os"
-	"strings"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // Notifications is the object that can be used to send notifications
 type Notifications struct {
-	sender notificationSender
-	logger *log.Logger
+	senders []notificationSender
+	logger  *log.Logger
 }
 
 // Init the right object that will send notifications
-func (n *Notifications) Init() error {
+func (n *Notifications) Init(opts []*pb.ClusterOptions_NotificationsOpts) error {
 	// Init the logger
 	n.logger = log.New(os.Stdout, "notifications: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Init the notifier object
-	method := strings.ToLower(n.notificationsMethod())
-	if method == "" {
-		n.logger.Println("Notifications are off")
-		return nil
-	}
-
-	switch method {
-	case "webhook":
-		n.sender = &NotificationWebhook{}
-		if err := n.sender.Init(); err != nil {
-			return err
+	// Init the notifier objects
+	n.senders = make([]notificationSender, len(opts))
+	for i, o := range opts {
+		switch x := o.Opts.(type) {
+		// Webhook
+		case *pb.ClusterOptions_NotificationsOpts_Webhook:
+			sender := &NotificationWebhook{}
+			err := sender.Init(x.Webhook)
+			if err != nil {
+				return err
+			}
+			n.senders[i] = sender
+		default:
+			n.logger.Println("Invalid notification method")
 		}
-	default:
-		n.logger.Println("Invalid notification method")
 	}
 
 	return nil
 }
 
-// SendNotification sends a notification to the admin
+// SendNotification sends a notification to the admins
 // This function is meant to be run asynchronously (`go SendNotification(...)`), so it doesn't return any error
 // Instead, errors are printed on the console
 func (n *Notifications) SendNotification(message string) {
-	if err := n.sender.SendNotification(message); err != nil {
-		n.logger.Println("[Error] SendNotification returned an error:", err)
+	var err error
+	for i, sender := range n.senders {
+		err = sender.SendNotification(message)
+		if err != nil {
+			n.logger.Printf("[Error] SendNotification returned an error from sender %d: %s", i, err)
+		}
 	}
-}
-
-// Returns the method used for notifications
-func (n *Notifications) notificationsMethod() string {
-	method := strings.ToLower(appconfig.Config.GetString("notifications.method"))
-
-	// Check if notifications are enabled
-	if method == "" || method == "off" || method == "no" || method == "0" {
-		return ""
-	}
-
-	return method
 }
 
 // Interface for the classes
 type notificationSender interface {
-	Init() error
+	Init(opts interface{}) error
 	SendNotification(message string) error
 }

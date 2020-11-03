@@ -17,6 +17,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package utils
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -34,4 +37,68 @@ func GetClusterOptionsAzureSP(namespace string) *pb.ClusterOptions_AzureServiceP
 		ClientId:     clientId,
 		ClientSecret: clientSecret,
 	}
+}
+
+// GetClusterOptionsStorage returns the type of storage and storage options object
+// The storage option is an object of one of: *pb.ClusterOptions_Local, *pb.ClusterOptions_Azure, *pb.ClusterOptions_S3
+func GetClusterOptionsStorage() (string, interface{}) {
+	switch appconfig.Config.GetString("repo.type") {
+	case "file", "local":
+		return "file", &pb.ClusterOptions_StorageLocal{
+			Path: "repo.local.path",
+		}
+	case "azure", "azureblob":
+		o := &pb.ClusterOptions_StorageAzure{
+			Account:        appconfig.Config.GetString("repo.azure.account"),
+			Container:      appconfig.Config.GetString("repo.azure.container"),
+			AccessKey:      appconfig.Config.GetString("repo.azure.accessKey"),
+			EndpointSuffix: appconfig.Config.GetString("repo.azure.endpointSuffix"),
+			CustomEndpoint: appconfig.Config.GetString("repo.azure.customEndpoint"),
+			NoTls:          appconfig.Config.GetBool("repo.azure.noTLS"),
+		}
+		// Check if we have a SP for authentication
+		auth := GetClusterOptionsAzureSP("repo.azure")
+		if auth != nil {
+			o.Auth = auth
+		}
+		return "azure", o
+	case "s3", "minio":
+		return "s3", &pb.ClusterOptions_StorageS3{
+			AccessKeyId:     appconfig.Config.GetString("repo.s3.accessKeyId"),
+			SecretAccessKey: appconfig.Config.GetString("repo.s3.secretAccessKey"),
+			Bucket:          appconfig.Config.GetString("repo.s3.bucket"),
+			Endpoint:        appconfig.Config.GetString("repo.s3.endpoint"),
+			NoTls:           appconfig.Config.GetBool("repo.s3.noTLS"),
+		}
+	}
+	return "", nil
+}
+
+// GetClusterOptionsNotifications returns the options for notifications
+func GetClusterOptionsNotifications() ([]*pb.ClusterOptions_NotificationsOpts, error) {
+	// For now, we support only one set of notification options
+
+	// Check if notifications are enabled
+	method := strings.ToLower(appconfig.Config.GetString("notifications.method"))
+	if method == "" || method == "off" || method == "no" || method == "0" {
+		return nil, nil
+	}
+
+	// Create the object depending on the method
+	res := make([]*pb.ClusterOptions_NotificationsOpts, 1)
+	switch method {
+	case "webhook":
+		res[0] = &pb.ClusterOptions_NotificationsOpts{
+			Opts: &pb.ClusterOptions_NotificationsOpts_Webhook{
+				Webhook: &pb.ClusterOptions_NotificationsWebhook{
+					Url:        appconfig.Config.GetString("notifications.webhook.url"),
+					PayloadKey: appconfig.Config.GetString("notifications.webhook.payloadKey"),
+				},
+			},
+		}
+	default:
+		return nil, errors.New("invalid notification method: " + method)
+	}
+
+	return res, nil
 }

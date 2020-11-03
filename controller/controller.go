@@ -30,9 +30,9 @@ import (
 	"github.com/statiko-dev/statiko/controller/rpcserver"
 	"github.com/statiko-dev/statiko/controller/state"
 	controllerutils "github.com/statiko-dev/statiko/controller/utils"
-	"github.com/statiko-dev/statiko/notifications"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
+	"github.com/statiko-dev/statiko/shared/notifications"
 	//"github.com/statiko-dev/statiko/controller/worker"
 )
 
@@ -55,8 +55,8 @@ func (c *Controller) Run() (err error) {
 	c.logger = log.New(os.Stdout, "controller: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Init the store
-	fsType := appconfig.Config.GetString("repo.type")
-	c.store, err = fs.Get(fsType)
+	fsType, fsOpts := controllerutils.GetClusterOptionsStorage()
+	c.store, err = fs.Get(fsType, fsOpts)
 	if err != nil {
 		return err
 	}
@@ -72,8 +72,12 @@ func (c *Controller) Run() (err error) {
 	}
 
 	// Init the notifications client
+	notificationsOpts, err := controllerutils.GetClusterOptionsNotifications()
+	if err != nil {
+		return err
+	}
 	c.notifier = &notifications.Notifications{}
-	err = c.notifier.Init()
+	err = c.notifier.Init(notificationsOpts)
 	if err != nil {
 		return err
 	}

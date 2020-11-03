@@ -30,7 +30,7 @@ import (
 
 	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/certificates"
-	"github.com/statiko-dev/statiko/notifications"
+	"github.com/statiko-dev/statiko/shared/notifications"
 	"github.com/statiko-dev/statiko/state"
 	"github.com/statiko-dev/statiko/sync"
 	"github.com/statiko-dev/statiko/utils"
