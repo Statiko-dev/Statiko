@@ -152,6 +152,19 @@ func (c *RPCClient) GetClusterOptions() (*pb.ClusterOptions, error) {
 	return c.client.GetClusterOptions(ctx, in, grpc.WaitForReady(true))
 }
 
+// GetACMEChallengeResponse requests the response to an ACME challenge
+func (c *RPCClient) GetACMEChallengeResponse(token string, domain string) (*pb.ACMEChallengeResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
+	defer cancel()
+
+	// Make the request
+	in := &pb.ACMEChallengeRequest{
+		Token:  token,
+		Domain: domain,
+	}
+	return c.client.GetACMEChallengeResponse(ctx, in, grpc.WaitForReady(true))
+}
+
 // Starts the stream channel with the server
 func (c *RPCClient) startStreamChannel() {
 	ctx, cancel := context.WithCancel(context.Background())

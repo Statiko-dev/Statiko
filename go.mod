@@ -14,7 +14,7 @@ require (
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
-	github.com/go-acme/lego/v3 v3.9.0
+	github.com/go-acme/lego/v4 v4.0.1
 	github.com/go-ini/ini v1.62.0 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/google/renameio v0.1.0

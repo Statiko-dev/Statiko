@@ -21,11 +21,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/statiko-dev/statiko/appconfig"
 	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
+	"github.com/statiko-dev/statiko/utils"
 )
 
 // GetState is a simple RPC that returns the current state object
@@ -235,4 +237,34 @@ func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptions
 	}
 
 	return msg, nil
+}
+
+// GetACMEChallengeResponse is a simple RPC that returns the response to an ACME challenge
+func (s *RPCServer) GetACMEChallengeResponse(ctx context.Context, in *pb.ACMEChallengeRequest) (*pb.ACMEChallengeResponse, error) {
+	// Ensure the token and domain are set
+	if in.Token == "" || in.Domain == "" {
+		return nil, errors.New("parameter `token` and `domain` are required")
+	}
+
+	// Get the response from the secret store
+	message, err := s.State.GetSecret("acme/challenges/" + in.Token)
+	if err != nil {
+		return nil, err
+	}
+	parts := strings.SplitN(string(message), "|", 2)
+
+	// Get the site that matches the host header
+	site := s.State.GetSite(in.Domain)
+	if site == nil {
+		return nil, fmt.Errorf("request contained a Host header for a domain or alias that does not exist: %s", in.Domain)
+	}
+
+	// Check the host
+	if site.Domain != parts[0] && !utils.StringInSlice(site.Aliases, parts[0]) {
+		return nil, fmt.Errorf("requested token was for a different host: %s (requested: %s)", parts[0], in.Domain)
+	}
+
+	return &pb.ACMEChallengeResponse{
+		Response: parts[1],
+	}, nil
 }

@@ -41,6 +41,9 @@ service Controller {
 
   // Requests the options for the cluster
   rpc GetClusterOptions(ClusterOptionsRequest) returns (ClusterOptions);
+
+  // Requests the ACME challenge response
+  rpc GetACMEChallengeResponse(ACMEChallengeRequest) returns (ACMEChallengeResponse);
 }
 
 // Client stream for the Channel RPC
@@ -107,3 +110,14 @@ message TLSCertificateRequest {
 // Message for requesting the cluster options
 // This is currently an empty message
 message ClusterOptionsRequest {}
+
+// Message for requesting the ACME challenge response
+message ACMEChallengeRequest {
+  string token = 1;
+  string domain = 2;
+}
+
+// Message with the ACME challenge response
+message ACMEChallengeResponse {
+  string response = 1;
+}
