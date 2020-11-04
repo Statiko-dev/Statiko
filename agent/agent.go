@@ -23,6 +23,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/spf13/viper"
+
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/client"
@@ -117,6 +119,9 @@ func (a *Agent) ready() (err error) {
 	// Init the state object
 	a.agentState = &state.AgentState{}
 	a.agentState.Init()
+
+	// Method for requesting the node health
+	a.rpcClient.GetHealth = a.NodeHealth
 
 	// Callback for receiving new states
 	a.rpcClient.StateUpdate = func(state *pb.StateMessage) {
@@ -220,13 +225,73 @@ func (a *Agent) ready() (err error) {
 		return err
 	}
 
-	/*
-		// Ensure Nginx is running
-		err = webserver.Instance.EnsureServerRunning()
-		if err != nil {
-			return err
-		}
-	*/
-
 	return nil
+}
+
+// NodeHealth returns the object with the health of the node
+func (a *Agent) NodeHealth() (health *pb.NodeHealth) {
+	// Health object
+	health = &pb.NodeHealth{}
+
+	// Node name
+	health.NodeName = viper.GetString("nodeName")
+
+	// State version
+	health.Version = a.agentState.GetVersion()
+
+	// Nginx status
+	{
+		nginxStatus, err := a.webserver.Status()
+		if err != nil {
+			// Log the error only
+			a.logger.Println("caught error while requesting nginx status:", err)
+			nginxStatus = false
+		}
+		health.WebServer = &pb.NodeHealth_WebServer{
+			Healthy: nginxStatus,
+		}
+	}
+
+	// Sync status
+	{
+		var lastSyncUnix int64
+		lastSyncTime := a.syncClient.LastSync()
+		if lastSyncTime != nil {
+			lastSyncUnix = lastSyncTime.Unix()
+		}
+		var syncErrStr string
+		syncErr := a.syncClient.SyncError()
+		if syncErr != nil {
+			syncErrStr = syncErr.Error()
+		}
+		health.Sync = &pb.NodeHealth_Sync{
+			Running:   a.syncClient.IsRunning(),
+			LastSync:  lastSyncUnix,
+			SyncError: syncErrStr,
+		}
+	}
+
+	// Sites
+	{
+		// Get all sites and their health
+		sites := a.agentState.GetSites()
+		sitesHealth := a.agentState.GetAllSitesHealth()
+		health.Sites = make([]*pb.NodeHealth_Site, len(sites))
+
+		// Build the result
+		for i, s := range sites {
+			health.Sites[i] = &pb.NodeHealth_Site{
+				Domain: s.Domain,
+			}
+			if s.App != nil && s.App.Name != "" {
+				health.Sites[i].App = s.App.Name
+			}
+			h, ok := sitesHealth[s.Domain]
+			if ok && h != nil {
+				health.Sites[i].Error = h.Error()
+			}
+		}
+	}
+
+	return
 }

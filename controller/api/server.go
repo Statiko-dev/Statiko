@@ -196,8 +196,6 @@ func (s *APIServer) setupRoutes() {
 		group := s.router.Group("/")
 		group.Use(s.Auth(false))
 
-		//group.GET("/status", s.StatusHandler)
-		//group.GET("/status/:domain", s.StatusHandler)
 		group.GET("/info", s.InfoHandler)
 	}
 

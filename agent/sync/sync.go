@@ -131,6 +131,9 @@ func (s *Sync) runner() error {
 	// Boolean flag for the need to restart the webserver
 	restartRequired := false
 
+	// Reset the site health
+	s.State.ResetSiteHealth()
+
 	// Get the list of sites
 	sites := s.State.GetSites()
 

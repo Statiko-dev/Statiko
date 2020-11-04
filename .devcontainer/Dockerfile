@@ -60,6 +60,3 @@ RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
 # Enable ZSH plugins
 RUN su dev -c "sed -i 's/plugins=(git)/plugins=(git dotenv)/g' /home/dev/.zshrc" \
   && echo "ZSH_DOTENV_PROMPT=false" >> /home/dev/.zshrc
-
-# Expose ports
-EXPOSE 80 443 2265

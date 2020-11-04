@@ -55,7 +55,7 @@ func (a *AgentState) Init() {
 	a.certCache = map[string]certCacheItem{}
 
 	// Init the siteHealth map
-	a.siteHealth = map[string]error{}
+	a.ResetSiteHealth()
 }
 
 // DumpState exports the entire state
@@ -170,10 +170,12 @@ func (a *AgentState) GetSiteHealth(domain string) error {
 
 // GetAllSitesHealth returns the health of all objects
 func (a *AgentState) GetAllSitesHealth() map[string]error {
-	// Deep-clone the object
-	r := make(map[string]error, len(a.siteHealth))
+	// Deep-clone the object and exclude nil values
+	r := map[string]error{}
 	for k, v := range a.siteHealth {
-		r[k] = v
+		if v != nil {
+			r[k] = v
+		}
 	}
 	return r
 }
@@ -181,4 +183,9 @@ func (a *AgentState) GetAllSitesHealth() map[string]error {
 // SetSiteHealth sets the health of a site
 func (a *AgentState) SetSiteHealth(domain string, err error) {
 	a.siteHealth[domain] = err
+}
+
+// ResetSiteHealth resets the site health object
+func (a *AgentState) ResetSiteHealth() {
+	a.siteHealth = map[string]error{}
 }

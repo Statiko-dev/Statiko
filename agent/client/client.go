@@ -39,8 +39,12 @@ const keepaliveInterval = 600
 // Callback invoked when a new state is received from the controller
 type StateUpdateCallback func(*pb.StateMessage)
 
+// Function providing the node's health
+type NodeHealthCallback func() *pb.NodeHealth
+
 // RPCClient is the gRPC client for communicating with the cluster manager
 type RPCClient struct {
+	GetHealth   NodeHealthCallback
 	StateUpdate StateUpdateCallback
 
 	client      pb.ControllerClient
@@ -241,13 +245,9 @@ forloop:
 
 			// Health ping
 			case pb.ChannelServerStream_HEALTH_PING:
-				// TODO: COMPLETE THIS
-				health := &pb.NodeHealth{
-					NodeName: nodeName,
-				}
 				err = stream.Send(&pb.ChannelClientStream{
 					Type:   pb.ChannelClientStream_HEALTH_MESSAGE,
-					Health: health,
+					Health: c.GetHealth(),
 				})
 				if err != nil {
 					// Abort
