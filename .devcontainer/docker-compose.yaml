@@ -10,9 +10,12 @@ services:
         VARIANT: '1.15'
         # Node.js version
         NODE_VERSION: '14'
+    networks:
+      - agent-dev-net
     volumes:
       # Update this to wherever you want VS Code to mount the folder of your project
       - ..:/workspace:cached
+      - shell-history:/shell-history
     # Overrides default command so things don't shut down after the process ends
     command: sleep infinity 
     # Use a non-root user for all processes
@@ -38,6 +41,8 @@ services:
     command: 'server /data'
     volumes:
       - minio-data:/data
+    networks:
+      - agent-dev-net
     ports:
       - 9000:9000
     environment:
@@ -47,11 +52,50 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite
     container_name: azurite
     command: 'azurite-blob -l /data --blobHost 0.0.0.0 --blobPort 10000'
+    networks:
+      - agent-dev-net
     volumes:
       - azurite-data:/data
     ports:
       - 10000:10000
+  pebble:
+    image: letsencrypt/pebble:latest
+    container_name: pebble
+    depends_on:
+      - challtestsrv
+    command: 'pebble -config /mnt/pebble-config.json -strict -dnsserver 172.22.4.11:8053'
+    networks:
+      - agent-dev-net
+    volumes:
+      - ./pebble:/mnt
+    environment:
+      - "PEBBLE_VA_NOSLEEP=1"
+      - "GODEBUG=tls13=1"
+    ports:
+      # HTTPS ACME API
+      - 14000:14000
+      # HTTPS Management API
+      - 15000:15000
+  challtestsrv:
+    image: letsencrypt/pebble-challtestsrv:latest
+    container_name: challtestsrv
+    command: pebble-challtestsrv -defaultIPv6 "" -defaultIPv4 172.22.4.11
+    ports:
+      # HTTP Management API
+      - 8055:8055
+    networks:
+      agent-dev-net:
+        ipv4_address: "172.22.4.11"
 
 volumes:
   minio-data:
   azurite-data:
+  shell-history:
+
+networks:
+  agent-dev-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.4.0/24

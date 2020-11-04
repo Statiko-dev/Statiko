@@ -57,6 +57,11 @@ RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/l
 # Install global packages from NPM
 RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
 
-# Enable ZSH plugins
-RUN su dev -c "sed -i 's/plugins=(git)/plugins=(git dotenv)/g' /home/dev/.zshrc" \
-  && echo "ZSH_DOTENV_PROMPT=false" >> /home/dev/.zshrc
+# Configure ZSH
+RUN mkdir -p /shell-history \
+  && touch /shell-history/.zsh_history \
+  && chown -R dev /shell-history
+COPY .zshrc /home/dev/.zshrc
+
+# Workdir
+WORKDIR /workspace
