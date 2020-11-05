@@ -230,15 +230,16 @@ func (w *Worker) certMonitorInspectCert(certId string, generated bool, acme bool
 				// If we haven't already sent this notification
 				if i < sent {
 					message := "Certificate for " + domains[0] + " "
-					if w.certMonitorChecks[i] == -2 {
+					switch w.certMonitorChecks[i] {
+					case -2:
 						message += "has expired over 2 days ago"
-					} else if w.certMonitorChecks[i] == -1 {
+					case -1:
 						message += "has expired 1 day ago"
-					} else if w.certMonitorChecks[i] == 0 {
+					case 0:
 						message += "has expired today"
-					} else if w.certMonitorChecks[i] == 1 {
+					case 1:
 						message += "is expiring today"
-					} else {
+					default:
 						message += fmt.Sprintf("expires in %d days", w.certMonitorChecks[i])
 					}
 					w.certMonitorNotifications[domains[0]] = i

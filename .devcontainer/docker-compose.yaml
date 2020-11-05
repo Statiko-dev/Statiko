@@ -11,7 +11,8 @@ services:
         # Node.js version
         NODE_VERSION: '14'
     networks:
-      - agent-dev-net
+      agent-dev-net:
+        ipv4_address: "172.22.4.20"
     volumes:
       # Update this to wherever you want VS Code to mount the folder of your project
       - ..:/workspace:cached
@@ -79,13 +80,13 @@ services:
   challtestsrv:
     image: letsencrypt/pebble-challtestsrv:latest
     container_name: challtestsrv
-    command: pebble-challtestsrv -defaultIPv6 "" -defaultIPv4 172.22.4.11
-    ports:
-      # HTTP Management API
-      - 8055:8055
+    command: pebble-challtestsrv -defaultIPv6 "" -defaultIPv4 "172.22.4.20"
     networks:
       agent-dev-net:
         ipv4_address: "172.22.4.11"
+    ports:
+      # HTTP Management API
+      - 8055:8055
 
 volumes:
   minio-data:
