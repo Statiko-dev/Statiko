@@ -35,16 +35,20 @@ const (
 	StoreTypeEtcd = "etcd"
 )
 
+type certRefreshCb func()
+
 // Manager is the state manager class
 type Manager struct {
 	DHParamsGenerating bool
-	updated            *time.Time
-	store              StateStore
-	storeType          string
-	logger             *log.Logger
-	signaler           *utils.Signaler
-	semaphore          *sync.Mutex
-	codesignKey        *rsa.PublicKey
+	CertRefresh        certRefreshCb
+
+	updated     *time.Time
+	store       StateStore
+	storeType   string
+	logger      *log.Logger
+	signaler    *utils.Signaler
+	semaphore   *sync.Mutex
+	codesignKey *rsa.PublicKey
 }
 
 // Init loads the state from the store
@@ -697,6 +701,65 @@ func (m *Manager) ListCertificates() map[string]*pb.TLSCertificate {
 	return state.Certificates
 }
 
+// ReplaceCertificate updates all sites that are using an old self-signed (or ACME) certificate to use a new one
+func (m *Manager) ReplaceCertificate(oldCertId, newCertId string) error {
+	if oldCertId == "" || newCertId == "" {
+		return errors.New("parameters `oldCertId` and `newCertId` must not be empty")
+	}
+	// Check if the store is healthy
+	// Note: this won't guarantee that the store will be healthy when we try to write in it
+	healthy, err := m.StoreHealth()
+	if !healthy {
+		return err
+	}
+
+	// Lock
+	leaseID, err := m.store.AcquireLock("state", true)
+	if err != nil {
+		return err
+	}
+	defer m.store.ReleaseLock(leaseID)
+
+	// Get the state
+	state := m.store.GetState()
+	if state == nil {
+		return errors.New("state not loaded")
+	}
+	if state.Certificates == nil {
+		return errors.New("old certificate not found or it's an imported one")
+	}
+
+	// Ensure that both the old and new certificates exist and are not imported
+	oldCert, ok := state.Certificates[oldCertId]
+	if !ok || oldCert == nil || oldCert.Type == pb.TLSCertificate_IMPORTED {
+		return errors.New("old certificate not found or it's an imported one")
+	}
+	newCert, ok := state.Certificates[newCertId]
+	if !ok || newCert == nil || newCert.Type == pb.TLSCertificate_IMPORTED {
+		return errors.New("new certificate not found or it's an imported one")
+	}
+
+	// Iterate through the sites that are using the old certificate
+	for _, s := range state.Sites {
+		if s.GeneratedTlsId == oldCertId {
+			s.GeneratedTlsId = newCertId
+		}
+	}
+
+	// Delete the old certificate
+	delete(state.Certificates, oldCertId)
+	state.Version++
+
+	m.setUpdated()
+
+	// Commit the state to the store
+	if err := m.store.WriteState(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Decrypts the certificate data from the object
 func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert []byte, err error) {
 	// If there's no data, just return
@@ -717,4 +780,11 @@ func (m *Manager) decryptCertificate(obj *pb.TLSCertificate) (key []byte, cert [
 	cert = obj.Certificate
 
 	return key, cert, nil
+}
+
+// TriggerCertRefresh triggers the worker to refresh the certificates
+func (m *Manager) TriggerCertRefresh() {
+	if m.CertRefresh != nil {
+		go m.CertRefresh()
+	}
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/client"
+	"github.com/statiko-dev/statiko/agent/httpserver"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/sync"
 	"github.com/statiko-dev/statiko/agent/webserver"
@@ -45,6 +46,7 @@ type Agent struct {
 	notifier    *notifications.Notifications
 	certs       *certificates.AgentCertificates
 	rpcClient   *client.RPCClient
+	httpSrv     *httpserver.HTTPServer
 	syncClient  *sync.Sync
 	appManager  *appmanager.Manager
 	webserver   *webserver.NginxConfig
@@ -87,6 +89,7 @@ func (a *Agent) Run(ctx context.Context) (err error) {
 		// When the connection with the controller is established via gRPC and the node has registered itself successfully
 		case <-connectedCh:
 			a.logger.Println("Node registered and ready")
+			a.stopServer()
 			err := a.ready()
 			if err != nil {
 				return err
@@ -108,6 +111,7 @@ func (a *Agent) Run(ctx context.Context) (err error) {
 		case <-ctx.Done():
 			a.logger.Println("Context canceled")
 			// Disconnect
+			a.stopServer()
 			err := a.rpcClient.Disconnect()
 			return err
 		}
@@ -140,6 +144,14 @@ func (a *Agent) ready() (err error) {
 	if err != nil {
 		return err
 	}
+
+	// Init the HTTP server
+	a.httpSrv = &httpserver.HTTPServer{
+		State: a.agentState,
+		RPC:   a.rpcClient,
+	}
+	a.httpSrv.Init()
+	go a.httpSrv.Start()
 
 	// Request the initial state
 	state, err := a.rpcClient.GetState()
@@ -226,6 +238,14 @@ func (a *Agent) ready() (err error) {
 	}
 
 	return nil
+}
+
+// Stop the HTTP server if it's running
+func (a *Agent) stopServer() {
+	if a.httpSrv != nil && a.httpSrv.IsRunning() {
+		a.httpSrv.Stop()
+		a.httpSrv = nil
+	}
 }
 
 // NodeHealth returns the object with the health of the node

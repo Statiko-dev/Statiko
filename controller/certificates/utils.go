@@ -28,7 +28,7 @@ import (
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
-// GetX509 returns a X509 object for a certificate
+// GetX509 returns a X509 object for a PEM-encoded certificate
 func GetX509(cert []byte) (certX509 *x509.Certificate, err error) {
 	// Get the certificate's x509 object
 	block, _ := pem.Decode(cert)

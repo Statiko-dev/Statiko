@@ -57,6 +57,11 @@ RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/l
 # Install global packages from NPM
 RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
 
+# Add CA certificates
+COPY ca-certs/* /usr/local/share/ca-certificates/
+RUN chmod 644 /usr/local/share/ca-certificates/* \
+  && update-ca-certificates
+
 # Configure ZSH
 RUN mkdir -p /shell-history \
   && touch /shell-history/.zsh_history \

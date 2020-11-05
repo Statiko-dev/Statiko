@@ -30,10 +30,10 @@ import (
 	"github.com/statiko-dev/statiko/controller/rpcserver"
 	"github.com/statiko-dev/statiko/controller/state"
 	controllerutils "github.com/statiko-dev/statiko/controller/utils"
+	"github.com/statiko-dev/statiko/controller/worker"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
 	"github.com/statiko-dev/statiko/shared/notifications"
-	//"github.com/statiko-dev/statiko/controller/worker"
 )
 
 // Controller is the class that manages the controller app
@@ -47,6 +47,7 @@ type Controller struct {
 	rcpSrv   *rpcserver.RPCServer
 	akv      *azurekeyvault.Client
 	logger   *log.Logger
+	worker   *worker.Worker
 }
 
 // Run the controller app
@@ -115,8 +116,12 @@ func (c *Controller) Run() (err error) {
 	}
 
 	// Start all background workers
-	// TODO: NEEDS UPDATING
-	//worker.StartWorker()
+	c.worker = &worker.Worker{
+		State:        c.state,
+		Certificates: c.certs,
+		Notifier:     c.notifier,
+	}
+	c.worker.Start()
 
 	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
 	sigCh := make(chan os.Signal, 1)
@@ -148,11 +153,12 @@ func (c *Controller) Run() (err error) {
 	c.apiSrv.Init()
 	go c.apiSrv.Start()
 
-	// Wait for the shutdown signal then stop the servers
+	// Wait for the shutdown signal then stop the servers and the worker
 	<-sigCh
 	c.logger.Println("Received signal to terminate the app")
 	c.apiSrv.Stop()
 	c.rcpSrv.Stop()
+	c.worker.Stop()
 
 	return nil
 }

@@ -155,12 +155,10 @@ forloop:
 
 		// Exit if context is done
 		case <-stream.Context().Done():
-			fmt.Println("stream.Context().Done()")
 			return nil
 
 		// The server is shutting down
 		case <-s.runningCtx.Done():
-			fmt.Println("runningCtx.Done()")
 			return nil
 		}
 	}

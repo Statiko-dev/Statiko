@@ -58,7 +58,7 @@ func GetCertificate(certificateId string, state stateStoreCert, akv *azurekeyvau
 			return nil, nil, NotFoundErr
 		}
 
-	// Imported certificate cached in the state store
+	// Certificate is in the state store
 	default:
 		// Get the certificate
 		key, cert, err = state.GetCertificate(certificateId)
