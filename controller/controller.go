@@ -87,6 +87,13 @@ func (c *Controller) Run() (err error) {
 	c.cluster = &cluster.Cluster{
 		State: c.state,
 	}
+	c.cluster.NodeActivity = func(count int, direction int) {
+		// When we get the very first node, trigger a refresh of the certificates
+		// This is because things like ACME require at least one node running to work
+		if count == 1 && direction == 1 {
+			c.state.CertRefresh()
+		}
+	}
 	err = c.cluster.Init()
 	if err != nil {
 		return err

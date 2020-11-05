@@ -47,10 +47,11 @@ type RPCClient struct {
 	GetHealth   NodeHealthCallback
 	StateUpdate StateUpdateCallback
 
-	client      pb.ControllerClient
-	connection  *grpc.ClientConn
-	logger      *log.Logger
-	connectedCh chan bool
+	client       pb.ControllerClient
+	connection   *grpc.ClientConn
+	logger       *log.Logger
+	connectedCh  chan bool
+	sendHealthCh chan bool
 }
 
 // Init the gRPC client
@@ -87,6 +88,9 @@ func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 
 	// Channel that receives a message every time we establish a connection
 	c.connectedCh = make(chan bool)
+
+	// Channel used to send the health to the controller
+	c.sendHealthCh = make(chan bool)
 
 	// Start the background stream in another goroutine
 	go func() {
@@ -256,22 +260,27 @@ forloop:
 					}
 				}
 
-			// Health ping
+			// Received a health ping
 			case pb.ChannelServerStream_HEALTH_PING:
-				err = stream.Send(&pb.ChannelClientStream{
-					Type:   pb.ChannelClientStream_HEALTH_MESSAGE,
-					Health: c.GetHealth(),
-				})
-				if err != nil {
-					// Abort
-					c.logger.Println("Error while sending health:", err)
-					return
-				}
+				c.SendHealth()
 
 			// Invalid message
 			default:
 				c.logger.Printf("Server sent a message with an invalid type: %d", in.Message.Type)
 				continue forloop
+			}
+
+		// Send the node's health to the controlller
+		case <-c.sendHealthCh:
+			c.logger.Println("Sending node health to controller")
+			err = stream.Send(&pb.ChannelClientStream{
+				Type:   pb.ChannelClientStream_HEALTH_MESSAGE,
+				Health: c.GetHealth(),
+			})
+			if err != nil {
+				// Abort
+				c.logger.Println("Error while sending health:", err)
+				return
 			}
 
 		// Context for canceling the operation
@@ -280,4 +289,9 @@ forloop:
 			return
 		}
 	}
+}
+
+// SendHealth sends the health of the node to the controller even if that wasn't requested
+func (c *RPCClient) SendHealth() {
+	c.sendHealthCh <- true
 }

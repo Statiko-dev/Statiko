@@ -36,9 +36,17 @@ type registeredNode struct {
 	Version uint64
 }
 
+// Callback invoked when a node joins or leaves the cluster
+// It receives as arguments the current number of nodes and the direction of the change:
+// A direction of +1 means that a node joined
+// A direction of -1 means that a node left
+type nodeActivityCb func(count int, direction int)
+
 // Cluster contains information on the nodes in the cluster and methods to interact with their state
 type Cluster struct {
-	State       *state.Manager
+	State        *state.Manager
+	NodeActivity nodeActivityCb
+
 	logger      *log.Logger
 	semaphore   *sync.Mutex
 	nodes       map[string]*registeredNode
@@ -58,6 +66,12 @@ func (c *Cluster) Init() error {
 	c.clusterVer = 0
 
 	return nil
+}
+
+// NodeCount returns the number of nodes currently connected
+// Note that nodes could connect and disconnect at any time, so this number might be inaccurate immediately
+func (c *Cluster) NodeCount() int {
+	return len(c.nodes)
 }
 
 // RegisterNode registers a new node, returning its id
@@ -83,6 +97,11 @@ func (c *Cluster) RegisterNode(nodeName string, ch chan chan *pb.NodeHealth) err
 
 	c.logger.Println("Node registered:", nodeName)
 
+	// Invoke the callback
+	if c.NodeActivity != nil {
+		c.NodeActivity(len(c.nodes), 1)
+	}
+
 	return nil
 }
 
@@ -101,5 +120,10 @@ func (c *Cluster) UnregisterNode(nodeName string) {
 		}
 		delete(c.nodes, nodeName)
 		c.logger.Println("Node un-registered:", nodeName)
+
+		// Invoke the callback
+		if c.NodeActivity != nil {
+			c.NodeActivity(len(c.nodes), -1)
+		}
 	}
 }

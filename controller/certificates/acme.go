@@ -235,7 +235,10 @@ func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
 	// Wait until the cluster has synced
 	// This is a blocking call
 	ver := w.State.GetVersion()
-	w.Cluster.WaitForVersion(ver)
+	err = w.Cluster.WaitForVersion(ver)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

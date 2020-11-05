@@ -24,12 +24,15 @@ import (
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/webserver"
-	//"github.com/statiko-dev/statiko/shared/notifications"
 )
 
 // Semaphore that allows only one operation at time
 // This is a package-wide variable because it has to apply to all instances of Sync, as there really can't be more than 1 sync running
 var semaphore chan int
+
+// Callback invoked after a complete sync
+// Receives the error from the sync process (if any)
+type syncCompleteCb func(syncError error)
 
 // Init package-wide properties
 func init() {
@@ -38,9 +41,10 @@ func init() {
 
 // Sync is the main controller for synchronizing the system's state with the desired state
 type Sync struct {
-	State      *state.AgentState
-	AppManager *appmanager.Manager
-	Webserver  *webserver.NginxConfig
+	State        *state.AgentState
+	AppManager   *appmanager.Manager
+	Webserver    *webserver.NginxConfig
+	SyncComplete syncCompleteCb
 
 	// Semaphore that indicates if there's already one sync waiting
 	isWaiting chan int
@@ -84,7 +88,11 @@ func (s *Sync) QueueRun() {
 	go func() {
 		s.syncError = s.runner()
 		s.startupComplete = true
+		if s.SyncComplete != nil {
+			s.SyncComplete(s.syncError)
+		}
 		if s.syncError != nil {
+			// TODO: MOVE THIS TO THE CALLBACK ABOVE
 			s.logger.Println("Error returned by async run", s.syncError)
 			s.sendErrorNotification("Unrecoverable error running state synchronization: " + s.syncError.Error())
 		}
@@ -98,8 +106,12 @@ func (s *Sync) Run() error {
 	semaphore <- 1
 	s.syncError = s.runner()
 	s.startupComplete = true
+	if s.SyncComplete != nil {
+		s.SyncComplete(s.syncError)
+	}
 	<-semaphore
 	if s.syncError != nil {
+		// TODO: MOVE THIS TO THE CALLBACK ABOVE
 		s.sendErrorNotification("Unrecoverable error running state synchronization: " + s.syncError.Error())
 	}
 	return s.syncError
@@ -138,10 +150,9 @@ func (s *Sync) runner() error {
 	sites := s.State.GetSites()
 
 	// First, sync apps
-	res, restartServer, err := s.AppManager.SyncState(sites)
+	res, err := s.AppManager.SyncState(sites)
 	if err != nil {
 		s.logger.Println("Unrecoverable error while syncing apps:", err)
-
 		return err
 	}
 	restartRequired = restartRequired || res
@@ -150,7 +161,6 @@ func (s *Sync) runner() error {
 	res, err = s.Webserver.SyncConfiguration(sites)
 	if err != nil {
 		s.logger.Println("Error while syncing Nginx configuration:", err)
-
 		return err
 	}
 	restartRequired = restartRequired || res
@@ -171,11 +181,6 @@ func (s *Sync) runner() error {
 		}
 	}
 
-	// Restarting the API server if needed
-	if restartServer {
-		//ServerRestartFunc()
-	}
-
 	s.logger.Println("Sync completed")
 
 	return nil
@@ -184,5 +189,6 @@ func (s *Sync) runner() error {
 // Send a notification to admins if there's an error
 func (s *Sync) sendErrorNotification(message string) {
 	// Launch asynchronously and do not wait for completion
+	// TODO: THIS and move to the syncCompleteCb
 	//go notifications.SendNotification(message)
 }

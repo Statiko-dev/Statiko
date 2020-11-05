@@ -58,8 +58,9 @@ func (w *Worker) startCertMonitorWorker(ctx context.Context) {
 		ticker := time.NewTicker(certMonitorInterval)
 		defer ticker.Stop()
 
-		// Run right away
-		w.State.TriggerCertRefresh()
+		// Do not run right away
+		// The controller will call TriggerCertRefresh when the first node joins
+		//w.State.TriggerCertRefresh()
 
 		for {
 			select {
@@ -160,6 +161,11 @@ func (w *Worker) certMonitorInspectCert(certId string, generated bool, acme bool
 				w.certMonitorLogger.Printf("Error while requesting certificate from ACME for site %s: %s\n", domains[0], err)
 				return err
 			}
+
+			// CertObj
+			certObj = &pb.TLSCertificate{
+				Type: pb.TLSCertificate_ACME,
+			}
 		} else if expired {
 			// Self-signed certificate has expired, need to re-generate it
 			w.certMonitorLogger.Printf("Certificate for site %s is expiring in less than %d days; regenerating it\n", domains[0], certificates.SelfSignedMinDays)
@@ -170,6 +176,11 @@ func (w *Worker) certMonitorInspectCert(certId string, generated bool, acme bool
 				w.certMonitorLogger.Printf("Error while generating a new certificate for site %s: %s\n", domains[0], err)
 				return err
 			}
+
+			// CertObj
+			certObj = &pb.TLSCertificate{
+				Type: pb.TLSCertificate_SELF_SIGNED,
+			}
 		}
 
 		// If we have a new certificate, store it
@@ -179,14 +190,6 @@ func (w *Worker) certMonitorInspectCert(certId string, generated bool, acme bool
 			if err != nil {
 				w.certMonitorLogger.Printf("Could not parse PEM data for the new certificate for site %s: %s", domains[0], err)
 				return err
-			}
-
-			// Save the new certificate in the state
-			certObj = &pb.TLSCertificate{
-				Type: pb.TLSCertificate_SELF_SIGNED,
-			}
-			if acme {
-				certObj.Type = pb.TLSCertificate_ACME
 			}
 			certObj.SetCertificateProperties(certX509)
 
@@ -199,7 +202,7 @@ func (w *Worker) certMonitorInspectCert(certId string, generated bool, acme bool
 			newCertId := u.String()
 
 			// Set the certificate
-			err = w.State.SetCertificate(certObj, certId, keyPem, certPem)
+			err = w.State.SetCertificate(certObj, newCertId, keyPem, certPem)
 			if err != nil {
 				w.certMonitorLogger.Printf("Could not store the new certificate for site %s: %s", domains[0], err)
 				return err

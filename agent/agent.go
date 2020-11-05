@@ -228,6 +228,10 @@ func (a *Agent) ready() (err error) {
 		AppManager: a.appManager,
 		Webserver:  a.webserver,
 	}
+	a.syncClient.SyncComplete = func(syncError error) {
+		// Send the updated health to the controller
+		go a.rpcClient.SendHealth()
+	}
 	a.syncClient.Init()
 
 	// Perform an initial state sync

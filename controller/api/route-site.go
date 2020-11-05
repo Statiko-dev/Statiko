@@ -105,8 +105,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	}
 	// When ACME is enabled, start the background process that requests a cert from ACME
 	if site.EnableAcme {
-		// TODO: THIS
-		//defer state.Instance.TriggerRefreshCerts()
+		defer s.State.TriggerCertRefresh()
 	}
 	site.GeneratedTlsId = certId
 
@@ -370,8 +369,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 		}
 		// When ACME is enabled, start the background process that requests a cert from ACME
 		if site.EnableAcme {
-			// TODO: THIS
-			//defer state.Instance.TriggerRefreshCerts()
+			defer s.State.TriggerCertRefresh()
 		}
 		site.GeneratedTlsId = certId
 	}

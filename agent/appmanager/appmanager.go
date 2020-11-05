@@ -76,7 +76,7 @@ func (m *Manager) Init() error {
 }
 
 // SyncState ensures that the state of the filesystem matches the desired one
-func (m *Manager) SyncState(sites []*pb.Site) (updated bool, restartServer bool, err error) {
+func (m *Manager) SyncState(sites []*pb.Site) (updated bool, err error) {
 	updated = false
 
 	// To start, ensure the basic folders exist
@@ -93,7 +93,7 @@ func (m *Manager) SyncState(sites []*pb.Site) (updated bool, restartServer bool,
 
 	// Misc files
 	var u bool
-	u, restartServer, err = m.SyncMiscFiles()
+	u, err = m.SyncMiscFiles()
 	if err != nil {
 		return
 	}
@@ -433,19 +433,18 @@ func (m *Manager) WriteDefaultApp() error {
 
 // SyncMiscFiles synchronizes the misc folder
 // This contains the DH parameters for the server
-func (m *Manager) SyncMiscFiles() (bool, bool, error) {
+func (m *Manager) SyncMiscFiles() (bool, error) {
 	updated := false
-	restartServer := false
 
 	// Get the latest DH parameters and compare them with the ones on disk
 	pem, _ := m.State.GetDHParams()
 	u, err := writeFileIfChanged(m.appRoot+"misc/dhparams.pem", []byte(pem))
 	if err != nil {
-		return false, false, err
+		return false, err
 	}
 	updated = updated || u
 
-	return updated, restartServer, nil
+	return updated, nil
 }
 
 // ActivateApp points a site to an app, by creating the symbolic link
