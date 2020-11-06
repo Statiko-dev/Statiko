@@ -111,13 +111,13 @@ func (s *APIServer) Start() {
 				}
 				s.srv.TLSConfig = tlsConfig
 				if err := s.srv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != http.ErrServerClosed {
-					panic(err)
+					s.logger.Fatal(err)
 				}
 			} else {
 				s.srv.TLSConfig = nil
 				s.logger.Printf("Starting API server on http://%s\n", s.srv.Addr)
 				if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
-					panic(err)
+					s.logger.Fatal(err)
 				}
 			}
 		}()
@@ -141,7 +141,7 @@ func (s *APIServer) Start() {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			if err := s.srv.Shutdown(ctx); err != nil {
-				panic(err)
+				s.logger.Fatal(err)
 			}
 			s.doneCh <- 1
 			// Do not return, let the for loop repeat

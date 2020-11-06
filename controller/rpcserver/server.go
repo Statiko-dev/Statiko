@@ -91,7 +91,7 @@ func (s *RPCServer) Start() {
 			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 			if err != nil {
 				s.runningCancel()
-				panic(err)
+				s.logger.Fatal(err)
 			}
 			s.logger.Printf("Starting gRPC server on port %d\n", port)
 			s.running = true

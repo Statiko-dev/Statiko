@@ -28,7 +28,7 @@ import (
 var localTempDir string
 
 func TestLocalInit(t *testing.T) {
-	opts := &pb.ClusterOptions_StorageLocal{}
+	opts := &pb.ClusterOptions_StoreLocal{}
 	t.Run("empty path", func(t *testing.T) {
 		o := &Local{}
 		err := o.Init(opts)

@@ -64,14 +64,14 @@ message ClusterOptions {
     string tenant_id = 3;
   }
 
-  // Options for storage when using the "local" type
-  message StorageLocal {
+  // Options for store when using the "local" type
+  message StoreLocal {
     // Path to the folder on disk
     string path = 1;
   }
 
-  // Options for storage when using the "Azure Storage" type
-  message StorageAzure {
+  // Options for store when using the "Azure Storage" type
+  message StoreAzure {
     // Storage account name
     string account = 1;
     // Container
@@ -88,8 +88,8 @@ message ClusterOptions {
     bool no_tls = 7;
   }
   
-  // Options for storage when using the "S3" type
-  message StorageS3 {
+  // Options for store when using the "S3" type
+  message StoreS3 {
     // Access key ID
     string access_key_id = 1;
     // Secret access key
@@ -102,11 +102,11 @@ message ClusterOptions {
     bool no_tls = 5;
   }
 
-  // Storage options
-  oneof storage {
-    StorageLocal local = 10;
-    StorageAzure azure = 11;
-    StorageS3 s3 = 12;
+  // Store options
+  oneof store {
+    StoreLocal local = 10;
+    StoreAzure azure = 11;
+    StoreS3 s3 = 12;
   }
 
   // Configuration for Azure Key Vault

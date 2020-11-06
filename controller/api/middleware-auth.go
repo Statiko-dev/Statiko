@@ -62,7 +62,7 @@ func (s *APIServer) Auth(required bool) gin.HandlerFunc {
 	auth0Enabled := viper.GetBool("auth.auth0.enabled")
 	azureADEnabled := viper.GetBool("auth.azureAD.enabled")
 	if auth0Enabled && azureADEnabled {
-		panic("only one external authentication provider can be enabled at any given time")
+		s.logger.Fatal("only one external authentication provider can be enabled at any given time")
 	}
 
 	// Get the token key function

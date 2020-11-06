@@ -34,7 +34,7 @@ func (w *Worker) initDHParamsWorker() {
 	// Ensure the number of bits is 1024, 2048 or 4096
 	bits := viper.GetInt("dhparams.bits")
 	if bits != 1024 && bits != 2048 && bits != 4096 {
-		panic(errors.New("dhparams.bits must be 1024, 2048 or 4096"))
+		w.dhparamsLogger.Fatal(errors.New("dhparams.bits must be 1024, 2048 or 4096"))
 	}
 
 	// Get the max age for dhparams
@@ -46,7 +46,7 @@ func (w *Worker) initDHParamsWorker() {
 	} else {
 		// Must be at least one week and no more than 2 years
 		if maxAgeDays < 7 || maxAgeDays > 720 {
-			panic(errors.New("dhparams.maxAge must be between 7 and 720 days; to disable automatic regeneration, set a negative value"))
+			w.dhparamsLogger.Fatal(errors.New("dhparams.maxAge must be between 7 and 720 days; to disable automatic regeneration, set a negative value"))
 		}
 		w.dhparamsRegeneration = true
 		w.dhparamsMaxAge = time.Duration((-1) * time.Duration(maxAgeDays) * 24 * time.Hour)

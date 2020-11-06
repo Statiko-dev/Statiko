@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -164,13 +165,18 @@ func (a *Agent) ready() (err error) {
 	a.agentState.Subscribe(a.stateCh)
 
 	// Init the store
-	switch a.clusterOpts.Storage.(type) {
+	switch a.clusterOpts.Store.(type) {
 	case *pb.ClusterOptions_Local:
-		a.store, err = fs.Get("local", a.clusterOpts.Storage)
+		// Because "local" is local to the controller, we need to use the "controller" fs instead
+		a.store, err = fs.Get("controller", &fs.ControllerFsOpts{
+			RPC: a.rpcClient.Client(),
+		})
 	case *pb.ClusterOptions_Azure:
-		a.store, err = fs.Get("azure", a.clusterOpts.Storage)
+		a.store, err = fs.Get("azure", a.clusterOpts.Store)
 	case *pb.ClusterOptions_S3:
-		a.store, err = fs.Get("s3", a.clusterOpts.Storage)
+		a.store, err = fs.Get("s3", a.clusterOpts.Store)
+	default:
+		err = errors.New("invalid store type")
 	}
 	if err != nil {
 		return err

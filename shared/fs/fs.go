@@ -38,6 +38,9 @@ func Get(typ string, opts interface{}) (store Fs, err error) {
 	case "s3", "minio":
 		store = &S3{}
 		err = store.Init(opts)
+	case "controller":
+		store = &Controller{}
+		err = store.Init(opts)
 	default:
 		err = fmt.Errorf("invalid repo type")
 	}

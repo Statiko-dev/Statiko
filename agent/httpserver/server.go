@@ -93,7 +93,7 @@ func (s *HTTPServer) Start() {
 			s.running = true
 			s.logger.Printf("Starting HTTP server on http://%s\n", s.srv.Addr)
 			if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
-				panic(err)
+				s.logger.Fatal(err)
 			}
 		}()
 
@@ -116,7 +116,7 @@ func (s *HTTPServer) Start() {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 			if err := s.srv.Shutdown(ctx); err != nil {
-				panic(err)
+				s.logger.Fatal(err)
 			}
 			s.doneCh <- 1
 			// Do not return, let the for loop repeat

@@ -124,6 +124,11 @@ func (c *RPCClient) Reconnect() (chan bool, error) {
 	return c.Connect()
 }
 
+// Client returns the underlying client object
+func (c *RPCClient) Client() pb.ControllerClient {
+	return c.client
+}
+
 // GetState requests the latest state from the cluster manager
 func (c *RPCClient) GetState() (*pb.StateMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)

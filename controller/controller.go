@@ -63,7 +63,7 @@ func (c *Controller) Run() (err error) {
 	}
 
 	// Init the store
-	fsType, fsOpts := controllerutils.GetClusterOptionsStorage()
+	fsType, fsOpts, _ := controllerutils.GetClusterOptionsStore()
 	c.store, err = fs.Get(fsType, fsOpts)
 	if err != nil {
 		return err

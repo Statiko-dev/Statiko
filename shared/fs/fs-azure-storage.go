@@ -39,8 +39,8 @@ type AzureStorage struct {
 }
 
 func (f *AzureStorage) Init(optsI interface{}) error {
-	// Cast opts to pb.ClusterOptions_StorageAzure
-	opts, ok := optsI.(*pb.ClusterOptions_StorageAzure)
+	// Cast opts to pb.ClusterOptions_StoreAzure
+	opts, ok := optsI.(*pb.ClusterOptions_StoreAzure)
 	if !ok || opts == nil {
 		return errors.New("invalid options object")
 	}

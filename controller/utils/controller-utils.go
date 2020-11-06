@@ -40,16 +40,19 @@ func GetClusterOptionsAzureSP(namespace string) *pb.ClusterOptions_AzureServiceP
 	}
 }
 
-// GetClusterOptionsStorage returns the type of storage and storage options object
+// GetClusterOptionsStore returns the type of storage and storage options object, as well as the protobuf "oneof" message
 // The storage option is an object of one of: *pb.ClusterOptions_Local, *pb.ClusterOptions_Azure, *pb.ClusterOptions_S3
-func GetClusterOptionsStorage() (string, interface{}) {
+func GetClusterOptionsStore() (string, interface{}, interface{}) {
 	switch viper.GetString("repo.type") {
 	case "file", "local":
-		return "file", &pb.ClusterOptions_StorageLocal{
+		o := &pb.ClusterOptions_StoreLocal{
 			Path: viper.GetString("repo.local.path"),
 		}
+		return "file", o, &pb.ClusterOptions_Local{
+			Local: o,
+		}
 	case "azure", "azureblob":
-		o := &pb.ClusterOptions_StorageAzure{
+		o := &pb.ClusterOptions_StoreAzure{
 			Account:        viper.GetString("repo.azure.account"),
 			Container:      viper.GetString("repo.azure.container"),
 			AccessKey:      viper.GetString("repo.azure.accessKey"),
@@ -62,17 +65,22 @@ func GetClusterOptionsStorage() (string, interface{}) {
 		if auth != nil {
 			o.Auth = auth
 		}
-		return "azure", o
+		return "azure", o, &pb.ClusterOptions_Azure{
+			Azure: o,
+		}
 	case "s3", "minio":
-		return "s3", &pb.ClusterOptions_StorageS3{
+		o := &pb.ClusterOptions_StoreS3{
 			AccessKeyId:     viper.GetString("repo.s3.accessKeyId"),
 			SecretAccessKey: viper.GetString("repo.s3.secretAccessKey"),
 			Bucket:          viper.GetString("repo.s3.bucket"),
 			Endpoint:        viper.GetString("repo.s3.endpoint"),
 			NoTls:           viper.GetBool("repo.s3.noTLS"),
 		}
+		return "s3", o, &pb.ClusterOptions_S3{
+			S3: o,
+		}
 	}
-	return "", nil
+	return "", nil, nil
 }
 
 // GetClusterOptionsNotifications returns the options for notifications

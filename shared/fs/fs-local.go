@@ -37,8 +37,8 @@ type Local struct {
 }
 
 func (f *Local) Init(optsI interface{}) error {
-	// Cast opts to pb.ClusterOptions_StorageLocal
-	opts, ok := optsI.(*pb.ClusterOptions_StorageLocal)
+	// Cast opts to pb.ClusterOptions_StoreLocal
+	opts, ok := optsI.(*pb.ClusterOptions_StoreLocal)
 	if !ok || opts == nil {
 		return errors.New("invalid options object")
 	}

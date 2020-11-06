@@ -28,7 +28,7 @@ import (
 )
 
 func TestS3Init(t *testing.T) {
-	opts := &pb.ClusterOptions_StorageS3{
+	opts := &pb.ClusterOptions_StoreS3{
 		Endpoint: os.Getenv("STATIKO_REPO_S3_ENDPOINT"),
 		NoTls:    utils.IsTruthy(os.Getenv("STATIKO_REPO_S3_NO_TLS")),
 	}

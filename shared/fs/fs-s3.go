@@ -35,8 +35,8 @@ type S3 struct {
 }
 
 func (f *S3) Init(optsI interface{}) error {
-	// Cast opts to pb.ClusterOptions_StorageS3
-	opts, ok := optsI.(*pb.ClusterOptions_StorageS3)
+	// Cast opts to pb.ClusterOptions_StoreS3
+	opts, ok := optsI.(*pb.ClusterOptions_StoreS3)
 	if !ok || opts == nil {
 		return errors.New("invalid options object")
 	}

@@ -168,7 +168,7 @@ func GetAzureStorageCredentials(sp azureSPProvider) (azblob.Credential, error) {
 		// Get a new token
 		err := spt.Refresh()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err)
 		}
 		token := spt.Token()
 		credential.SetToken(token.AccessToken)

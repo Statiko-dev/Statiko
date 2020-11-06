@@ -82,7 +82,7 @@ func (msg *ClusterOptions_AzureServicePrincipal) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *ClusterOptions_StorageLocal) MarshalJSON() ([]byte, error) {
+func (msg *ClusterOptions_StoreLocal) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	err := (&jsonpb.Marshaler{
 		EnumsAsInts:  false,
@@ -93,14 +93,14 @@ func (msg *ClusterOptions_StorageLocal) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *ClusterOptions_StorageLocal) UnmarshalJSON(b []byte) error {
+func (msg *ClusterOptions_StoreLocal) UnmarshalJSON(b []byte) error {
 	return (&jsonpb.Unmarshaler{
 		AllowUnknownFields: false,
 	}).Unmarshal(bytes.NewReader(b), msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *ClusterOptions_StorageAzure) MarshalJSON() ([]byte, error) {
+func (msg *ClusterOptions_StoreAzure) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	err := (&jsonpb.Marshaler{
 		EnumsAsInts:  false,
@@ -111,14 +111,14 @@ func (msg *ClusterOptions_StorageAzure) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *ClusterOptions_StorageAzure) UnmarshalJSON(b []byte) error {
+func (msg *ClusterOptions_StoreAzure) UnmarshalJSON(b []byte) error {
 	return (&jsonpb.Unmarshaler{
 		AllowUnknownFields: false,
 	}).Unmarshal(bytes.NewReader(b), msg)
 }
 
 // MarshalJSON implements json.Marshaler
-func (msg *ClusterOptions_StorageS3) MarshalJSON() ([]byte, error) {
+func (msg *ClusterOptions_StoreS3) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	err := (&jsonpb.Marshaler{
 		EnumsAsInts:  false,
@@ -129,7 +129,7 @@ func (msg *ClusterOptions_StorageS3) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (msg *ClusterOptions_StorageS3) UnmarshalJSON(b []byte) error {
+func (msg *ClusterOptions_StoreS3) UnmarshalJSON(b []byte) error {
 	return (&jsonpb.Unmarshaler{
 		AllowUnknownFields: false,
 	}).Unmarshal(bytes.NewReader(b), msg)

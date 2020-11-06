@@ -32,7 +32,7 @@ import (
 var azContainerUrl azblob.ContainerURL
 
 func TestAzureStorageInit(t *testing.T) {
-	opts := &pb.ClusterOptions_StorageAzure{
+	opts := &pb.ClusterOptions_StoreAzure{
 		AccessKey:      os.Getenv("STATIKO_REPO_AZURE_ACCESS_KEY"),
 		EndpointSuffix: os.Getenv("STATIKO_REPO_AZURE_ENDPOINT_SUFFIX"),
 		CustomEndpoint: os.Getenv("STATIKO_REPO_AZURE_CUSTOM_ENDPOINT"),

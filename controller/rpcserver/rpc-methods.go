@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -196,6 +197,17 @@ func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptions
 		ManifestFile: viper.GetString("manifestFile"),
 	}
 
+	// Store
+	{
+		_, _, obj := controllerutils.GetClusterOptionsStore()
+		if obj != nil {
+			// Because the interface of msg.Store is unexported, we need to mess a bit with reflection
+			// This could panic, but all the types obj could be do implement the interface
+			val := reflect.ValueOf(obj)
+			reflect.ValueOf(msg).Elem().FieldByName("Store").Set(val)
+		}
+	}
+
 	// Codesign options
 	{
 		msg.Codesign = &pb.ClusterOptions_Codesign{
@@ -222,6 +234,15 @@ func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptions
 			N: key.N.Bytes(),
 			E: uint32(key.E),
 		}
+	}
+
+	// Notifications
+	{
+		obj, err := controllerutils.GetClusterOptionsNotifications()
+		if err != nil {
+			return nil, err
+		}
+		msg.Notifications = obj
 	}
 
 	// Azure Key Vault
@@ -280,8 +301,10 @@ func (s *RPCServer) GetFile(req *pb.FileRequest, stream pb.Controller_GetFileSer
 	if err != nil {
 		return err
 	}
+
+	// If the file wasn't found, send an empty message
 	if !found || data == nil {
-		return errors.New("file not found in storage")
+		return stream.Send(&pb.FileStream{})
 	}
 
 	// To start, send the metadata as header
