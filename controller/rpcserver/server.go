@@ -32,6 +32,7 @@ import (
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
+	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -40,6 +41,7 @@ type RPCServer struct {
 	State   *state.Manager
 	Cluster *cluster.Cluster
 	Certs   *certificates.Certificates
+	Fs      fs.Fs
 
 	logger        *log.Logger
 	stopCh        chan int

@@ -150,6 +150,7 @@ func (c *Controller) Run() (err error) {
 		State:   c.state,
 		Cluster: c.cluster,
 		Certs:   c.certs,
+		Fs:      c.store,
 	}
 	c.rcpSrv.Init()
 	go c.rcpSrv.Start()

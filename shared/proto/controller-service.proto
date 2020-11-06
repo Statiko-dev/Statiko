@@ -135,7 +135,4 @@ message FileRequest {
 message FileStream {
   // Chunk of data
   bytes chunk = 1;
-
-  // Metadata
-  map<string,string> metadata = 2;
 }

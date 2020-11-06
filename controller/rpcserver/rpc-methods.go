@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"sync"
@@ -266,4 +267,56 @@ func (s *RPCServer) GetACMEChallengeResponse(ctx context.Context, in *pb.ACMECha
 	return &pb.ACMEChallengeResponse{
 		Response: parts[1],
 	}, nil
+}
+
+// GetFile is the RPC that returns a file from storage, streaming it chunk-by-chunk
+func (s *RPCServer) GetFile(req *pb.FileRequest, stream pb.Controller_GetFileServer) error {
+	if req.Name == "" {
+		return errors.New("parameter `name` is required")
+	}
+
+	// Request the file
+	found, data, metadata, err := s.Fs.Get(stream.Context(), req.Name)
+	if err != nil {
+		return err
+	}
+	if !found || data == nil {
+		return errors.New("file not found in storage")
+	}
+
+	// To start, send the metadata as header
+	header := make(map[string][]string, len(metadata))
+	for k, v := range metadata {
+		header[k] = []string{v}
+	}
+	err = stream.SendHeader(header)
+	if err != nil {
+		return err
+	}
+
+	// Send the data in chunks of 2KB each
+	buf := make([]byte, 2<<10)
+	var n int
+	for {
+		// Read a chunk
+		n, err = data.Read(buf)
+		if err != nil && err != io.EOF {
+			return err
+		}
+
+		// Send the chunk
+		if n > 0 {
+			stream.Send(&pb.FileStream{
+				// Get up to n bytes as we might have read less than the full buffer
+				Chunk: buf[:n],
+			})
+		}
+
+		// Stop when the stream is over
+		if err == io.EOF {
+			break
+		}
+	}
+
+	return nil
 }
