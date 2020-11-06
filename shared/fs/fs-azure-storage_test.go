@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 var azContainerUrl azblob.ContainerURL

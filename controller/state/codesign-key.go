@@ -25,7 +25,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // GetCodesignKey returns the codesign key as a rsa.PublicKey object

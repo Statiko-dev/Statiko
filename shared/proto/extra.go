@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // This file contains additional methods added to the protobuf objects

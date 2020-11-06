@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // ManifestRuleOptions is used by the AppManifest struct to represent options for a specific location or file type

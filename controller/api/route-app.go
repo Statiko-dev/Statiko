@@ -22,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/statiko-dev/statiko/shared/fs"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // AppUploadHandler is the handler for POST /app, which is used to upload new app bundles

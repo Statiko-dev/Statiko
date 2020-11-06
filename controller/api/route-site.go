@@ -32,7 +32,7 @@ import (
 
 	"github.com/statiko-dev/statiko/controller/certificates"
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // CreateSiteHandler is the handler for POST /site, which creates a new site

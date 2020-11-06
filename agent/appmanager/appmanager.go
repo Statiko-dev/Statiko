@@ -42,7 +42,7 @@ import (
 	agentutils "github.com/statiko-dev/statiko/agent/utils"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // Manager contains helper functions to manage apps and sites

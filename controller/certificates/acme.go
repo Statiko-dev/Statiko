@@ -37,7 +37,7 @@ import (
 	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // ACMEMinDays controls how many days from the expiration a new certificate is requested from ACME

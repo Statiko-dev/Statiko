@@ -28,7 +28,7 @@ import (
 
 	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // GetState is a simple RPC that returns the current state object

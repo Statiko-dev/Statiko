@@ -27,7 +27,7 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // AzureStorage stores files on Azure Blob Storage

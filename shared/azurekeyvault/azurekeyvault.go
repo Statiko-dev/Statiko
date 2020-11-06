@@ -34,7 +34,7 @@ import (
 	"golang.org/x/crypto/pkcs12"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // Timeout (in seconds) for operations

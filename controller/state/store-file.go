@@ -26,7 +26,7 @@ import (
 	"github.com/spf13/viper"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 type StateStoreFile struct {

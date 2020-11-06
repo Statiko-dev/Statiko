@@ -33,7 +33,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/state"
 	agentutils "github.com/statiko-dev/statiko/agent/utils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // List of template files

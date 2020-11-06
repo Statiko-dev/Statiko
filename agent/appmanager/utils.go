@@ -23,7 +23,7 @@ import (
 
 	"github.com/google/renameio"
 
-	"github.com/statiko-dev/statiko/utils"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // Creates a folder if it doesn't exist already
