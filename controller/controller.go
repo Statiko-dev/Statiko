@@ -23,7 +23,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
+
 	"github.com/statiko-dev/statiko/controller/api"
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
@@ -55,6 +56,12 @@ func (c *Controller) Run() (err error) {
 	// Initialize the logger
 	c.logger = log.New(os.Stdout, "controller: ", log.Ldate|log.Ltime|log.LUTC)
 
+	// Load the configuration
+	err = c.LoadConfig()
+	if err != nil {
+		return err
+	}
+
 	// Init the store
 	fsType, fsOpts := controllerutils.GetClusterOptionsStorage()
 	c.store, err = fs.Get(fsType, fsOpts)
@@ -68,7 +75,7 @@ func (c *Controller) Run() (err error) {
 	if err != nil {
 		return err
 	}
-	if !c.state.LoadCodesignKey() && appconfig.Config.GetBool("codesign.required") {
+	if !c.state.LoadCodesignKey() && viper.GetBool("codesign.required") {
 		return errors.New("codesign.required is true, but no valid key found in codesign.publicKey")
 	}
 
@@ -100,7 +107,7 @@ func (c *Controller) Run() (err error) {
 	}
 
 	// Init the Azure Key Vault client if we need it
-	akvName := appconfig.Config.GetString("azureKeyVault.name")
+	akvName := viper.GetString("azureKeyVault.name")
 	if akvName != "" {
 		c.akv = &azurekeyvault.Client{
 			VaultName: akvName,

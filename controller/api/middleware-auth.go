@@ -26,8 +26,8 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 
-	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -59,8 +59,8 @@ type jwksKey struct {
 // Auth middleware that checks the Authorization header in the request
 func (s *APIServer) Auth(required bool) gin.HandlerFunc {
 	// Check if an authentication provider is allowed; we can only support one at a time
-	auth0Enabled := appconfig.Config.GetBool("auth.auth0.enabled")
-	azureADEnabled := appconfig.Config.GetBool("auth.azureAD.enabled")
+	auth0Enabled := viper.GetBool("auth.auth0.enabled")
+	azureADEnabled := viper.GetBool("auth.azureAD.enabled")
 	if auth0Enabled && azureADEnabled {
 		panic("only one external authentication provider can be enabled at any given time")
 	}
@@ -90,7 +90,7 @@ func (s *APIServer) Auth(required bool) gin.HandlerFunc {
 
 		if len(auth) != 0 {
 			// If pre-shared keys are allowed, check if there's a match
-			if appconfig.Config.GetBool("auth.psk.enabled") && auth == appconfig.Config.GetString("auth.psk.key") {
+			if viper.GetBool("auth.psk.enabled") && auth == viper.GetString("auth.psk.key") {
 				// All good
 				c.Set("authenticated", true)
 				return
@@ -127,8 +127,8 @@ func (s *APIServer) validateClaimFuncGenerator(provider string) func(jwt.MapClai
 	case "auth0":
 		return func(claims jwt.MapClaims) bool {
 			// Perform some extra checks: iss, aud, then ensure exp and iat are present (they were validated already)
-			audience := appconfig.Config.GetString("auth.auth0.clientId")
-			domain := appconfig.Config.GetString("auth.auth0.domain")
+			audience := viper.GetString("auth.auth0.clientId")
+			domain := viper.GetString("auth.auth0.domain")
 			issuer := strings.Replace(auth0Issuer, "{domain}", domain, 1)
 			if claims["iss"] == issuer && claims["aud"] == audience && claims["exp"] != "" && claims["iat"] != "" {
 				return true
@@ -138,8 +138,8 @@ func (s *APIServer) validateClaimFuncGenerator(provider string) func(jwt.MapClai
 	case "azuread":
 		return func(claims jwt.MapClaims) bool {
 			// Perform some extra checks: iss, aud, then ensure exp and nbf are present (they were validated already)
-			audience := appconfig.Config.GetString("auth.azureAD.clientId")
-			tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
+			audience := viper.GetString("auth.azureAD.clientId")
+			tenant := viper.GetString("auth.azureAD.tenantId")
 			issuer := strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
 			if claims["iss"] == issuer && claims["aud"] == audience && claims["exp"] != "" && claims["nbf"] != "" {
 				return true
@@ -196,11 +196,11 @@ func (s *APIServer) getTokenSigningKey(kid string, provider string) (key *rsa.Pu
 	var issuer, url string
 	switch provider {
 	case "auth0":
-		domain := appconfig.Config.GetString("auth.auth0.domain")
+		domain := viper.GetString("auth.auth0.domain")
 		url = strings.Replace(auth0JWKS, "{domain}", domain, 1)
 		// Issuer is not present in the JWKS from Auth0
 	case "azuread":
-		tenant := appconfig.Config.GetString("auth.azureAD.tenantId")
+		tenant := viper.GetString("auth.azureAD.tenantId")
 		issuer = strings.Replace(azureADIssuer, "{tenant}", tenant, 1)
 		url = strings.Replace(azureADJWKS, "{tenant}", tenant, 1)
 	}

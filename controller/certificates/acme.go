@@ -32,8 +32,9 @@ import (
 	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
+	"github.com/spf13/viper"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/utils"
@@ -51,7 +52,7 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 	}
 
 	// Get the email
-	email := appconfig.Config.GetString("acme.email")
+	email := viper.GetString("acme.email")
 	if email == "" {
 		return nil, nil, errors.New("configuration option acme.email must be set")
 	}
@@ -69,9 +70,9 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 	}
 	config := lego.NewConfig(&user)
 	config.Certificate.KeyType = certcrypto.RSA4096
-	config.CADirURL = appconfig.Config.GetString("acme.endpoint")
+	config.CADirURL = viper.GetString("acme.endpoint")
 	// Disable TLS validation when connecting to the ACME endpoint with the "ACME_INSECURE_TLS" env var for development
-	if os.Getenv("ACME_INSECURE_TLS") != "" && appconfig.ENV != "production" {
+	if os.Getenv("ACME_INSECURE_TLS") != "" && buildinfo.ENV != "production" {
 		config.HTTPClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	}
 

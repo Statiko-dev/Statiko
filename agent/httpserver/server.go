@@ -28,7 +28,7 @@ import (
 
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/buildinfo"
 )
 
 // HTTPServer is the HTTP server
@@ -59,7 +59,7 @@ func (s *HTTPServer) Init() {
 
 	// Create the router object
 	// If we're in production mode, set Gin to "release" mode
-	if appconfig.ENV == "production" {
+	if buildinfo.ENV == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 

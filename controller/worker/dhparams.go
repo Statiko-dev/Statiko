@@ -24,8 +24,7 @@ import (
 	"time"
 
 	dhparam "github.com/Luzifer/go-dhparam"
-
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
 )
 
 // Init the DH parameters worker
@@ -33,13 +32,13 @@ func (w *Worker) initDHParamsWorker() {
 	w.dhparamsLogger = log.New(os.Stdout, "worker/dhparams: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Ensure the number of bits is 1024, 2048 or 4096
-	bits := appconfig.Config.GetInt("dhparams.bits")
+	bits := viper.GetInt("dhparams.bits")
 	if bits != 1024 && bits != 2048 && bits != 4096 {
 		panic(errors.New("dhparams.bits must be 1024, 2048 or 4096"))
 	}
 
 	// Get the max age for dhparams
-	maxAgeDays := appconfig.Config.GetInt("dhparams.maxAge")
+	maxAgeDays := viper.GetInt("dhparams.maxAge")
 
 	// If < 0, never regenerate dhparams (besides the first time)
 	if maxAgeDays < 0 {
@@ -122,7 +121,7 @@ func (w *Worker) dhparamsWorker(parentCtx context.Context) error {
 		}()
 
 		// Need to regenerate the DH parameters
-		bits := appconfig.Config.GetInt("dhparams.bits")
+		bits := viper.GetInt("dhparams.bits")
 		w.dhparamsLogger.Printf("DH parameters expired; starting generation with %d bits\n", bits)
 		result, err := dhparam.GenerateWithContext(ctx, bits, dhparam.GeneratorTwo, nil)
 		if err != nil {

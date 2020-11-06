@@ -24,7 +24,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
+
 	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
@@ -191,13 +192,13 @@ func (s *RPCServer) GetTLSCertificate(ctx context.Context, in *pb.TLSCertificate
 // GetClusterOptions is a simple RPC that returns the cluster options
 func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptionsRequest) (msg *pb.ClusterOptions, err error) {
 	msg = &pb.ClusterOptions{
-		ManifestFile: appconfig.Config.GetString("manifestFile"),
+		ManifestFile: viper.GetString("manifestFile"),
 	}
 
 	// Codesign options
 	{
 		msg.Codesign = &pb.ClusterOptions_Codesign{
-			RequireCodesign: appconfig.Config.GetBool("codesign.required"),
+			RequireCodesign: viper.GetBool("codesign.required"),
 		}
 
 		// Get the codesign key
@@ -223,7 +224,7 @@ func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptions
 	}
 
 	// Azure Key Vault
-	if vaultName := appconfig.Config.GetString("azureKeyVault.name"); vaultName != "" {
+	if vaultName := viper.GetString("azureKeyVault.name"); vaultName != "" {
 		auth := controllerutils.GetClusterOptionsAzureSP("azureKeyVault")
 		if auth == nil {
 			return nil, errors.New("azureKeyVault.auth.[tenantId|clientId|clientSecret] are required when azureKeyVault.name is set")

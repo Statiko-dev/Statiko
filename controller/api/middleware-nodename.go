@@ -17,15 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package api
 
 import (
-	"github.com/statiko-dev/statiko/appconfig"
-
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
 // NodeName middleware that adds the "X-STK-Node" header containing the node name
 func (s *APIServer) NodeName() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		hostname := appconfig.Config.GetString("nodeName")
+		hostname := viper.GetString("nodeName")
 		if len(hostname) == 0 {
 			return
 		}

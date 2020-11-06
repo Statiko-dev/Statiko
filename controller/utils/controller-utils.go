@@ -20,15 +20,16 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
+
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
 // GetClusterOptionsAzureSP returns the pb.ClusterOptions_AzureKeyVault option for a namespace
 func GetClusterOptionsAzureSP(namespace string) *pb.ClusterOptions_AzureServicePrincipal {
-	tenantId := appconfig.Config.GetString(namespace + ".auth.tenantId")
-	clientId := appconfig.Config.GetString(namespace + ".auth.clientId")
-	clientSecret := appconfig.Config.GetString(namespace + ".auth.clientSecret")
+	tenantId := viper.GetString(namespace + ".auth.tenantId")
+	clientId := viper.GetString(namespace + ".auth.clientId")
+	clientSecret := viper.GetString(namespace + ".auth.clientSecret")
 	if tenantId == "" || clientId == "" || clientSecret == "" {
 		return nil
 	}
@@ -42,19 +43,19 @@ func GetClusterOptionsAzureSP(namespace string) *pb.ClusterOptions_AzureServiceP
 // GetClusterOptionsStorage returns the type of storage and storage options object
 // The storage option is an object of one of: *pb.ClusterOptions_Local, *pb.ClusterOptions_Azure, *pb.ClusterOptions_S3
 func GetClusterOptionsStorage() (string, interface{}) {
-	switch appconfig.Config.GetString("repo.type") {
+	switch viper.GetString("repo.type") {
 	case "file", "local":
 		return "file", &pb.ClusterOptions_StorageLocal{
 			Path: "repo.local.path",
 		}
 	case "azure", "azureblob":
 		o := &pb.ClusterOptions_StorageAzure{
-			Account:        appconfig.Config.GetString("repo.azure.account"),
-			Container:      appconfig.Config.GetString("repo.azure.container"),
-			AccessKey:      appconfig.Config.GetString("repo.azure.accessKey"),
-			EndpointSuffix: appconfig.Config.GetString("repo.azure.endpointSuffix"),
-			CustomEndpoint: appconfig.Config.GetString("repo.azure.customEndpoint"),
-			NoTls:          appconfig.Config.GetBool("repo.azure.noTLS"),
+			Account:        viper.GetString("repo.azure.account"),
+			Container:      viper.GetString("repo.azure.container"),
+			AccessKey:      viper.GetString("repo.azure.accessKey"),
+			EndpointSuffix: viper.GetString("repo.azure.endpointSuffix"),
+			CustomEndpoint: viper.GetString("repo.azure.customEndpoint"),
+			NoTls:          viper.GetBool("repo.azure.noTLS"),
 		}
 		// Check if we have a SP for authentication
 		auth := GetClusterOptionsAzureSP("repo.azure")
@@ -64,11 +65,11 @@ func GetClusterOptionsStorage() (string, interface{}) {
 		return "azure", o
 	case "s3", "minio":
 		return "s3", &pb.ClusterOptions_StorageS3{
-			AccessKeyId:     appconfig.Config.GetString("repo.s3.accessKeyId"),
-			SecretAccessKey: appconfig.Config.GetString("repo.s3.secretAccessKey"),
-			Bucket:          appconfig.Config.GetString("repo.s3.bucket"),
-			Endpoint:        appconfig.Config.GetString("repo.s3.endpoint"),
-			NoTls:           appconfig.Config.GetBool("repo.s3.noTLS"),
+			AccessKeyId:     viper.GetString("repo.s3.accessKeyId"),
+			SecretAccessKey: viper.GetString("repo.s3.secretAccessKey"),
+			Bucket:          viper.GetString("repo.s3.bucket"),
+			Endpoint:        viper.GetString("repo.s3.endpoint"),
+			NoTls:           viper.GetBool("repo.s3.noTLS"),
 		}
 	}
 	return "", nil
@@ -79,7 +80,7 @@ func GetClusterOptionsNotifications() ([]*pb.ClusterOptions_NotificationsOpts, e
 	// For now, we support only one set of notification options
 
 	// Check if notifications are enabled
-	method := strings.ToLower(appconfig.Config.GetString("notifications.method"))
+	method := strings.ToLower(viper.GetString("notifications.method"))
 	if method == "" || method == "off" || method == "no" || method == "0" {
 		return nil, nil
 	}
@@ -91,8 +92,8 @@ func GetClusterOptionsNotifications() ([]*pb.ClusterOptions_NotificationsOpts, e
 		res[0] = &pb.ClusterOptions_NotificationsOpts{
 			Opts: &pb.ClusterOptions_NotificationsOpts_Webhook{
 				Webhook: &pb.ClusterOptions_NotificationsWebhook{
-					Url:        appconfig.Config.GetString("notifications.webhook.url"),
-					PayloadKey: appconfig.Config.GetString("notifications.webhook.payloadKey"),
+					Url:        viper.GetString("notifications.webhook.url"),
+					PayloadKey: viper.GetString("notifications.webhook.payloadKey"),
 				},
 			},
 		}

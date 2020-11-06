@@ -22,8 +22,8 @@ import (
 	"runtime"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 
-	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/buildinfo"
 )
 
@@ -48,19 +48,19 @@ func (s *APIServer) InfoHandler(c *gin.Context) {
 	// Check auth info
 	authMethods := make([]string, 0)
 	var azureADInfo, auth0Info *openIDInfoResponse
-	if appconfig.Config.GetBool("auth.psk.enabled") {
+	if viper.GetBool("auth.psk.enabled") {
 		authMethods = append(authMethods, "psk")
 	}
 
 	// Only one of Azure AD and Auth0 can be enabled at the same time
-	azureADEnabled := appconfig.Config.GetBool("auth.azureAD.enabled")
-	auth0Enabled := appconfig.Config.GetBool("auth.auth0.enabled")
+	azureADEnabled := viper.GetBool("auth.azureAD.enabled")
+	auth0Enabled := viper.GetBool("auth.auth0.enabled")
 	if azureADEnabled && !auth0Enabled {
 		authMethods = append(authMethods, "azureAD")
 
 		// Get the URL where users can authenticate
-		tenantId := appconfig.Config.GetString("auth.azureAD.tenantId")
-		clientId := appconfig.Config.GetString("auth.azureAD.clientId")
+		tenantId := viper.GetString("auth.azureAD.tenantId")
+		clientId := viper.GetString("auth.azureAD.clientId")
 		if tenantId != "" && clientId != "" {
 			azureADInfo = &openIDInfoResponse{
 				AuthorizeURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantId),
@@ -73,8 +73,8 @@ func (s *APIServer) InfoHandler(c *gin.Context) {
 		authMethods = append(authMethods, "auth0")
 
 		// Get the URL where users can authenticate
-		clientId := appconfig.Config.GetString("auth.auth0.clientId")
-		domain := appconfig.Config.GetString("auth.auth0.domain")
+		clientId := viper.GetString("auth.auth0.clientId")
+		domain := viper.GetString("auth.auth0.domain")
 		if clientId != "" && domain != "" {
 			auth0Info = &openIDInfoResponse{
 				AuthorizeURL: fmt.Sprintf("https://%s/authorize", domain),
@@ -93,7 +93,7 @@ func (s *APIServer) InfoHandler(c *gin.Context) {
 		AzureAD:     azureADInfo,
 		Auth0:       auth0Info,
 		Version:     version,
-		Hostname:    appconfig.Config.GetString("nodeName"),
+		Hostname:    viper.GetString("nodeName"),
 	}
 
 	c.JSON(http.StatusOK, info)

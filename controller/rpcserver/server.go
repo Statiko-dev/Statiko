@@ -24,10 +24,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
@@ -67,7 +67,7 @@ func (s *RPCServer) Init() {
 // Start the gRPC server; must be run in a goroutine with `go s.Start()`
 func (s *RPCServer) Start() {
 	// Port for the gRPC server
-	port := appconfig.Config.GetInt("controller.grpcPort")
+	port := viper.GetInt("controller.grpcPort")
 
 	// Continue until the server is stopped
 	for {

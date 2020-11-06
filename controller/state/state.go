@@ -24,7 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
+
 	"github.com/statiko-dev/statiko/shared/defaults"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
@@ -60,7 +61,7 @@ func (m *Manager) Init() (err error) {
 	m.signaler = &utils.Signaler{}
 
 	// Get store type
-	typ := appconfig.Config.GetString("state.store")
+	typ := viper.GetString("state.store")
 	switch typ {
 	case "file":
 		m.store = &StateStoreFile{}

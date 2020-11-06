@@ -27,8 +27,9 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
@@ -65,7 +66,7 @@ func (s *APIServer) Init() {
 
 	// Create the router object
 	// If we're in production mode, set Gin to "release" mode
-	if appconfig.ENV == "production" {
+	if buildinfo.ENV == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -91,7 +92,7 @@ func (s *APIServer) Start() {
 		go func() {
 			// HTTP Server
 			s.srv = &http.Server{
-				Addr:              fmt.Sprintf("0.0.0.0:%d", appconfig.Config.GetInt("controller.apiPort")),
+				Addr:              fmt.Sprintf("0.0.0.0:%d", viper.GetInt("controller.apiPort")),
 				Handler:           s.router,
 				ReadTimeout:       2 * time.Hour,
 				ReadHeaderTimeout: 30 * time.Second,
@@ -101,10 +102,10 @@ func (s *APIServer) Start() {
 
 			s.running = true
 
-			if appconfig.Config.GetBool("controller.tlsEnabled") {
+			if viper.GetBool("controller.tlsEnabled") {
 				s.logger.Printf("Starting API server on https://%s\n", s.srv.Addr)
-				tlsCertFile := appconfig.Config.GetString("controller.tlsCertificate")
-				tlsKeyFile := appconfig.Config.GetString("controller.tlsKey")
+				tlsCertFile := viper.GetString("controller.tlsCertificate")
+				tlsKeyFile := viper.GetString("controller.tlsKey")
 				tlsConfig := &tls.Config{
 					MinVersion: tls.VersionTLS12,
 				}
@@ -170,7 +171,7 @@ func (s *APIServer) enableCORS() {
 	corsConfig.AddAllowHeaders("Authorization")
 	corsConfig.AddExposeHeaders("Date")
 	corsConfig.AllowOrigins = []string{"https://manage.statiko.dev"}
-	if appconfig.ENV != "production" {
+	if buildinfo.ENV != "production" {
 		// For development
 		corsConfig.AllowOrigins = append(corsConfig.AllowOrigins, "http://localhost:5000")
 	}

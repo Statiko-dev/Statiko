@@ -14,15 +14,19 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package appconfig
+package buildinfo
 
-// Config is a singleton for appConfig
-var Config *appConfig
+import "os"
 
 func init() {
-	// Initialize the singleton
-	Config = &appConfig{}
-	if err := Config.Load(); err != nil {
-		panic(err)
+	// If there's an ENV passed via environmental variables, override the value hardcoded
+	e := os.Getenv("GO_ENV")
+	if e != "" {
+		ENV = e
+	}
+
+	// If there's no ENV, fallback to development
+	if ENV == "" {
+		ENV = "development"
 	}
 }

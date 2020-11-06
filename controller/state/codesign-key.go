@@ -23,7 +23,8 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
+
 	"github.com/statiko-dev/statiko/utils"
 )
 
@@ -35,7 +36,7 @@ func (m *Manager) GetCodesignKey() *rsa.PublicKey {
 // LoadCodesignKey loads the codesign key
 func (m *Manager) LoadCodesignKey() bool {
 	// Check if we have a key, then parse it
-	pemKey := appconfig.Config.GetString("codesign.publicKey")
+	pemKey := viper.GetString("codesign.publicKey")
 	if pemKey == "" {
 		return false
 	}

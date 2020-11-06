@@ -23,8 +23,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/renameio"
+	"github.com/spf13/viper"
 
-	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
 )
@@ -69,7 +69,7 @@ func (s *StateStoreFile) SetState(state *pb.StateStore) (err error) {
 
 // WriteState stores the state on disk
 func (s *StateStoreFile) WriteState() (err error) {
-	path := appconfig.Config.GetString("state.file.path")
+	path := viper.GetString("state.file.path")
 	s.logger.Println("Writing state to disk", path)
 
 	// Serialize to protocol buffers
@@ -86,7 +86,7 @@ func (s *StateStoreFile) WriteState() (err error) {
 
 // ReadState reads the state from disk
 func (s *StateStoreFile) ReadState() (err error) {
-	path := appconfig.Config.GetString("state.file.path")
+	path := viper.GetString("state.file.path")
 	s.logger.Println("Reading state from disk", path)
 
 	// Check if the file exists

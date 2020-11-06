@@ -25,7 +25,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/statiko-dev/statiko/appconfig"
+	"github.com/spf13/viper"
 )
 
 // Encrypts a byte slice with AES-CBC
@@ -112,7 +112,7 @@ func getSecretsCipher() (cipher.Block, error) {
 // Returns the value of the secrets symmetric encryption key from the configuration file
 func getSecretsEncryptionKey() ([]byte, error) {
 	// Get the key
-	encKeyB64 := appconfig.Config.GetString("secretsEncryptionKey")
+	encKeyB64 := viper.GetString("secretsEncryptionKey")
 	if len(encKeyB64) != 24 {
 		return nil, errors.New("empty or invalid 'secretsEncryptionKey' value in configuration file")
 	}

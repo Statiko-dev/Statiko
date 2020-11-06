@@ -27,9 +27,9 @@ import (
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/controller/certificates"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/utils"
@@ -49,7 +49,7 @@ func (s *APIServer) CreateSiteHandler(c *gin.Context) {
 	// If we're creating a temporary site, generate a domain name
 	if site.Temporary {
 		// Ensure a domain is set
-		tempDomain := appconfig.Config.GetString("temporarySites.domain")
+		tempDomain := viper.GetString("temporarySites.domain")
 		if tempDomain == "" {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"error": "Configuration option `temporarySites.domain` must be set before creating a temporary site",
@@ -146,7 +146,7 @@ func (s *APIServer) ShowSiteHandler(c *gin.Context) {
 		// If we're getting a temporary site, add the domain automatically
 		if utils.IsTruthy(c.Query("temporary")) {
 			// Ensure a domain is set
-			tempDomain := appconfig.Config.GetString("temporarySites.domain")
+			tempDomain := viper.GetString("temporarySites.domain")
 			if tempDomain == "" {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 					"error": "Configuration option `temporarySites.domain` must be set before requesting a temporary site",
@@ -184,7 +184,7 @@ func (s *APIServer) DeleteSiteHandler(c *gin.Context) {
 		// If we're getting a temporary site, add the domain automatically
 		if utils.IsTruthy(c.Query("temporary")) {
 			// Ensure a domain is set
-			tempDomain := appconfig.Config.GetString("temporarySites.domain")
+			tempDomain := viper.GetString("temporarySites.domain")
 			if tempDomain == "" {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 					"error": "Configuration option `temporarySites.domain` must be set before requesting a temporary site",
@@ -235,7 +235,7 @@ func (s *APIServer) PatchSiteHandler(c *gin.Context) {
 	// If we're getting a temporary site, add the domain automatically
 	if utils.IsTruthy(c.Query("temporary")) {
 		// Ensure a domain is set
-		tempDomain := appconfig.Config.GetString("temporarySites.domain")
+		tempDomain := viper.GetString("temporarySites.domain")
 		if tempDomain == "" {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"error": "Configuration option `temporarySites.domain` must be set before requesting a temporary site",

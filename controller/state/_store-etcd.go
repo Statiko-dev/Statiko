@@ -29,11 +29,11 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"go.etcd.io/etcd/v3/clientv3"
 	"go.etcd.io/etcd/v3/pkg/transport"
 	"google.golang.org/grpc/connectivity"
 
-	"github.com/statiko-dev/statiko/appconfig"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -68,7 +68,7 @@ func (s *StateStoreEtcd) Init() (err error) {
 	s.logger = log.New(os.Stdout, "state/etcd: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Keys and prefixes
-	keyPrefix := appconfig.Config.GetString("state.etcd.keyPrefix")
+	keyPrefix := viper.GetString("state.etcd.keyPrefix")
 	s.stateKey = keyPrefix + "/state"
 	s.dhparamsKey = keyPrefix + "/dhparams"
 	s.locksKeyPrefix = keyPrefix + "/locks/"
@@ -80,10 +80,10 @@ func (s *StateStoreEtcd) Init() (err error) {
 
 	// TLS configuration
 	var tlsConf *tls.Config
-	tlsConfCA := appconfig.Config.GetString("state.etcd.tlsConfiguration.ca")
-	tlsConfClientCertificate := appconfig.Config.GetString("state.etcd.tlsConfiguration.clientCertificate")
-	tlsConfClientKey := appconfig.Config.GetString("state.etcd.tlsConfiguration.clientKey")
-	tlsSkipVerify := appconfig.Config.GetBool("state.etcd.tlsSkipVerify")
+	tlsConfCA := viper.GetString("state.etcd.tlsConfiguration.ca")
+	tlsConfClientCertificate := viper.GetString("state.etcd.tlsConfiguration.clientCertificate")
+	tlsConfClientKey := viper.GetString("state.etcd.tlsConfiguration.clientKey")
+	tlsSkipVerify := viper.GetBool("state.etcd.tlsSkipVerify")
 	if tlsSkipVerify || tlsConfCA != "" {
 		tlsInfo := transport.TLSInfo{
 			InsecureSkipVerify: tlsSkipVerify,
@@ -107,7 +107,7 @@ func (s *StateStoreEtcd) Init() (err error) {
 	}
 
 	// Connect to the etcd cluster
-	addr := strings.Split(appconfig.Config.GetString("state.etcd.address"), ",")
+	addr := strings.Split(viper.GetString("state.etcd.address"), ",")
 	s.client, err = clientv3.New(clientv3.Config{
 		Endpoints:            addr,
 		DialTimeout:          5 * time.Second,
@@ -142,7 +142,7 @@ func (s *StateStoreEtcd) Init() (err error) {
 
 // GetContext returns a context that times out
 func (s *StateStoreEtcd) GetContext() (context.Context, context.CancelFunc) {
-	timeout := time.Duration(appconfig.Config.GetInt("state.etcd.timeout")) * time.Millisecond
+	timeout := time.Duration(viper.GetInt("state.etcd.timeout")) * time.Millisecond
 	ctx, cancelFunc := context.WithTimeout(context.Background(), timeout)
 	// Require a leader in the etcd cluster
 	return clientv3.WithRequireLeader(ctx), cancelFunc
@@ -311,7 +311,7 @@ func (s *StateStoreEtcd) ReleaseLock(leaseID interface{}) error {
 
 // Tries to acquire a lock if no other node has it
 func (s *StateStoreEtcd) tryLockAcquisition(lockKey string, leaseID clientv3.LeaseID) (bool, error) {
-	lockValue := fmt.Sprintf("%s-%d", appconfig.Config.GetString("nodeName"), time.Now().UnixNano())
+	lockValue := fmt.Sprintf("%s-%d", viper.GetString("nodeName"), time.Now().UnixNano())
 	ctx, cancel := s.GetContext()
 	txn := s.client.Txn(ctx)
 	res, err := txn.If(
