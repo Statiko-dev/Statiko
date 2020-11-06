@@ -27,7 +27,7 @@ import (
 
 // AppUploadHandler is the handler for POST /app, which is used to upload new app bundles
 // The request body must be a multipart/form-data with a "file" field containing the bundle, a "name" field containing the name, and a "type" one containing the type (file extension)
-// Optionally, pass a "signature" and/or "hash" fielld
+// Optionally, pass a "signature" and/or "hash" field
 func (s *APIServer) AppUploadHandler(c *gin.Context) {
 	// Get the file from the body
 	file, err := c.FormFile("file")

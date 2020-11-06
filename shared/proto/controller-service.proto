@@ -44,6 +44,10 @@ service Controller {
 
   // Requests the ACME challenge response
   rpc GetACMEChallengeResponse(ACMEChallengeRequest) returns (ACMEChallengeResponse);
+
+  // Requests a file from the storage
+  // This is used by agents needing files that are stored in the controller's local disk
+  rpc GetFile(FileRequest) returns (stream FileStream);
 }
 
 // Client stream for the Channel RPC
@@ -120,4 +124,18 @@ message ACMEChallengeRequest {
 // Message with the ACME challenge response
 message ACMEChallengeResponse {
   string response = 1;
+}
+
+// Message for requesting a file
+message FileRequest {
+  string name = 1;
+}
+
+// Stream containing a chunked file
+message FileStream {
+  // Chunk of data
+  bytes chunk = 1;
+
+  // Metadata
+  map<string,string> metadata = 2;
 }

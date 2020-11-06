@@ -50,8 +50,8 @@ func LoadConfig(envPrefix string, nodeType string, entries map[string]ConfigEntr
 	// Load configuration
 	logger.Println("Loading configuration")
 
-	// Look for a config file named agent-config.(json|yaml|toml|...)
-	viper.SetConfigName("agent-config")
+	// Look for a config file named <node-type>-config.(json|yaml|toml|...)
+	viper.SetConfigName(nodeType + "-config")
 
 	// Check if we have a path for the config file
 	configFilePath := os.Getenv(envPrefix + "CONFIG_FILE")

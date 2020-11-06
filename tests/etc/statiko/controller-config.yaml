@@ -29,7 +29,9 @@ azureKeyVault:
     clientSecret: ""
 
 repo:
-  type: "azure"
+  type: "local"
+  local:
+    path: "/repo/"
   azure:
     account: "statikocistorage"
     container: "apps"

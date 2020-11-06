@@ -10,6 +10,6 @@ sudo ln -vs $(pwd)/tests/etc/statiko /etc
 # Create the data directory
 sudo mkdir /data
 
-# Grant user dev permission to /data and /etc/nginx
+# Grant user dev permission to /data, /etc/nginx, and /repo
 #sudo setfacl -Rm u:dev:rwx /data /etc/nginx
-sudo chown -Rv dev:dev /data /etc/nginx
+sudo chown -Rv dev:dev /data /etc/nginx /repo

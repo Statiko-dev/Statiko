@@ -46,7 +46,7 @@ func GetClusterOptionsStorage() (string, interface{}) {
 	switch viper.GetString("repo.type") {
 	case "file", "local":
 		return "file", &pb.ClusterOptions_StorageLocal{
-			Path: "repo.local.path",
+			Path: viper.GetString("repo.local.path"),
 		}
 	case "azure", "azureblob":
 		o := &pb.ClusterOptions_StorageAzure{
