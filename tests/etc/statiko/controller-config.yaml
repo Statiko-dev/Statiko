@@ -1,19 +1,11 @@
-port: 2265
+controller:
+  apiPort: 2265
+  grpcPort: 2300
 
 appRoot: "/data"
 
 state:
   store: "file"
-  etcd:
-    address: "http://localhost:2379,http://localhost:3379,http://localhost:4379"
-
-nginx:
-  user: www-data
-  commands:
-    restart: sudo service nginx status && sudo service nginx reload || sudo service nginx restart
-    start: sudo service nginx start
-    status: sudo service nginx status > /dev/null && echo 1 || echo 0
-    test: sudo nginx -t -q
 
 auth:
   psk:
@@ -28,12 +20,6 @@ auth:
 
 secretsEncryptionKey: "aQZg30UrCUgu0TfdNvIeLg=="
 
-azure:
-  tenantId: "1ea3c9a2-b58b-48c7-b5ce-ca311c3c1196"
-  clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
-  # DEV NOTE: passed as environmental variable
-  clientSecret: ""
-
 azureKeyVault:
   name: "statiko-ci-akv"
   auth:
@@ -41,7 +27,6 @@ azureKeyVault:
     clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
     # DEV NOTE: passed as environmental variable
     clientSecret: ""
-
 
 repo:
   type: "azure"
@@ -75,7 +60,6 @@ codesign:
     QeH1YGHHDOvPu/d7Uxiur5+8qFz1/wd/cGnps4OsL7kkl8TWYy0ANQECAwEAAQ==
     -----END RSA PUBLIC KEY-----
 
-tls:
-  dhparams:
-    # DEV NOTE: in development, use smaller DH parameters to test generation
-    bits: 1024
+dhparams:
+  # DEV NOTE: in development, use smaller DH parameters to test generation
+  bits: 1024

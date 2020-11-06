@@ -24,6 +24,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/webserver"
+	"github.com/statiko-dev/statiko/shared/notifications"
 )
 
 // Semaphore that allows only one operation at time
@@ -45,6 +46,7 @@ type Sync struct {
 	AppManager   *appmanager.Manager
 	Webserver    *webserver.NginxConfig
 	SyncComplete syncCompleteCb
+	Notifier     *notifications.Notifications
 
 	// Semaphore that indicates if there's already one sync waiting
 	isWaiting chan int
@@ -92,7 +94,6 @@ func (s *Sync) QueueRun() {
 			s.SyncComplete(s.syncError)
 		}
 		if s.syncError != nil {
-			// TODO: MOVE THIS TO THE CALLBACK ABOVE
 			s.logger.Println("Error returned by async run", s.syncError)
 			s.sendErrorNotification("Unrecoverable error running state synchronization: " + s.syncError.Error())
 		}
@@ -111,7 +112,6 @@ func (s *Sync) Run() error {
 	}
 	<-semaphore
 	if s.syncError != nil {
-		// TODO: MOVE THIS TO THE CALLBACK ABOVE
 		s.sendErrorNotification("Unrecoverable error running state synchronization: " + s.syncError.Error())
 	}
 	return s.syncError
@@ -189,6 +189,5 @@ func (s *Sync) runner() error {
 // Send a notification to admins if there's an error
 func (s *Sync) sendErrorNotification(message string) {
 	// Launch asynchronously and do not wait for completion
-	// TODO: THIS and move to the syncCompleteCb
-	//go notifications.SendNotification(message)
+	go s.Notifier.SendNotification(message)
 }

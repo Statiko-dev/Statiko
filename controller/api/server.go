@@ -19,10 +19,10 @@ package api
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -86,17 +86,12 @@ func (s *APIServer) IsRunning() bool {
 
 // Start the API server; must be run in a goroutine with `go s.Start()`
 func (s *APIServer) Start() {
-	appRoot := appconfig.Config.GetString("appRoot")
-	if !strings.HasSuffix(appRoot, "/") {
-		appRoot += "/"
-	}
-
 	for {
 		// Start the server in another channel
 		go func() {
 			// HTTP Server
 			s.srv = &http.Server{
-				Addr:              "0.0.0.0:" + appconfig.Config.GetString("port"),
+				Addr:              fmt.Sprintf("0.0.0.0:%d", appconfig.Config.GetInt("controller.apiPort")),
 				Handler:           s.router,
 				ReadTimeout:       2 * time.Hour,
 				ReadHeaderTimeout: 30 * time.Second,
@@ -106,10 +101,10 @@ func (s *APIServer) Start() {
 
 			s.running = true
 
-			if appconfig.Config.GetBool("tls.node.enabled") {
+			if appconfig.Config.GetBool("controller.tlsEnabled") {
 				s.logger.Printf("Starting API server on https://%s\n", s.srv.Addr)
-				tlsCertFile := appRoot + "misc/node.cert.pem"
-				tlsKeyFile := appRoot + "misc/node.key.pem"
+				tlsCertFile := appconfig.Config.GetString("controller.tlsCertificate")
+				tlsKeyFile := appconfig.Config.GetString("controller.tlsKey")
 				tlsConfig := &tls.Config{
 					MinVersion: tls.VersionTLS12,
 				}
@@ -223,6 +218,7 @@ func (s *APIServer) setupRoutes() {
 		group.POST("/certificate", s.ImportCertificateHandler)
 		group.GET("/certificate", s.ListCertificateHandler)
 		group.DELETE("/certificate/:id", s.DeleteCertificateHandler)
+		group.POST("/certificate/refresh", s.RefreshCertificateHandler)
 
 		group.GET("/dhparams", s.DHParamsGetHandler)
 		group.POST("/dhparams", s.DHParamsSetHandler)

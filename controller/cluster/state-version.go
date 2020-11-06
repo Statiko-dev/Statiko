@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"errors"
+	"time"
 )
 
 var ErrNoNodes = errors.New("no node connected")
@@ -48,12 +49,25 @@ func (c *Cluster) WaitForVersion(ver uint64) error {
 
 	// Wait until the desired version is announced in the channel
 	// This is a blocking call
-	// TODO: NEEDS A TIMEOUT HERE
-	for v := range ch {
-		if v >= ver {
-			break
+	// We're also adding a timer to periodically check if we now have no nodes connected
+	t := time.NewTicker(30 * time.Second)
+myloop:
+	for {
+		select {
+		// We received a new version
+		case v := <-ch:
+			if v >= ver {
+				break myloop
+			}
+		// On the timer, ensure there's still at least one node connected
+		case <-t.C:
+			if c.NodeCount() == 0 {
+				// No more nodes connected, so just stop waiting
+				break myloop
+			}
 		}
 	}
+	t.Stop()
 
 	// Remove the watcher
 	// This requires another lock

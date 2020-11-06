@@ -53,8 +53,8 @@ func (c *appConfig) Load() error {
 	// Load configuration
 	c.logger.Println("Loading configuration")
 
-	// Look for a config file named node-config.(json|yaml|toml|...)
-	viper.SetConfigName("node-config")
+	// Look for a config file named controller-config.(json|yaml|toml|...)
+	viper.SetConfigName("controller-config")
 
 	// Check if we have a path for the config file
 	configFilePath := os.Getenv("CONFIG_FILE_PATH")
@@ -89,10 +89,6 @@ func (c *appConfig) Load() error {
 
 // Set default options
 func (c *appConfig) setDefaults() {
-	// Default values
-	// Default port is 2265
-	viper.SetDefault("port", "2265")
-
 	// Default node name is the hostname
 	// Ignore errors here
 	hostname, _ := os.Hostname()
@@ -102,20 +98,20 @@ func (c *appConfig) setDefaults() {
 	viper.SetDefault("acme.endpoint", "https://acme-v02.api.letsencrypt.org/directory")
 	viper.SetDefault("appRoot", "/var/statiko/")
 	viper.SetDefault("codesign.required", false)
-	viper.SetDefault("disallowLeadership", false)
+	viper.SetDefault("controller.apiPort", 2265)
+	viper.SetDefault("controller.grpcPort", 2300)
+	viper.SetDefault("controller.tlsCertificate", "/etc/statiko/node-public.crt")
+	viper.SetDefault("controller.tlsEnabled", true)
+	viper.SetDefault("controller.tlsKey", "/etc/statiko/node-private.key")
+	viper.SetDefault("dhparams.maxAge", 120)
+	viper.SetDefault("dhparams.bits", 4096)
 	viper.SetDefault("manifestFile", "_statiko.yaml")
-	viper.SetDefault("repo.s3.endpoint", "s3.amazonaws.com")
-	viper.SetDefault("state.etcd.keyPrefix", "/statiko")
-	viper.SetDefault("state.file.path", "/etc/statiko/state")
-	viper.SetDefault("state.etcd.timeout", 10000)
-	viper.SetDefault("state.store", "file")
-	viper.SetDefault("tls.dhparams.maxAge", 120)
-	viper.SetDefault("tls.dhparams.bits", 4096)
-	viper.SetDefault("tls.node.acme", false)
-	viper.SetDefault("tls.node.certificate", "/etc/statiko/node-public.crt")
-	viper.SetDefault("tls.node.enabled", true)
-	viper.SetDefault("tls.node.key", "/etc/statiko/node-private.key")
 	viper.SetDefault("notifications.webhook.payloadKey", "value1")
+	viper.SetDefault("repo.s3.endpoint", "s3.amazonaws.com")
+	//viper.SetDefault("state.etcd.keyPrefix", "/statiko")
+	//viper.SetDefault("state.etcd.timeout", 10000)
+	viper.SetDefault("state.file.path", "/etc/statiko/state")
+	viper.SetDefault("state.store", "file")
 }
 
 // Bind environmental variables to config options
@@ -132,22 +128,24 @@ func (c *appConfig) bindEnvVars() {
 	viper.BindEnv("auth.azureAD.tenantId", "STATIKO_AUTH_AZUREAD_TENANT_ID")
 	viper.BindEnv("auth.psk.enabled", "STATIKO_AUTH_PSK_ENABLED")
 	viper.BindEnv("auth.psk.key", "STATIKO_AUTH_PSK_KEY")
-	viper.BindEnv("azure.clientId", "STATIKO_AZURE_CLIENT_ID")
-	viper.BindEnv("azure.clientSecret", "STATIKO_AZURE_CLIENT_SECRET")
-	viper.BindEnv("azure.tenantId", "STATIKO_AZURE_TENANT_ID")
 	viper.BindEnv("azureKeyVault.name", "STATIKO_AZURE_KEY_VAULT_NAME")
 	viper.BindEnv("azureKeyVault.auth.tenantId", "STATIKO_AZURE_KEY_VAULT_AUTH_TENANT_ID")
 	viper.BindEnv("azureKeyVault.auth.clientId", "STATIKO_AZURE_KEY_VAULT_AUTH_CLIENT_ID")
 	viper.BindEnv("azureKeyVault.auth.clientSecret", "STATIKO_AZURE_KEY_VAULT_AUTH_CLIENT_SECRET")
 	viper.BindEnv("codesign.publicKey", "STATIKO_CODESIGN_PUBLIC_KEY")
 	viper.BindEnv("codesign.required", "STATIKO_CODESIGN_REQUIRED")
-	viper.BindEnv("disallowLeadership", "STATIKO_DISALLOW_LEADERSHIP")
+	viper.BindEnv("controller.apiPort", "STATIKO_CONTROLLER_API_PORT")
+	viper.BindEnv("controller.grpcPort", "STATIKO_CONTROLLER_GRPC_PORT")
+	viper.BindEnv("controller.tlsCertificate", "STATIKO_CONTROLLER_TLS_CERTIFICATE")
+	viper.BindEnv("controller.tlsEnabled", "STATIKO_CONTROLLER_TLS_ENABLED")
+	viper.BindEnv("controller.tlsKey", "STATIKO_CONTROLLER_TLS_KEY")
+	viper.BindEnv("dhparams.bits", "STATIKO_DHPARAMS_BITS")
+	viper.BindEnv("dhparams.maxAge", "STATIKO_DHPARAMS_MAX_AGE")
 	viper.BindEnv("manifestFile", "STATIKO_MANIFEST_FILE")
 	viper.BindEnv("nodeName", "STATIKO_NODE_NAME")
 	viper.BindEnv("notifications.method", "STATIKO_NOTIFICATIONS_METHOD")
 	viper.BindEnv("notifications.webhook.payloadKey", "STATIKO_NOTIFICATIONS_WEBHOOK_PAYLOAD_KEY")
 	viper.BindEnv("notifications.webhook.url", "STATIKO_NOTIFICATIONS_WEBHOOK_URL")
-	viper.BindEnv("port", "STATIKO_PORT")
 	viper.BindEnv("repo.type", "STATIKO_REPO_TYPE")
 	viper.BindEnv("repo.local.path", "STATIKO_REPO_LOCAL_PATH")
 	viper.BindEnv("repo.azure.account", "STATIKO_REPO_AZURE_ACCOUNT")
@@ -165,23 +163,16 @@ func (c *appConfig) bindEnvVars() {
 	viper.BindEnv("repo.s3.noTLS", "STATIKO_REPO_S3_NO_TLS")
 	viper.BindEnv("repo.s3.secretAccessKey", "STATIKO_REPO_S3_SECRET_ACCESS_KEY")
 	viper.BindEnv("secretsEncryptionKey", "STATIKO_SECRETS_ENCRYPTION_KEY")
-	viper.BindEnv("state.etcd.address", "STATIKO_STATE_ETCD_ADDRESS")
-	viper.BindEnv("state.etcd.keyPrefix", "STATIKO_STATE_ETCD_KEY_PREFIX")
-	viper.BindEnv("state.etcd.timeout", "STATIKO_STATE_ETCD_TIMEOUT")
-	viper.BindEnv("state.etcd.tlsConfiguration.ca", "STATIKO_STATE_ETCD_TLS_CA")
-	viper.BindEnv("state.etcd.tlsConfiguration.clientCertificate", "STATIKO_STATE_ETCD_TLS_CLIENT_CERTIFICATE")
-	viper.BindEnv("state.etcd.tlsConfiguration.clientKey", "STATIKO_STATE_ETCD_TLS_CLIENT_KEY")
-	viper.BindEnv("state.etcd.tlsSkipVerify", "STATIKO_STATE_ETCD_TLS_SKIP_VERIFY")
+	//viper.BindEnv("state.etcd.address", "STATIKO_STATE_ETCD_ADDRESS")
+	//viper.BindEnv("state.etcd.keyPrefix", "STATIKO_STATE_ETCD_KEY_PREFIX")
+	//viper.BindEnv("state.etcd.timeout", "STATIKO_STATE_ETCD_TIMEOUT")
+	//viper.BindEnv("state.etcd.tlsConfiguration.ca", "STATIKO_STATE_ETCD_TLS_CA")
+	//viper.BindEnv("state.etcd.tlsConfiguration.clientCertificate", "STATIKO_STATE_ETCD_TLS_CLIENT_CERTIFICATE")
+	//viper.BindEnv("state.etcd.tlsConfiguration.clientKey", "STATIKO_STATE_ETCD_TLS_CLIENT_KEY")
+	//viper.BindEnv("state.etcd.tlsSkipVerify", "STATIKO_STATE_ETCD_TLS_SKIP_VERIFY")
 	viper.BindEnv("state.file.path", "STATIKO_STATE_FILE_PATH")
 	viper.BindEnv("state.store", "STATIKO_STATE_STORE")
 	viper.BindEnv("temporarySites.domain", "STATIKO_TEMPORARY_SITES_DOMAIN")
-	viper.BindEnv("tls.dhparams.bits", "STATIKO_TLS_DHPARAMS_BITS")
-	viper.BindEnv("tls.dhparams.maxAge", "STATIKO_TLS_DHPARAMS_MAX_AGE")
-	viper.BindEnv("tls.node.acme", "STATIKO_TLS_NODE_ACME")
-	viper.BindEnv("tls.node.address", "STATIKO_TLS_NODE_ADDRESS")
-	viper.BindEnv("tls.node.certificate", "STATIKO_TLS_NODE_CERTIFICATE")
-	viper.BindEnv("tls.node.enabled", "STATIKO_TLS_NODE_ENABLED")
-	viper.BindEnv("tls.node.key", "STATIKO_TLS_NODE_KEY")
 }
 
 // Get returns the value as interface{}

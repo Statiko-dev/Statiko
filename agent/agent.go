@@ -227,6 +227,7 @@ func (a *Agent) ready() (err error) {
 		State:      a.agentState,
 		AppManager: a.appManager,
 		Webserver:  a.webserver,
+		Notifier:   a.notifier,
 	}
 	a.syncClient.SyncComplete = func(syncError error) {
 		// Send the updated health to the controller

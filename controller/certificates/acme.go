@@ -29,6 +29,7 @@ import (
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 
@@ -86,6 +87,9 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 		return nil, nil, err
 	}
 	user.Registration = reg
+
+	// Disable the TLS-ALPN-01 challenge
+	client.Challenge.Remove(challenge.TLSALPN01)
 
 	// Enable the HTTP-01 challenge
 	err = client.Challenge.SetHTTP01Provider(&StatikoProvider{

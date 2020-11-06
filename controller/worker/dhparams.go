@@ -33,13 +33,13 @@ func (w *Worker) initDHParamsWorker() {
 	w.dhparamsLogger = log.New(os.Stdout, "worker/dhparams: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Ensure the number of bits is 1024, 2048 or 4096
-	bits := appconfig.Config.GetInt("tls.dhparams.bits")
+	bits := appconfig.Config.GetInt("dhparams.bits")
 	if bits != 1024 && bits != 2048 && bits != 4096 {
-		panic(errors.New("tls.dhparams.bits must be 1024, 2048 or 4096"))
+		panic(errors.New("dhparams.bits must be 1024, 2048 or 4096"))
 	}
 
 	// Get the max age for dhparams
-	maxAgeDays := appconfig.Config.GetInt("tls.dhparams.maxAge")
+	maxAgeDays := appconfig.Config.GetInt("dhparams.maxAge")
 
 	// If < 0, never regenerate dhparams (besides the first time)
 	if maxAgeDays < 0 {
@@ -47,7 +47,7 @@ func (w *Worker) initDHParamsWorker() {
 	} else {
 		// Must be at least one week and no more than 2 years
 		if maxAgeDays < 7 || maxAgeDays > 720 {
-			panic(errors.New("tls.dhparams.maxAge must be between 7 and 720 days; to disable automatic regeneration, set a negative value"))
+			panic(errors.New("dhparams.maxAge must be between 7 and 720 days; to disable automatic regeneration, set a negative value"))
 		}
 		w.dhparamsRegeneration = true
 		w.dhparamsMaxAge = time.Duration((-1) * time.Duration(maxAgeDays) * 24 * time.Hour)
@@ -122,7 +122,7 @@ func (w *Worker) dhparamsWorker(parentCtx context.Context) error {
 		}()
 
 		// Need to regenerate the DH parameters
-		bits := appconfig.Config.GetInt("tls.dhparams.bits")
+		bits := appconfig.Config.GetInt("dhparams.bits")
 		w.dhparamsLogger.Printf("DH parameters expired; starting generation with %d bits\n", bits)
 		result, err := dhparam.GenerateWithContext(ctx, bits, dhparam.GeneratorTwo, nil)
 		if err != nil {

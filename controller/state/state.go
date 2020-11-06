@@ -32,7 +32,7 @@ import (
 
 const (
 	StoreTypeFile = "file"
-	StoreTypeEtcd = "etcd"
+	//StoreTypeEtcd = "etcd"
 )
 
 type certRefreshCb func()
@@ -65,11 +65,12 @@ func (m *Manager) Init() (err error) {
 	case "file":
 		m.store = &StateStoreFile{}
 		m.storeType = StoreTypeFile
-	case "etcd":
-		m.store = &StateStoreEtcd{}
-		m.storeType = StoreTypeEtcd
+	/*case "etcd":
+	m.store = &StateStoreEtcd{}
+	m.storeType = StoreTypeEtcd*/
 	default:
-		err = errors.New("invalid value for configuration `state.store`; valid options are `file` or `etcd`")
+		//err = errors.New("invalid value for configuration `state.store`; valid options are `file` or `etcd`")
+		err = errors.New("invalid value for configuration `state.store`; valid options are `file`")
 		return
 	}
 	err = m.store.Init()

@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/statiko-dev/statiko/appconfig"
 	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
@@ -65,6 +66,10 @@ func (s *RPCServer) Init() {
 
 // Start the gRPC server; must be run in a goroutine with `go s.Start()`
 func (s *RPCServer) Start() {
+	// Port for the gRPC server
+	port := appconfig.Config.GetInt("controller.grpcPort")
+
+	// Continue until the server is stopped
 	for {
 		// Create the context
 		s.runningCtx, s.runningCancel = context.WithCancel(context.Background())
@@ -81,12 +86,12 @@ func (s *RPCServer) Start() {
 		// Start the server in another channel
 		go func() {
 			// Listen
-			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", 2300))
+			listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 			if err != nil {
 				s.runningCancel()
 				panic(err)
 			}
-			s.logger.Printf("Starting gRPC server on port %d\n", 2300)
+			s.logger.Printf("Starting gRPC server on port %d\n", port)
 			s.running = true
 			s.grpcServer.Serve(listener)
 		}()

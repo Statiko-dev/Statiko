@@ -15,7 +15,6 @@ require (
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-acme/lego/v4 v4.0.1
-	github.com/go-ini/ini v1.62.0 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/google/renameio v0.1.0
 	github.com/google/uuid v1.1.2

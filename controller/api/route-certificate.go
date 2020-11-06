@@ -206,3 +206,11 @@ func (s *APIServer) DeleteCertificateHandler(c *gin.Context) {
 		})
 	}
 }
+
+// RefreshCertificateHandler is the handler for POST /certificate/refresh, which triggers a refresh of certificates
+// This has no response. It's a POST request because it does trigger actions
+func (s *APIServer) RefreshCertificateHandler(c *gin.Context) {
+	// Trigger a refresh
+	s.State.TriggerCertRefresh()
+	c.Status(http.StatusNoContent)
+}
