@@ -33,7 +33,7 @@ type ConfigEntry struct {
 }
 
 // Loadconfig loads the configuration for a node (both controller and agent)
-func LoadConfig(envPrefix string, nodeType string, entries map[string]ConfigEntry) error {
+func LoadConfig(envPrefix string, nodeType string, entries ...map[string]ConfigEntry) error {
 	// Check if we have an environment set
 	env := os.Getenv(envPrefix + "ENV")
 	if env == "" {
@@ -50,8 +50,10 @@ func LoadConfig(envPrefix string, nodeType string, entries map[string]ConfigEntr
 	// Load configuration
 	logger.Println("Loading configuration")
 
-	// Look for a config file named <node-type>-config.(json|yaml|toml|...)
-	viper.SetConfigName(nodeType + "-config")
+	if nodeType != "" {
+		// Look for a config file named <node-type>-config.(json|yaml|toml|...)
+		viper.SetConfigName(nodeType + "-config")
+	}
 
 	// Check if we have a path for the config file
 	configFilePath := os.Getenv(envPrefix + "CONFIG_FILE")
@@ -69,12 +71,14 @@ func LoadConfig(envPrefix string, nodeType string, entries map[string]ConfigEntr
 
 	// For each entry, set the default value and map to an env var
 	// Note also ENV and CONFIG_FILE which are used above, and not part of the config file
-	for k, e := range entries {
-		if e.DefaultValue != nil {
-			viper.SetDefault(k, e.DefaultValue)
-		}
-		if e.EnvVar != "" {
-			viper.BindEnv(k, (envPrefix + e.EnvVar))
+	for _, entry := range entries {
+		for k, e := range entry {
+			if e.DefaultValue != nil {
+				viper.SetDefault(k, e.DefaultValue)
+			}
+			if e.EnvVar != "" {
+				viper.BindEnv(k, (envPrefix + e.EnvVar))
+			}
 		}
 	}
 
@@ -94,11 +98,69 @@ func LoadConfig(envPrefix string, nodeType string, entries map[string]ConfigEntr
 	logger.Printf("Config file used: %s\n", viper.ConfigFileUsed())
 
 	// Check that required entries are set
-	for k, e := range entries {
-		if e.Required && !viper.IsSet(k) {
-			return fmt.Errorf("configuration option %s is required", k)
+	for _, entry := range entries {
+		for k, e := range entry {
+			if e.Required && !viper.IsSet(k) {
+				return fmt.Errorf("configuration option %s is required", k)
+			}
 		}
 	}
 
 	return nil
+}
+
+// RepoConfigEntries returns the map of ConfigEntry's for the repo
+func RepoConfigEntries() map[string]ConfigEntry {
+	return map[string]ConfigEntry{
+		"repo.type": {
+			EnvVar:   "REPO_TYPE",
+			Required: true,
+		},
+		"repo.local.path": {
+			EnvVar: "REPO_LOCAL_PATH",
+		},
+		"repo.azure.account": {
+			EnvVar: "REPO_AZURE_ACCOUNT",
+		},
+		"repo.azure.container": {
+			EnvVar: "REPO_AZURE_CONTAINER",
+		},
+		"repo.azure.accessKey": {
+			EnvVar: "REPO_AZURE_ACCESS_KEY",
+		},
+		"repo.azure.endpointSuffix": {
+			EnvVar: "REPO_AZURE_ENDPOINT_SUFFIX",
+		},
+		"repo.azure.customEndpoint": {
+			EnvVar: "REPO_AZURE_CUSTOM_ENDPOINT",
+		},
+		"repo.azure.noTLS": {
+			EnvVar: "REPO_AZURE_NO_TLS",
+		},
+		"repo.azure.auth.tenantId": {
+			EnvVar: "REPO_AZURE_AUTH_TENANT_ID",
+		},
+		"repo.azure.auth.clientId": {
+			EnvVar: "REPO_AZURE_AUTH_CLIENT_ID",
+		},
+		"repo.azure.auth.clientSecret": {
+			EnvVar: "REPO_AZURE_AUTH_CLIENT_SECRET",
+		},
+		"repo.s3.accessKeyId": {
+			EnvVar: "REPO_S3_ACCESS_KEY_ID",
+		},
+		"repo.s3.bucket": {
+			EnvVar: "REPO_S3_BUCKET",
+		},
+		"repo.s3.endpoint": {
+			EnvVar:       "REPO_S3_ENDPOINT",
+			DefaultValue: "s3.amazonaws.com",
+		},
+		"repo.s3.noTLS": {
+			EnvVar: "REPO_S3_NO_TLS",
+		},
+		"repo.s3.secretAccessKey": {
+			EnvVar: "REPO_S3_SECRET_ACCESS_KEY",
+		},
+	}
 }

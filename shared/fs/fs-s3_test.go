@@ -18,36 +18,36 @@ package fs
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	minio "github.com/minio/minio-go/v7"
+	"github.com/spf13/viper"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 func TestS3Init(t *testing.T) {
 	opts := &pb.ClusterOptions_StoreS3{
-		Endpoint: os.Getenv("STATIKO_REPO_S3_ENDPOINT"),
-		NoTls:    utils.IsTruthy(os.Getenv("STATIKO_REPO_S3_NO_TLS")),
+		Endpoint: viper.GetString("repo.s3.endpoint"),
+		NoTls:    viper.GetBool("repo.s3.noTLS"),
 	}
 
 	// Generate a bucket name and get the region
+	// NOTE: This key from viper isn't part of the config file
 	bucket := "statikotest" + RandString(6)
-	region := os.Getenv("S3_REGION")
+	region := viper.GetString("s3-region")
 
 	t.Run("empty credentials", func(t *testing.T) {
 		o := &S3{}
 		if o.Init(opts) == nil {
 			t.Fatal("Expected error for missing accessKeyId, but got none")
 		}
-		opts.AccessKeyId = os.Getenv("STATIKO_REPO_S3_ACCESS_KEY_ID")
+		opts.AccessKeyId = viper.GetString("repo.s3.accessKeyId")
 
 		if o.Init(opts) == nil {
 			t.Fatal("Expected error for missing secretAccessKey, but got none")
 		}
-		opts.SecretAccessKey = os.Getenv("STATIKO_REPO_S3_SECRET_ACCESS_KEY")
+		opts.SecretAccessKey = viper.GetString("repo.s3.secretAccessKey")
 
 		if o.Init(opts) == nil {
 			t.Fatal("Expected error for missing bucket, but got none")

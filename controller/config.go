@@ -33,6 +33,7 @@ func (c *Controller) LoadConfig() error {
 	}
 
 	// List of config options for controller nodes
+	// This excludes all `repo.*` options that are returned by `utils.RepoConfigEntries`
 	entries := map[string]utils.ConfigEntry{
 		"acme.email": {
 			EnvVar: "ACME_EMAIL",
@@ -135,56 +136,6 @@ func (c *Controller) LoadConfig() error {
 		"notifications.webhook.url": {
 			EnvVar: "NOTIFICATIONS_WEBHOOK_URL",
 		},
-		"repo.type": {
-			EnvVar:   "REPO_TYPE",
-			Required: true,
-		},
-		"repo.local.path": {
-			EnvVar: "REPO_LOCAL_PATH",
-		},
-		"repo.azure.account": {
-			EnvVar: "REPO_AZURE_ACCOUNT",
-		},
-		"repo.azure.container": {
-			EnvVar: "REPO_AZURE_CONTAINER",
-		},
-		"repo.azure.accessKey": {
-			EnvVar: "REPO_AZURE_ACCESS_KEY",
-		},
-		"repo.azure.endpointSuffix": {
-			EnvVar: "REPO_AZURE_ENDPOINT_SUFFIX",
-		},
-		"repo.azure.customEndpoint": {
-			EnvVar: "REPO_AZURE_CUSTOM_ENDPOINT",
-		},
-		"repo.azure.noTLS": {
-			EnvVar: "REPO_AZURE_NO_TLS",
-		},
-		"repo.azure.auth.tenantId": {
-			EnvVar: "REPO_AZURE_AUTH_TENANT_ID",
-		},
-		"repo.azure.auth.clientId": {
-			EnvVar: "REPO_AZURE_AUTH_CLIENT_ID",
-		},
-		"repo.azure.auth.clientSecret": {
-			EnvVar: "REPO_AZURE_AUTH_CLIENT_SECRET",
-		},
-		"repo.s3.accessKeyId": {
-			EnvVar: "REPO_S3_ACCESS_KEY_ID",
-		},
-		"repo.s3.bucket": {
-			EnvVar: "REPO_S3_BUCKET",
-		},
-		"repo.s3.endpoint": {
-			EnvVar:       "REPO_S3_ENDPOINT",
-			DefaultValue: "s3.amazonaws.com",
-		},
-		"repo.s3.noTLS": {
-			EnvVar: "REPO_S3_NO_TLS",
-		},
-		"repo.s3.secretAccessKey": {
-			EnvVar: "REPO_S3_SECRET_ACCESS_KEY",
-		},
 		"secretsEncryptionKey": {
 			EnvVar: "SECRETS_ENCRYPTION_KEY",
 		},
@@ -226,5 +177,5 @@ func (c *Controller) LoadConfig() error {
 	}
 
 	// Load the config
-	return utils.LoadConfig("STATIKO_", "controller", entries)
+	return utils.LoadConfig("STATIKO_", "controller", entries, utils.RepoConfigEntries())
 }

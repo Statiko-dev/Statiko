@@ -19,24 +19,23 @@ package fs
 import (
 	"context"
 	"net/url"
-	"os"
 	"testing"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
-	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 var azContainerUrl azblob.ContainerURL
 
 func TestAzureStorageInit(t *testing.T) {
 	opts := &pb.ClusterOptions_StoreAzure{
-		AccessKey:      os.Getenv("STATIKO_REPO_AZURE_ACCESS_KEY"),
-		EndpointSuffix: os.Getenv("STATIKO_REPO_AZURE_ENDPOINT_SUFFIX"),
-		CustomEndpoint: os.Getenv("STATIKO_REPO_AZURE_CUSTOM_ENDPOINT"),
-		NoTls:          utils.IsTruthy(os.Getenv("STATIKO_REPO_AZURE_NO_TLS")),
+		AccessKey:      viper.GetString("repo.azure.accessKey"),
+		EndpointSuffix: viper.GetString("repo.azure.endpointSuffix"),
+		CustomEndpoint: viper.GetString("repo.azure.customEndpoint"),
+		NoTls:          viper.GetBool("repo.azure.noTLS"),
 	}
 
 	// Generate a container name
@@ -48,7 +47,7 @@ func TestAzureStorageInit(t *testing.T) {
 		if o.Init(opts) == nil {
 			t.Fatal("Expected error for missing account, but got none")
 		}
-		opts.Account = os.Getenv("STATIKO_REPO_AZURE_ACCOUNT")
+		opts.Account = viper.GetString("repo.azure.account")
 
 		if o.Init(opts) == nil {
 			t.Fatal("Expected error for missing container, but got none")

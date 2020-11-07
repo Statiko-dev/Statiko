@@ -27,6 +27,10 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/spf13/viper"
+
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 var (
@@ -40,6 +44,13 @@ const testFileSize = 275857
 
 // TestMain initializes all tests for this package
 func TestMain(m *testing.M) {
+	// Check if viper was initialized already
+	keys := viper.AllKeys()
+	if len(keys) == 0 {
+		// Init viper
+		utils.LoadConfig("STATIKO_", "", utils.RepoConfigEntries())
+	}
+
 	// Metadata
 	metadata = make(map[string]string)
 	metadata["foo"] = "bar"
