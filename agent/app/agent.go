@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package main
+package app
 
 import (
 	"context"
@@ -62,7 +62,7 @@ func (a *Agent) Run(ctx context.Context) (err error) {
 	a.logger = log.New(os.Stdout, "agent: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Load the configuration
-	err = a.LoadConfig()
+	err = a.loadConfig()
 	if err != nil {
 		return err
 	}

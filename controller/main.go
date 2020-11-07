@@ -17,13 +17,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
+	"context"
 	"log"
+
+	"github.com/statiko-dev/statiko/controller/app"
 )
 
 func main() {
 	// Create and run the Controller object
-	controller := &Controller{}
-	err := controller.Run()
+	controller := &app.Controller{}
+	err := controller.Run(context.Background())
 	if err != nil {
 		log.Panicln(err)
 	}

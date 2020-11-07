@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package main
+package app
 
 import (
 	"os"
@@ -22,8 +22,8 @@ import (
 	"github.com/statiko-dev/statiko/shared/utils"
 )
 
-// LoadConfig loads the configuration
-func (c *Controller) LoadConfig() error {
+// loadConfig loads the configuration
+func (c *Controller) loadConfig() error {
 	// Default node name is the hostname
 	// Ignore errors here
 	var hostname interface{}

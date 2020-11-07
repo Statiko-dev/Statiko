@@ -19,11 +19,13 @@ package main
 import (
 	"context"
 	"log"
+
+	"github.com/statiko-dev/statiko/agent/app"
 )
 
 func main() {
 	// Create and run the Agent object
-	controller := &Agent{}
+	controller := &app.Agent{}
 	err := controller.Run(context.Background())
 	if err != nil {
 		log.Panicln(err)

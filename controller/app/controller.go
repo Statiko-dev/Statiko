@@ -14,9 +14,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package main
+package app
 
 import (
+	"context"
 	"errors"
 	"log"
 	"os"
@@ -52,12 +53,12 @@ type Controller struct {
 }
 
 // Run the controller app
-func (c *Controller) Run() (err error) {
+func (c *Controller) Run(ctx context.Context) (err error) {
 	// Initialize the logger
 	c.logger = log.New(os.Stdout, "controller: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Load the configuration
-	err = c.LoadConfig()
+	err = c.loadConfig()
 	if err != nil {
 		return err
 	}
@@ -168,9 +169,15 @@ func (c *Controller) Run() (err error) {
 	c.apiSrv.Init()
 	go c.apiSrv.Start()
 
-	// Wait for the shutdown signal then stop the servers and the worker
-	<-sigCh
-	c.logger.Println("Received signal to terminate the app")
+	// Wait for the shutdown signal or context canceled then stop the servers and the worker
+	select {
+	case <-sigCh:
+		c.logger.Println("Received signal to terminate the app")
+		break
+	case <-ctx.Done():
+		c.logger.Println("Context canceled: terminating the app")
+		break
+	}
 	c.apiSrv.Stop()
 	c.rcpSrv.Stop()
 	c.worker.Stop()
