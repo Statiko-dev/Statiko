@@ -41,16 +41,21 @@ import (
 
 // Controller is the class that manages the controller app
 type Controller struct {
-	store    fs.Fs
-	state    *state.Manager
-	notifier *notifications.Notifications
-	cluster  *cluster.Cluster
-	certs    *certificates.Certificates
-	apiSrv   *api.APIServer
-	rcpSrv   *rpcserver.RPCServer
-	akv      *azurekeyvault.Client
-	logger   *log.Logger
-	worker   *worker.Worker
+	Store    fs.Fs
+	State    *state.Manager
+	Notifier *notifications.Notifications
+	Cluster  *cluster.Cluster
+	Certs    *certificates.Certificates
+	APISrv   *api.APIServer
+	RPCSrv   *rpcserver.RPCServer
+	AKV      *azurekeyvault.Client
+	Worker   *worker.Worker
+
+	logger *log.Logger
+
+	// For testing
+	StartedCb func()
+	NoWorker  bool
 }
 
 // Run the controller app
@@ -66,18 +71,18 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 
 	// Init the store
 	fsType, fsOpts, _ := controllerutils.GetClusterOptionsStore()
-	c.store, err = fs.Get(fsType, fsOpts)
+	c.Store, err = fs.Get(fsType, fsOpts)
 	if err != nil {
 		return err
 	}
 
 	// Init the state manager
-	c.state = &state.Manager{}
-	err = c.state.Init()
+	c.State = &state.Manager{}
+	err = c.State.Init()
 	if err != nil {
 		return err
 	}
-	if !c.state.LoadCodesignKey() && viper.GetBool("codesign.required") {
+	if !c.State.LoadCodesignKey() && viper.GetBool("codesign.required") {
 		return errors.New("codesign.required is true, but no valid key found in codesign.publicKey")
 	}
 
@@ -86,24 +91,24 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	c.notifier = &notifications.Notifications{}
-	err = c.notifier.Init(notificationsOpts)
+	c.Notifier = &notifications.Notifications{}
+	err = c.Notifier.Init(notificationsOpts)
 	if err != nil {
 		return err
 	}
 
 	// Init the cluster object
-	c.cluster = &cluster.Cluster{
-		State: c.state,
+	c.Cluster = &cluster.Cluster{
+		State: c.State,
 	}
-	c.cluster.NodeActivity = func(count int, direction int) {
+	c.Cluster.NodeActivity = func(count int, direction int) {
 		// When we get the very first node, trigger a refresh of the certificates
 		// This is because things like ACME require at least one node running to work
 		if count == 1 && direction == 1 {
-			c.state.CertRefresh()
+			c.State.CertRefresh()
 		}
 	}
-	err = c.cluster.Init()
+	err = c.Cluster.Init()
 	if err != nil {
 		return err
 	}
@@ -111,33 +116,36 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 	// Init the Azure Key Vault client if we need it
 	akvName := viper.GetString("azureKeyVault.name")
 	if akvName != "" {
-		c.akv = &azurekeyvault.Client{
+		c.AKV = &azurekeyvault.Client{
 			VaultName: akvName,
 		}
-		err = c.akv.Init(controllerutils.GetClusterOptionsAzureSP("azureKeyVault"))
+		err = c.AKV.Init(controllerutils.GetClusterOptionsAzureSP("azureKeyVault"))
 		if err != nil {
 			return err
 		}
 	}
 
 	// Init the certs object
-	c.certs = &certificates.Certificates{
-		State:   c.state,
-		Cluster: c.cluster,
-		AKV:     c.akv,
+	c.Certs = &certificates.Certificates{
+		State:   c.State,
+		Cluster: c.Cluster,
+		AKV:     c.AKV,
 	}
-	err = c.certs.Init()
+	err = c.Certs.Init()
 	if err != nil {
 		return err
 	}
 
 	// Start all background workers
-	c.worker = &worker.Worker{
-		State:        c.state,
-		Certificates: c.certs,
-		Notifier:     c.notifier,
+	// In testing mode, we can disable that
+	if !c.NoWorker {
+		c.Worker = &worker.Worker{
+			State:        c.State,
+			Certificates: c.Certs,
+			Notifier:     c.Notifier,
+		}
+		c.Worker.Start()
 	}
-	c.worker.Start()
 
 	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
 	sigCh := make(chan os.Signal, 1)
@@ -148,27 +156,32 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 	)
 
 	// Init and start the gRPC server
-	c.rcpSrv = &rpcserver.RPCServer{
-		State:   c.state,
-		Cluster: c.cluster,
-		Certs:   c.certs,
-		Fs:      c.store,
+	c.RPCSrv = &rpcserver.RPCServer{
+		State:   c.State,
+		Cluster: c.Cluster,
+		Certs:   c.Certs,
+		Fs:      c.Store,
 	}
-	c.rcpSrv.Init()
-	go c.rcpSrv.Start()
+	c.RPCSrv.Init()
+	go c.RPCSrv.Start()
 	if err != nil {
 		return err
 	}
 
 	// Init and start the API server
-	c.apiSrv = &api.APIServer{
-		Store:   c.store,
-		State:   c.state,
-		Cluster: c.cluster,
-		AKV:     c.akv,
+	c.APISrv = &api.APIServer{
+		Store:   c.Store,
+		State:   c.State,
+		Cluster: c.Cluster,
+		AKV:     c.AKV,
 	}
-	c.apiSrv.Init()
-	go c.apiSrv.Start()
+	c.APISrv.Init()
+	go c.APISrv.Start()
+
+	// For testing
+	if c.StartedCb != nil {
+		c.StartedCb()
+	}
 
 	// Wait for the shutdown signal or context canceled then stop the servers and the worker
 	select {
@@ -179,9 +192,11 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 		c.logger.Println("Context canceled: terminating the app")
 		break
 	}
-	c.apiSrv.Stop()
-	c.rcpSrv.Stop()
-	c.worker.Stop()
+	c.APISrv.Stop()
+	c.RPCSrv.Stop()
+	if c.Worker != nil {
+		c.Worker.Stop()
+	}
 
 	return nil
 }

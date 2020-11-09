@@ -14,25 +14,21 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package buildinfo
+package main
 
 import (
-	"fmt"
-	"runtime"
+	"net"
 )
 
-// These variables will be set at build time
-var (
-	BuildID    string
-	CommitHash string
-	BuildTime  string
-	ENV        string
-)
-
-// VersionString returns the app's version formatted as string
-func VersionString() string {
-	if BuildID == "" {
-		return "canary " + runtime.Version()
+// GetFreePort returns the number of a port that is not in use at the time it's checked
+// Note that the port might become in use as soon as this function returns if other processes are asking for it!
+func GetFreePort() (int, error) {
+	// Use port ":0" to ask the kernel for a port
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, err
 	}
-	return fmt.Sprintf("%s (%s; %s) %s", BuildID, CommitHash, BuildTime, runtime.Version())
+	port := listener.Addr().(*net.TCPAddr).Port
+	err = listener.Close()
+	return port, err
 }

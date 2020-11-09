@@ -23,7 +23,7 @@ import (
 )
 
 // Destination for logs
-var LogDestination io.Writer = os.Stdout
+var LogDestination io.ReadWriter = os.Stdout
 
 func init() {
 	// If there's an ENV passed via environmental variables, override the value hardcoded

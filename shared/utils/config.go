@@ -56,7 +56,7 @@ func LoadConfig(envPrefix string, nodeType string, entries ...map[string]ConfigE
 	}
 
 	// Check if we have a path for the config file
-	configFilePath := os.Getenv(envPrefix + "CONFIG_FILE")
+	configFilePath := os.Getenv(envPrefix + "CONFIG_PATH")
 	if configFilePath != "" {
 		viper.AddConfigPath(configFilePath)
 	}
@@ -70,7 +70,7 @@ func LoadConfig(envPrefix string, nodeType string, entries ...map[string]ConfigE
 	}
 
 	// For each entry, set the default value and map to an env var
-	// Note also ENV and CONFIG_FILE which are used above, and not part of the config file
+	// Note also ENV and CONFIG_PATH which are used above, and not part of the config file
 	for _, entry := range entries {
 		for k, e := range entry {
 			if e.DefaultValue != nil {

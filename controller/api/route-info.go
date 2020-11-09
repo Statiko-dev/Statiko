@@ -19,7 +19,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"runtime"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -27,17 +26,17 @@ import (
 	"github.com/statiko-dev/statiko/buildinfo"
 )
 
-// infoResponse is the response for the /info route
-type infoResponse struct {
+// InfoResponse is the response for the /info route
+type InfoResponse struct {
 	AuthMethods []string            `json:"authMethods"`
-	AzureAD     *openIDInfoResponse `json:"azureAD,omitempty"`
-	Auth0       *openIDInfoResponse `json:"auth0,omitempty"`
+	AzureAD     *OpenIDInfoResponse `json:"azureAD,omitempty"`
+	Auth0       *OpenIDInfoResponse `json:"auth0,omitempty"`
 	Version     string              `json:"version"`
-	Hostname    string              `json:"hostname"`
+	NodeName    string              `json:"nodeName"`
 }
 
-// openIDInfoResponse is part of the infoResponse struct
-type openIDInfoResponse struct {
+// OpenIDInfoResponse is part of the infoResponse struct
+type OpenIDInfoResponse struct {
 	AuthorizeURL string `json:"authorizeUrl"`
 	TokenURL     string `json:"tokenUrl"`
 	ClientID     string `json:"clientId"`
@@ -47,7 +46,7 @@ type openIDInfoResponse struct {
 func (s *APIServer) InfoHandler(c *gin.Context) {
 	// Check auth info
 	authMethods := make([]string, 0)
-	var azureADInfo, auth0Info *openIDInfoResponse
+	var azureADInfo, auth0Info *OpenIDInfoResponse
 	if viper.GetBool("auth.psk.enabled") {
 		authMethods = append(authMethods, "psk")
 	}
@@ -62,7 +61,7 @@ func (s *APIServer) InfoHandler(c *gin.Context) {
 		tenantId := viper.GetString("auth.azureAD.tenantId")
 		clientId := viper.GetString("auth.azureAD.clientId")
 		if tenantId != "" && clientId != "" {
-			azureADInfo = &openIDInfoResponse{
+			azureADInfo = &OpenIDInfoResponse{
 				AuthorizeURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantId),
 				TokenURL:     fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantId),
 				ClientID:     clientId,
@@ -76,7 +75,7 @@ func (s *APIServer) InfoHandler(c *gin.Context) {
 		clientId := viper.GetString("auth.auth0.clientId")
 		domain := viper.GetString("auth.auth0.domain")
 		if clientId != "" && domain != "" {
-			auth0Info = &openIDInfoResponse{
+			auth0Info = &OpenIDInfoResponse{
 				AuthorizeURL: fmt.Sprintf("https://%s/authorize", domain),
 				TokenURL:     fmt.Sprintf("https://%s/oauth/token", domain),
 				ClientID:     clientId,
@@ -85,15 +84,15 @@ func (s *APIServer) InfoHandler(c *gin.Context) {
 	}
 
 	// Version string
-	version := fmt.Sprintf("%s (%s; %s) %s", buildinfo.BuildID, buildinfo.CommitHash, buildinfo.BuildTime, runtime.Version())
+	version := buildinfo.VersionString()
 
 	// Response
-	info := infoResponse{
+	info := InfoResponse{
 		AuthMethods: authMethods,
 		AzureAD:     azureADInfo,
 		Auth0:       auth0Info,
 		Version:     version,
-		Hostname:    viper.GetString("nodeName"),
+		NodeName:    viper.GetString("nodeName"),
 	}
 
 	c.JSON(http.StatusOK, info)
