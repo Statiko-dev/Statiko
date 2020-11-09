@@ -33,6 +33,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/sync"
 	"github.com/statiko-dev/statiko/agent/webserver"
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
 	"github.com/statiko-dev/statiko/shared/notifications"
@@ -59,7 +60,7 @@ type Agent struct {
 // Run the agent app
 func (a *Agent) Run(ctx context.Context) (err error) {
 	// Init logger
-	a.logger = log.New(os.Stdout, "agent: ", log.Ldate|log.Ltime|log.LUTC)
+	a.logger = log.New(buildinfo.LogDestination, "agent: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Load the configuration
 	err = a.loadConfig()

@@ -18,12 +18,12 @@ package sync
 
 import (
 	"log"
-	"os"
 	"time"
 
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/agent/webserver"
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/shared/notifications"
 )
 
@@ -67,7 +67,7 @@ func (s *Sync) Init() {
 	s.startupComplete = false
 
 	// Init logger
-	s.logger = log.New(os.Stdout, "sync: ", log.Ldate|log.Ltime|log.LUTC)
+	s.logger = log.New(buildinfo.LogDestination, "sync: ", log.Ldate|log.Ltime|log.LUTC)
 }
 
 // StartupComplete returns true if the first sync has completed

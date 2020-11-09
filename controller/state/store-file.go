@@ -19,12 +19,12 @@ package state
 import (
 	"io/ioutil"
 	"log"
-	"os"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/renameio"
 	"github.com/spf13/viper"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/shared/utils"
 )
@@ -37,7 +37,7 @@ type StateStoreFile struct {
 // Init initializes the object
 func (s *StateStoreFile) Init() (err error) {
 	// Initialize the logger
-	s.logger = log.New(os.Stdout, "state/file: ", log.Ldate|log.Ltime|log.LUTC)
+	s.logger = log.New(buildinfo.LogDestination, "state/file: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Read the state from disk
 	err = s.ReadState()

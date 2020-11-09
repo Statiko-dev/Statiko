@@ -18,7 +18,8 @@ package utils
 
 import (
 	"log"
-	"os"
+
+	"github.com/statiko-dev/statiko/buildinfo"
 )
 
 // Package-wide properties
@@ -29,5 +30,5 @@ var (
 // Init method for the package
 func init() {
 	// Initialize the logger
-	logger = log.New(os.Stdout, "utils: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(buildinfo.LogDestination, "utils: ", log.Ldate|log.Ltime|log.LUTC)
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -50,7 +49,7 @@ func (s *HTTPServer) Init() {
 	s.running = false
 
 	// Initialize the logger
-	s.logger = log.New(os.Stdout, "httpserver: ", log.Ldate|log.Ltime|log.LUTC)
+	s.logger = log.New(buildinfo.LogDestination, "httpserver: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Channel used to stop and restart the server
 	s.stopCh = make(chan int)

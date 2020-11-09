@@ -169,10 +169,7 @@ func (f *AzureStorage) List(ctx context.Context) ([]FileInfo, error) {
 		// Check if there's more
 		marker = resp.NextMarker
 		if !marker.NotDone() {
-			fmt.Println("Done")
 			more = false
-		} else {
-			fmt.Println("Not Done")
 		}
 
 		// Iterate through the response

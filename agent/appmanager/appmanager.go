@@ -19,7 +19,6 @@ package appmanager
 import (
 	"crypto/rsa"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/google/renameio"
@@ -28,6 +27,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/certificates"
 	"github.com/statiko-dev/statiko/agent/state"
 	agentutils "github.com/statiko-dev/statiko/agent/utils"
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -48,7 +48,7 @@ type Manager struct {
 // Init the object
 func (m *Manager) Init() error {
 	// Logger
-	m.log = log.New(os.Stdout, "appmanager: ", log.Ldate|log.Ltime|log.LUTC)
+	m.log = log.New(buildinfo.LogDestination, "appmanager: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Init properties from config
 	m.appRoot = viper.GetString("appRoot")

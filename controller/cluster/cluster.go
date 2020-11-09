@@ -19,9 +19,9 @@ package cluster
 import (
 	"errors"
 	"log"
-	"os"
 	"sync"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/state"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -57,7 +57,7 @@ type Cluster struct {
 // Init the object
 func (c *Cluster) Init() error {
 	// Initialize the logger
-	c.logger = log.New(os.Stdout, "cluster: ", log.Ldate|log.Ltime|log.LUTC)
+	c.logger = log.New(buildinfo.LogDestination, "cluster: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Other properties
 	c.semaphore = &sync.Mutex{}

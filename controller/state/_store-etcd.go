@@ -22,7 +22,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	"go.etcd.io/etcd/v3/pkg/transport"
 	"google.golang.org/grpc/connectivity"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -65,7 +65,7 @@ func (s *StateStoreEtcd) Init() (err error) {
 	s.lastRevisionPut = 0
 
 	// Initialize the logger
-	s.logger = log.New(os.Stdout, "state/etcd: ", log.Ldate|log.Ltime|log.LUTC)
+	s.logger = log.New(buildinfo.LogDestination, "state/etcd: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Keys and prefixes
 	keyPrefix := viper.GetString("state.etcd.keyPrefix")

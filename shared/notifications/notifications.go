@@ -18,8 +18,8 @@ package notifications
 
 import (
 	"log"
-	"os"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -32,7 +32,7 @@ type Notifications struct {
 // Init the right object that will send notifications
 func (n *Notifications) Init(opts []*pb.ClusterOptions_NotificationsOpts) error {
 	// Init the logger
-	n.logger = log.New(os.Stdout, "notifications: ", log.Ldate|log.Ltime|log.LUTC)
+	n.logger = log.New(buildinfo.LogDestination, "notifications: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Init the notifier objects
 	n.senders = make([]notificationSender, len(opts))

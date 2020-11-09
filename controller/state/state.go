@@ -20,12 +20,12 @@ import (
 	"crypto/rsa"
 	"errors"
 	"log"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/spf13/viper"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/shared/defaults"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/shared/utils"
@@ -55,7 +55,7 @@ type Manager struct {
 // Init loads the state from the store
 func (m *Manager) Init() (err error) {
 	// Initialize the logger
-	m.logger = log.New(os.Stdout, "state: ", log.Ldate|log.Ltime|log.LUTC)
+	m.logger = log.New(buildinfo.LogDestination, "state: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Initialize the signaler
 	m.signaler = &utils.Signaler{}

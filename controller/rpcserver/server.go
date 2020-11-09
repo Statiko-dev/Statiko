@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -58,7 +57,7 @@ func (s *RPCServer) Init() {
 	s.running = false
 
 	// Initialize the logger
-	s.logger = log.New(os.Stdout, "grpc: ", log.Ldate|log.Ltime|log.LUTC)
+	s.logger = log.New(buildinfo.LogDestination, "grpc: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Channels used to stop and restart the server
 	s.stopCh = make(chan int)

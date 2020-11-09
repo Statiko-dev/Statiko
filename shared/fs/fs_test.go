@@ -51,6 +51,10 @@ func TestMain(m *testing.M) {
 		utils.LoadConfig("STATIKO_", "", utils.RepoConfigEntries())
 	}
 
+	// The S3 region is only used for testing
+	// By default, that's an empty string, but can be set with the TESTING_S3_REGION env var
+	viper.Set("s3-region", os.Getenv("TESTING_S3_REGION"))
+
 	// Metadata
 	metadata = make(map[string]string)
 	metadata["foo"] = "bar"

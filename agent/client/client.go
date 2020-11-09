@@ -19,7 +19,6 @@ package client
 import (
 	"context"
 	"log"
-	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -27,6 +26,7 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -57,7 +57,7 @@ type RPCClient struct {
 // Init the gRPC client
 func (c *RPCClient) Init() {
 	// Initialize the logger
-	c.logger = log.New(os.Stdout, "grpc: ", log.Ldate|log.Ltime|log.LUTC)
+	c.logger = log.New(buildinfo.LogDestination, "grpc: ", log.Ldate|log.Ltime|log.LUTC)
 }
 
 // Connect starts the connection to the gRPC server and starts all background streams

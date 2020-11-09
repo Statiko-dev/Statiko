@@ -18,8 +18,8 @@ package certificates
 
 import (
 	"log"
-	"os"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
@@ -37,7 +37,7 @@ type Certificates struct {
 // Init the object
 func (c *Certificates) Init() error {
 	// Initialize the logger
-	c.logger = log.New(os.Stdout, "certificates: ", log.Ldate|log.Ltime|log.LUTC)
+	c.logger = log.New(buildinfo.LogDestination, "certificates: ", log.Ldate|log.Ltime|log.LUTC)
 
 	return nil
 }

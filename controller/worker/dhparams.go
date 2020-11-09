@@ -20,16 +20,17 @@ import (
 	"context"
 	"errors"
 	"log"
-	"os"
 	"time"
 
 	dhparam "github.com/Luzifer/go-dhparam"
 	"github.com/spf13/viper"
+
+	"github.com/statiko-dev/statiko/buildinfo"
 )
 
 // Init the DH parameters worker
 func (w *Worker) initDHParamsWorker() {
-	w.dhparamsLogger = log.New(os.Stdout, "worker/dhparams: ", log.Ldate|log.Ltime|log.LUTC)
+	w.dhparamsLogger = log.New(buildinfo.LogDestination, "worker/dhparams: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Ensure the number of bits is 1024, 2048 or 4096
 	bits := viper.GetInt("dhparams.bits")

@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	"golang.org/x/crypto/pkcs12"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/shared/utils"
 )
@@ -51,7 +51,7 @@ type Client struct {
 
 // Init the object
 func (akv *Client) Init(sp *pb.ClusterOptions_AzureServicePrincipal) error {
-	akv.logger = log.New(os.Stdout, "azure-key-vault: ", log.Ldate|log.Ltime|log.LUTC)
+	akv.logger = log.New(buildinfo.LogDestination, "azure-key-vault: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Create a new client
 	akv.KeyVault = keyvault.New()

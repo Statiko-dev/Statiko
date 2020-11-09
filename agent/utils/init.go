@@ -18,12 +18,13 @@ package utils
 
 import (
 	"log"
-	"os"
+
+	"github.com/statiko-dev/statiko/buildinfo"
 )
 
 var logger *log.Logger
 
 // Init the package
 func init() {
-	logger = log.New(os.Stdout, "utils-agent: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(buildinfo.LogDestination, "utils-agent: ", log.Ldate|log.Ltime|log.LUTC)
 }

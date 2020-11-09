@@ -19,10 +19,10 @@ package certificates
 import (
 	"errors"
 	"log"
-	"os"
 
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/certutils"
 )
@@ -38,7 +38,7 @@ type AgentCertificates struct {
 // Init the object
 func (c *AgentCertificates) Init() error {
 	// Initialize the logger
-	c.logger = log.New(os.Stdout, "certificates: ", log.Ldate|log.Ltime|log.LUTC)
+	c.logger = log.New(buildinfo.LogDestination, "certificates: ", log.Ldate|log.Ltime|log.LUTC)
 
 	return nil
 }

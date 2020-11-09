@@ -16,7 +16,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package buildinfo
 
-import "os"
+import (
+	"bytes"
+	"io"
+	"os"
+)
+
+// Destination for logs
+var LogDestination io.Writer = os.Stdout
 
 func init() {
 	// If there's an ENV passed via environmental variables, override the value hardcoded
@@ -28,5 +35,10 @@ func init() {
 	// If there's no ENV, fallback to development
 	if ENV == "" {
 		ENV = "development"
+	}
+
+	// In test environment, we're putting logs in a separate stream
+	if ENV == "test" {
+		LogDestination = &bytes.Buffer{}
 	}
 }

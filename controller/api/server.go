@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -57,7 +56,7 @@ func (s *APIServer) Init() {
 	s.running = false
 
 	// Initialize the logger
-	s.logger = log.New(os.Stdout, "api: ", log.Ldate|log.Ltime|log.LUTC)
+	s.logger = log.New(buildinfo.LogDestination, "api: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Channel used to stop and restart the server
 	s.stopCh = make(chan int)

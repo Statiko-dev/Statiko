@@ -19,9 +19,9 @@ package certutils
 import (
 	"errors"
 	"log"
-	"os"
 	"strings"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 )
 
@@ -30,7 +30,7 @@ var logger *log.Logger
 
 // Init the package
 func init() {
-	logger = log.New(os.Stdout, "certutils: ", log.Ldate|log.Ltime|log.LUTC)
+	logger = log.New(buildinfo.LogDestination, "certutils: ", log.Ldate|log.Ltime|log.LUTC)
 }
 
 // Interface for both State (for the controller) and AgentState (for the agent)

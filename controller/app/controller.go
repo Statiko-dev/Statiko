@@ -26,6 +26,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/api"
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
@@ -55,7 +56,7 @@ type Controller struct {
 // Run the controller app
 func (c *Controller) Run(ctx context.Context) (err error) {
 	// Initialize the logger
-	c.logger = log.New(os.Stdout, "controller: ", log.Ldate|log.Ltime|log.LUTC)
+	c.logger = log.New(buildinfo.LogDestination, "controller: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Load the configuration
 	err = c.loadConfig()

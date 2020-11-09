@@ -18,11 +18,11 @@ package webserver
 
 import (
 	"log"
-	"os"
 	"text/template"
 
 	"github.com/statiko-dev/statiko/agent/appmanager"
 	"github.com/statiko-dev/statiko/agent/state"
+	"github.com/statiko-dev/statiko/buildinfo"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
 
@@ -45,7 +45,7 @@ type NginxConfig struct {
 // Init initializes the object and loads the templates from file
 func (n *NginxConfig) Init() error {
 	// Logger
-	n.logger = log.New(os.Stdout, "nginx: ", log.Ldate|log.Ltime|log.LUTC)
+	n.logger = log.New(buildinfo.LogDestination, "nginx: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Load the templates
 	n.templates = make(map[string]*template.Template, len(templateFiles))

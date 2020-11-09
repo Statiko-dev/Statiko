@@ -19,9 +19,9 @@ package state
 import (
 	"errors"
 	"log"
-	"os"
 	"time"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/shared/defaults"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/shared/utils"
@@ -46,7 +46,7 @@ type AgentState struct {
 // Init the object
 func (a *AgentState) Init() {
 	// Initialize the logger
-	a.logger = log.New(os.Stdout, "agent-state: ", log.Ldate|log.Ltime|log.LUTC)
+	a.logger = log.New(buildinfo.LogDestination, "agent-state: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Initialize the signaler
 	a.signaler = &utils.Signaler{}

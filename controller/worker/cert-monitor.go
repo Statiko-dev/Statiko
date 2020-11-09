@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/shared/certutils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -33,7 +33,7 @@ import (
 // Init the cert monitor worker
 func (w *Worker) initCertMonitorWorker() {
 	// Logger for this worker
-	w.certMonitorLogger = log.New(os.Stdout, "worker/cert-monitor: ", log.Ldate|log.Ltime|log.LUTC)
+	w.certMonitorLogger = log.New(buildinfo.LogDestination, "worker/cert-monitor: ", log.Ldate|log.Ltime|log.LUTC)
 
 	// Notifications sent
 	w.certMonitorNotifications = make(map[string]int)
