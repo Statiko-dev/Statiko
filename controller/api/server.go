@@ -31,6 +31,7 @@ import (
 	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
+	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/fs"
 )
@@ -99,25 +100,19 @@ func (s *APIServer) Start() {
 				MaxHeaderBytes:    1 << 20,
 			}
 
-			s.running = true
+			// TLS certificate and key
+			tlsCertFile := viper.GetString("controller.tlsCertificate")
+			tlsKeyFile := viper.GetString("controller.tlsKey")
+			tlsConfig := &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
+			s.srv.TLSConfig = tlsConfig
 
-			if viper.GetBool("controller.tlsEnabled") {
-				s.logger.Printf("Starting API server on https://%s\n", s.srv.Addr)
-				tlsCertFile := viper.GetString("controller.tlsCertificate")
-				tlsKeyFile := viper.GetString("controller.tlsKey")
-				tlsConfig := &tls.Config{
-					MinVersion: tls.VersionTLS12,
-				}
-				s.srv.TLSConfig = tlsConfig
-				if err := s.srv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != http.ErrServerClosed {
-					s.logger.Fatal(err)
-				}
-			} else {
-				s.srv.TLSConfig = nil
-				s.logger.Printf("Starting API server on http://%s\n", s.srv.Addr)
-				if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
-					s.logger.Fatal(err)
-				}
+			// Start the server
+			s.running = true
+			s.logger.Printf("Starting API server on https://%s\n", s.srv.Addr)
+			if err := s.srv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != http.ErrServerClosed {
+				s.logger.Fatal(err)
 			}
 		}()
 
@@ -186,7 +181,7 @@ func (s *APIServer) setupRoutes() {
 	// The middleware still checks for authentication, but it's optional
 	{
 		group := s.router.Group("/")
-		group.Use(s.Auth(false))
+		group.Use(controllerutils.AuthGinMiddleware(false))
 
 		group.GET("/info", s.InfoHandler)
 	}
@@ -194,7 +189,7 @@ func (s *APIServer) setupRoutes() {
 	// Routes that require authorization
 	{
 		group := s.router.Group("/")
-		group.Use(s.Auth(true))
+		group.Use(controllerutils.AuthGinMiddleware(true))
 		group.POST("/site", s.CreateSiteHandler)
 		group.GET("/site", s.ListSiteHandler)
 		group.GET("/site/:domain", s.ShowSiteHandler)

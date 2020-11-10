@@ -75,7 +75,7 @@ type Fs interface {
 // FileInfo object returned by the List methods
 type FileInfo struct {
 	Name         string    `json:"name"`
-	Size         int64     `json:"size"`
+	Size         int64     `json:"bundleSize"`
 	LastModified time.Time `json:"lastModified"`
 }
 

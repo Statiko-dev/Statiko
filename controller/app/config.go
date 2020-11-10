@@ -99,15 +99,11 @@ func (c *Controller) loadConfig() error {
 		},
 		"controller.tlsCertificate": {
 			EnvVar:       "CONTROLLER_TLS_CERTIFICATE",
-			DefaultValue: "/etc/statiko/node-public.crt",
-		},
-		"controller.tlsEnabled": {
-			EnvVar:       "CONTROLLER_TLS_ENABLED",
-			DefaultValue: true,
+			DefaultValue: "/etc/statiko/controller-cert.pem",
 		},
 		"controller.tlsKey": {
 			EnvVar:       "CONTROLLER_TLS_KEY",
-			DefaultValue: "/etc/statiko/node-private.key",
+			DefaultValue: "/etc/statiko/controller-key.pem",
 		},
 		"dhparams.bits": {
 			EnvVar:       "DHPARAMS_BITS",

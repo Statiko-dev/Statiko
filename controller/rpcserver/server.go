@@ -25,12 +25,14 @@ import (
 
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/statiko-dev/statiko/buildinfo"
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
+	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -75,8 +77,22 @@ func (s *RPCServer) Start() {
 		// Create the context
 		s.runningCtx, s.runningCancel = context.WithCancel(context.Background())
 
+		// TLS configuration
+		creds, err := credentials.NewServerTLSFromFile(
+			viper.GetString("controller.tlsCertificate"),
+			viper.GetString("controller.tlsKey"),
+		)
+		if err != nil {
+			s.runningCancel()
+			s.logger.Fatal(err)
+		}
+
 		// Create the server
-		s.grpcServer = grpc.NewServer()
+		s.grpcServer = grpc.NewServer(
+			grpc.Creds(creds),
+			grpc.UnaryInterceptor(controllerutils.AuthGRPCUnaryInterceptor),
+			grpc.StreamInterceptor(controllerutils.AuthGRPCStreamInterceptor),
+		)
 		pb.RegisterControllerServer(s.grpcServer, s)
 
 		// Register reflection service on gRPC server in development

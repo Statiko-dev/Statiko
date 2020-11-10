@@ -18,16 +18,13 @@ package utils
 
 import (
 	"crypto/ecdsa"
-	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 	"regexp"
 	"sort"
@@ -65,31 +62,6 @@ func StringInSlice(list []string, a string) bool {
 		}
 	}
 	return false
-}
-
-// ParseRSAPublicKey converts a public RSA key represented by base64-encoded modulus and exponent into a rsa.PublicKey object
-func ParseRSAPublicKey(nStr string, eStr string) (*rsa.PublicKey, error) {
-	pubKey := &rsa.PublicKey{}
-
-	// Modulus
-	nData, err := base64.RawURLEncoding.DecodeString(nStr)
-	if err != nil {
-		return nil, err
-	}
-	n := &big.Int{}
-	n.SetBytes(nData)
-	pubKey.N = n
-
-	// Public exponent
-	eData, err := base64.RawURLEncoding.DecodeString(eStr)
-	if err != nil {
-		return nil, err
-	}
-	e := big.Int{}
-	e.SetBytes(eData)
-	pubKey.E = int(e.Int64())
-
-	return pubKey, nil
 }
 
 // SHA256String returns the SHA256 of a string, as a hex-encoded string
