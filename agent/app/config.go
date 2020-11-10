@@ -49,6 +49,11 @@ func (a *Agent) loadConfig() error {
 			EnvVar:       "CONTROLLER_TLS_INSECURE",
 			DefaultValue: false,
 		},
+		// If set, uses this CA certificate (PEM-encoded) to verify the TLS certificate presented by the gRPC server
+		// If not set, it uses all certificates in the system's certificate store
+		"controller.tls.ca": {
+			EnvVar: "CONTROLLER_TLS_CA",
+		},
 		// Name of the agent node (by default, the hostname)
 		"nodeName": {
 			EnvVar:       "NODE_NAME",

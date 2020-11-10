@@ -1,6 +1,9 @@
 controller:
   apiPort: 2265
   grpcPort: 2300
+  tls:
+    certificate: "/etc/statiko/ca/controller.pem"
+    key: "/etc/statiko/ca/controller-key.pem"
 
 appRoot: "/data"
 

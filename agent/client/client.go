@@ -19,7 +19,9 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"io/ioutil"
 	"log"
 	"time"
 
@@ -74,17 +76,32 @@ func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 		return nil, errors.New("configuration option `controller.auth.psk` must be set")
 	}
 
+	// TLS configuration
+	tlsConf := &tls.Config{}
+
+	// Option to use a custom CA certificate rather than the root one
+	caFile := viper.GetString("controller.tls.ca")
+	if caFile != "" {
+		// Replace the RootCA with a new cert pool
+		certs := x509.NewCertPool()
+		crt, err := ioutil.ReadFile(caFile)
+		if err != nil {
+			return nil, err
+		}
+		certs.AppendCertsFromPEM(crt)
+		tlsConf.RootCAs = certs
+	}
+
 	// Option to skip verifying TLS certificates
 	// This is insecure and should be used in development only
 	insecureTls := viper.GetBool("controller.tls.insecure")
 	if insecureTls {
+		tlsConf.InsecureSkipVerify = true
 		c.logger.Println("[Warn] `controller.tls.insecure` is enabled: server TLS certificates aren't validated")
 	}
 
 	// Credentials for gRPC
-	creds := credentials.NewTLS(&tls.Config{
-		InsecureSkipVerify: insecureTls,
-	})
+	creds := credentials.NewTLS(tlsConf)
 
 	// Establish the underlying connection
 	connOpts := []grpc.DialOption{

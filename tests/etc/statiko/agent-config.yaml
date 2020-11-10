@@ -3,8 +3,9 @@ controller:
   auth:
     psk: "hello world"
   tls:
-    # Unsafe - for testing only
-    insecure: true
+    # Enabling this is unsafe - use for testing with self-signed certs only
+    insecure: false
+    ca: "/etc/statiko/ca/ca.pem"
 
 serverPort: 2424
 

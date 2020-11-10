@@ -97,11 +97,11 @@ func (c *Controller) loadConfig() error {
 			EnvVar:       "CONTROLLER_GRPC_PORT",
 			DefaultValue: 2300,
 		},
-		"controller.tlsCertificate": {
+		"controller.tls.certificate": {
 			EnvVar:       "CONTROLLER_TLS_CERTIFICATE",
-			DefaultValue: "/etc/statiko/controller-cert.pem",
+			DefaultValue: "/etc/statiko/controller.pem",
 		},
-		"controller.tlsKey": {
+		"controller.tls.key": {
 			EnvVar:       "CONTROLLER_TLS_KEY",
 			DefaultValue: "/etc/statiko/controller-key.pem",
 		},

@@ -1,0 +1,31 @@
+{
+    "signing": {
+        "default": {
+            "expiry": "43800h",
+            "key": {
+                "algo": "rsa",
+                "size": 2048
+            }
+        },
+        "profiles": {
+            "server": {
+                "expiry": "43800h",
+                "usages": [
+                    "signing",
+                    "digital signing",
+                    "key encipherment",
+                    "server auth"
+                ]
+            },
+            "client": {
+                "expiry": "43800h",
+                "usages": [
+                    "signing",
+                    "digital signature",
+                    "key encipherment", 
+                    "client auth"
+                ]
+            }
+        }
+    }
+}

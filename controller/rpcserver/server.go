@@ -79,8 +79,8 @@ func (s *RPCServer) Start() {
 
 		// TLS configuration
 		creds, err := credentials.NewServerTLSFromFile(
-			viper.GetString("controller.tlsCertificate"),
-			viper.GetString("controller.tlsKey"),
+			viper.GetString("controller.tls.certificate"),
+			viper.GetString("controller.tls.key"),
 		)
 		if err != nil {
 			s.runningCancel()

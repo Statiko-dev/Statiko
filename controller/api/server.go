@@ -101,8 +101,8 @@ func (s *APIServer) Start() {
 			}
 
 			// TLS certificate and key
-			tlsCertFile := viper.GetString("controller.tlsCertificate")
-			tlsKeyFile := viper.GetString("controller.tlsKey")
+			tlsCertFile := viper.GetString("controller.tls.certificate")
+			tlsKeyFile := viper.GetString("controller.tls.key")
 			tlsConfig := &tls.Config{
 				MinVersion: tls.VersionTLS12,
 			}
