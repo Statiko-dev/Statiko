@@ -15,20 +15,3 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 package main
-
-import (
-	"net"
-)
-
-// GetFreePort returns the number of a port that is not in use at the time it's checked
-// Note that the port might become in use as soon as this function returns if other processes are asking for it!
-func GetFreePort() (int, error) {
-	// Use port ":0" to ask the kernel for a port
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	err = listener.Close()
-	return port, err
-}

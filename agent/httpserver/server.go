@@ -20,6 +20,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,7 @@ import (
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/buildinfo"
+	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // HTTPServer is the HTTP server
@@ -79,9 +81,24 @@ func (s *HTTPServer) Start() {
 	for {
 		// Start the server in another channel
 		go func() {
+			var err error
+
+			// Get the port to bind to
+			// If the port is 0, then automatically select one that's available
+			port := viper.GetInt("serverPort")
+			if port == 0 {
+				port, err = utils.GetFreePort()
+				if err != nil {
+					s.logger.Fatal(err)
+				}
+
+				// Set the updated port in viper (the value is kept in memory anyways)
+				viper.Set("serverPort", port)
+			}
+
 			// HTTP Server
 			s.srv = &http.Server{
-				Addr:              "0.0.0.0:" + viper.GetString("serverPort"),
+				Addr:              "0.0.0.0:" + strconv.Itoa(port),
 				Handler:           s.router,
 				ReadTimeout:       2 * time.Hour,
 				ReadHeaderTimeout: 30 * time.Second,
@@ -91,7 +108,8 @@ func (s *HTTPServer) Start() {
 
 			s.running = true
 			s.logger.Printf("Starting HTTP server on http://%s\n", s.srv.Addr)
-			if err := s.srv.ListenAndServe(); err != http.ErrServerClosed {
+			err = s.srv.ListenAndServe()
+			if err != http.ErrServerClosed {
 				s.logger.Fatal(err)
 			}
 		}()

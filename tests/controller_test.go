@@ -36,6 +36,7 @@ import (
 	"github.com/statiko-dev/statiko/controller/api"
 	controllerApp "github.com/statiko-dev/statiko/controller/app"
 	pb "github.com/statiko-dev/statiko/shared/proto"
+	"github.com/statiko-dev/statiko/shared/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -108,13 +109,13 @@ func (s *ControllerTestSuite) configureEnvironment(t *testing.T) {
 	os.Setenv("STATIKO_STATE_FILE_PATH", stateDir+"/state")
 
 	// Get an available port for the API server
-	apiPort, err := GetFreePort()
+	apiPort, err := utils.GetFreePort()
 	if !assert.NoError(t, err) {
 		return
 	}
 
 	// Get another port for the gRPC server
-	grpcPort, err := GetFreePort()
+	grpcPort, err := utils.GetFreePort()
 	if !assert.NoError(t, err) {
 		return
 	}

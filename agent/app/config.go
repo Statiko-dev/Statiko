@@ -34,47 +34,69 @@ func (a *Agent) loadConfig() error {
 
 	// List of config options for agent nodes
 	entries := map[string]utils.ConfigEntry{
-		"controllerAddress": {
+		// Address (ip or hostname, and port) of the controller gRPC server
+		"controller.address": {
 			EnvVar:   "CONTROLLER_ADDRESS",
 			Required: true,
 		},
+		// PSK for authenticating with the controler gRPC server
+		"controller.auth.psk": {
+			EnvVar: "CONTROLLER_AUTH_PSK",
+		},
+		// Skip verifying TLS certificates presented by the gRPC server
+		// This is a potentially insecure flag that should only be used for testing
+		"controller.tls.insecure": {
+			EnvVar:       "CONTROLLER_TLS_INSECURE",
+			DefaultValue: false,
+		},
+		// Name of the agent node (by default, the hostname)
 		"nodeName": {
 			EnvVar:       "NODE_NAME",
 			DefaultValue: hostname,
 			Required:     true,
 		},
+		// Port where the internal HTTP server listens to.
+		// if 0 (the default), an available port will be auto-selected
 		"serverPort": {
 			EnvVar:       "SERVER_PORT",
-			DefaultValue: 2424,
+			DefaultValue: 0,
 		},
+		// Folder where to store the apps and other data for the Statiko agent
 		"appRoot": {
 			EnvVar:       "APP_ROOT",
 			DefaultValue: "/var/statiko/",
 		},
+		// Command to restart nginx
 		"nginx.commands.restart": {
 			EnvVar:       "NGINX_RESTART",
 			DefaultValue: "systemctl is-active --quiet nginx && systemctl reload nginx || systemctl restart nginx",
 		},
+		// Command to start nginx
 		"nginx.commands.start": {
 			EnvVar:       "NGINX_START",
 			DefaultValue: "systemctl start nginx",
 		},
+		// Command that returns the status of the nginx web server
+		// This should never return an error, and should print "1" if nginx is running, or "0" otherwise
 		"nginx.commands.status": {
 			EnvVar:       "NGINX_STATUS",
 			DefaultValue: "systemctl is-active --quiet nginx && echo 1 || echo 0",
 		},
+		// Command that performs the configuration test for nginx
 		"nginx.commands.test": {
 			EnvVar:       "NGINX_TEST",
 			DefaultValue: "nginx -t -q",
 		},
+		// Folder where the configuration for nginx is stored
 		"nginx.configPath": {
 			EnvVar:       "NGINX_CONFIG_PATH",
 			DefaultValue: "/etc/nginx/",
 		},
-		"nginx.user": {
+		// User that runs the nginx daemon (for setting the owner of the webroot)
+		/*"nginx.user": {
 			EnvVar:       "NGINX_USER",
 			DefaultValue: "www-data",
-		},
+		},*/
 	}
 
 	// Load the config

@@ -1,4 +1,11 @@
-controllerAddress: "localhost:2300"
+controller:
+  address: "localhost:2300"
+  auth:
+    psk: "hello world"
+  tls:
+    # Unsafe - for testing only
+    insecure: true
+
 serverPort: 2424
 
 appRoot: "/data"

@@ -18,12 +18,15 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
 	"log"
 	"time"
 
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/statiko-dev/statiko/buildinfo"
@@ -63,11 +66,33 @@ func (c *RPCClient) Init() {
 // Connect starts the connection to the gRPC server and starts all background streams
 // Returns a channel that gets a message every time a connection is established
 func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
-	c.logger.Println("Connecting to gRPC server at", viper.GetString("controllerAddress"))
-	// Underlying connection
+	c.logger.Println("Connecting to gRPC server at", viper.GetString("controller.address"))
+
+	// Authentication info
+	psk := viper.GetString("controller.auth.psk")
+	if psk == "" {
+		return nil, errors.New("configuration option `controller.auth.psk` must be set")
+	}
+
+	// Option to skip verifying TLS certificates
+	// This is insecure and should be used in development only
+	insecureTls := viper.GetBool("controller.tls.insecure")
+	if insecureTls {
+		c.logger.Println("[Warn] `controller.tls.insecure` is enabled: server TLS certificates aren't validated")
+	}
+
+	// Credentials for gRPC
+	creds := credentials.NewTLS(&tls.Config{
+		InsecureSkipVerify: insecureTls,
+	})
+
+	// Establish the underlying connection
 	connOpts := []grpc.DialOption{
 		grpc.WithBlock(),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(creds),
+		grpc.WithPerRPCCredentials(&rpcAuth{
+			Token: psk,
+		}),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoff.DefaultConfig,
 			MinConnectTimeout: time.Duration(requestTimeout) * time.Second,
@@ -77,7 +102,7 @@ func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 			Timeout: time.Duration(requestTimeout) * time.Second,
 		}),
 	}
-	c.connection, err = grpc.DialContext(context.Background(), viper.GetString("controllerAddress"), connOpts...)
+	c.connection, err = grpc.DialContext(context.Background(), viper.GetString("controller.address"), connOpts...)
 	if err != nil {
 		return nil, err
 	}
