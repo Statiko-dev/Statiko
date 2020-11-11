@@ -18,6 +18,7 @@ package worker
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"log"
 	"time"
@@ -94,14 +95,20 @@ func (w *Worker) certMonitorWorker() error {
 
 		// Check if there's a generated TLS certificate for this site
 		if el.GeneratedTlsId != "" {
-			// Errors are already logged
-			_ = w.certMonitorInspectCert(el.GeneratedTlsId, true, el.EnableAcme, domains)
+			// If we want to use ACME, take this path
+			if el.EnableAcme {
+				// Errors are already logged
+				_ = w.certMonitorInspectACME(el.GeneratedTlsId, domains)
+			} else {
+				// Errors are already logged
+				_ = w.certMonitorInspectSelfSigned(el.GeneratedTlsId, domains)
+			}
 		}
 
 		// Check if there's an imported TLS certificate for this site
 		if el.ImportedTlsId != "" {
 			// Errors are already logged
-			_ = w.certMonitorInspectCert(el.ImportedTlsId, false, false, domains)
+			_ = w.certMonitorInspectImported(el.ImportedTlsId, domains)
 		}
 	}
 
@@ -110,12 +117,8 @@ func (w *Worker) certMonitorWorker() error {
 	return nil
 }
 
-// Inspects a certificate
-// For generated certs, if they're expired, it will re-generate them
-// For imported certs, will only send a notification
-func (w *Worker) certMonitorInspectCert(certId string, generated bool, acme bool, domains []string) error {
-	now := time.Now()
-
+// Loads a certificate and returns its x509.Certificate object
+func (w *Worker) certMonitorLoadCert(certId string) (certX509 *x509.Certificate, err error) {
 	// Load the certificate and parse the PEM
 	_, certPem, err := w.Certificates.GetCertificate(certId)
 	if err != nil || len(certPem) == 0 {
@@ -124,131 +127,200 @@ func (w *Worker) certMonitorInspectCert(certId string, generated bool, acme bool
 		} else {
 			w.certMonitorLogger.Printf("Error while obtaining certificate %s: %s\n", certId, err)
 		}
-		return err
+		return nil, err
 	}
 	cert, err := certificates.GetX509(certPem)
 	if err != nil {
 		w.certMonitorLogger.Printf("Could not parse PEM data for certificate %s: %s", certId, err)
+		return nil, err
+	}
+
+	return cert, nil
+}
+
+// Checks whether a generated certificate is expired and whether it's self-signed
+func (w *Worker) certMonitorCheck(certId string, days int) (expired bool, selfSigned bool, err error) {
+	now := time.Now()
+
+	// Load the certificate
+	cert, err := w.certMonitorLoadCert(certId)
+	if err != nil {
+		// Error was already logged
+		return false, false, err
+	}
+
+	// Check if the certificate is self-signed
+	selfSigned = len(cert.Issuer.Organization) > 0 &&
+		cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer
+
+	// Interval before we need to request new certs
+	// ACME and self-signed certs have a different time before we need to update them
+	expired = cert.NotAfter.Before(now.Add(time.Duration((days * 24)) * time.Hour))
+	return expired, selfSigned, nil
+}
+
+// Stores a new TLS certificate in the state (but does not run the replace method)
+func (w *Worker) certMonitorStoreGenerated(keyPem []byte, certPem []byte, certObj *pb.TLSCertificate, certId string, domain string) (rr error) {
+	// Get the X509 object
+	certX509, err := certificates.GetX509(certPem)
+	if err != nil {
+		w.certMonitorLogger.Printf("Could not parse PEM data for the new certificate for site %s: %s", domain, err)
+		return err
+	}
+	certObj.SetCertificateProperties(certX509)
+
+	// Set the certificate
+	err = w.State.SetCertificate(certObj, certId, keyPem, certPem)
+	if err != nil {
+		w.certMonitorLogger.Printf("Could not store the new certificate for site %s: %s", domain, err)
 		return err
 	}
 
-	// For generated certificates, if they're about to expire re-generate them
-	if generated {
-		// Check if the certificate is self-signed
-		selfSigned := len(cert.Issuer.Organization) > 0 &&
-			cert.Issuer.Organization[0] == certificates.SelfSignedCertificateIssuer
+	return nil
+}
 
-		// Interval before we need to request new certs
-		// ACME and self-signed certs have a different time before we need to update them
-		interval := certificates.SelfSignedMinDays
-		if acme {
-			interval = certificates.ACMEMinDays
-		}
-		expired := cert.NotAfter.Before(now.Add(time.Duration((interval * 24)) * time.Hour))
+// Inspect a self-signed certificate, and if it's about to expire, re-generate it
+func (w *Worker) certMonitorInspectSelfSigned(certId string, domains []string) error {
+	// Check if the certificate has expired or if it's self-signed
+	expired, _, err := w.certMonitorCheck(certId, certificates.SelfSignedMinDays)
+	if err != nil {
+		// Error was already logged
+		return err
+	}
 
-		var (
-			certObj         *pb.TLSCertificate
-			keyPem, certPem []byte
-		)
+	// If the self-signed certificate has expired, re-generate it
+	if expired {
+		w.certMonitorLogger.Printf("Certificate for site %s is expiring in less than %d days; regenerating it\n", domains[0], certificates.SelfSignedMinDays)
 
-		// If the certificate has expired, or if it's self-signed but we want to use ACME, request a new certificate
-		if acme && (expired || selfSigned) {
-			w.certMonitorLogger.Printf("Requesting a new certificate for site %s from ACME\n", domains[0])
-
-			// Get the certificate from ACME (this can be a blocking call)
-			keyPem, certPem, err = w.Certificates.GenerateACMECertificate(domains...)
-			if err != nil {
-				w.certMonitorLogger.Printf("Error while requesting certificate from ACME for site %s: %s\n", domains[0], err)
-				return err
-			}
-
-			// CertObj
-			certObj = &pb.TLSCertificate{
-				Type: pb.TLSCertificate_ACME,
-			}
-		} else if expired {
-			// Self-signed certificate has expired, need to re-generate it
-			w.certMonitorLogger.Printf("Certificate for site %s is expiring in less than %d days; regenerating it\n", domains[0], certificates.SelfSignedMinDays)
-
-			// Get a new self-signed cert
-			keyPem, certPem, err = certificates.GenerateTLSCert(domains...)
-			if err != nil {
-				w.certMonitorLogger.Printf("Error while generating a new certificate for site %s: %s\n", domains[0], err)
-				return err
-			}
-
-			// CertObj
-			certObj = &pb.TLSCertificate{
-				Type: pb.TLSCertificate_SELF_SIGNED,
-			}
+		// Get a new self-signed cert
+		keyPem, certPem, err := certificates.GenerateTLSCert(domains...)
+		if err != nil {
+			w.certMonitorLogger.Printf("Error while generating a new certificate for site %s: %s\n", domains[0], err)
+			return err
 		}
 
-		// If we have a new certificate, store it
-		if certObj != nil {
-			// Get the X509 object
-			certX509, err := certificates.GetX509(certPem)
-			if err != nil {
-				w.certMonitorLogger.Printf("Could not parse PEM data for the new certificate for site %s: %s", domains[0], err)
-				return err
-			}
-			certObj.SetCertificateProperties(certX509)
-
-			// Generate a certificate ID
-			u, err := uuid.NewRandom()
-			if err != nil {
-				w.certMonitorLogger.Println("Error while generating a UUID:", err)
-				return err
-			}
-			newCertId := u.String()
-
-			// Set the certificate
-			err = w.State.SetCertificate(certObj, newCertId, keyPem, certPem)
-			if err != nil {
-				w.certMonitorLogger.Printf("Could not store the new certificate for site %s: %s", domains[0], err)
-				return err
-			}
-
-			// Replace the certificate
-			err = w.State.ReplaceCertificate(certId, newCertId)
-			if err != nil {
-				w.certMonitorLogger.Printf("Could not replace the certificate for site %s: %s", domains[0], err)
-				return err
-			}
+		// Generate a new ID for the certificate
+		u, err := uuid.NewRandom()
+		if err != nil {
+			w.certMonitorLogger.Println("Error while generating a UUID:", err)
+			return err
 		}
-	} else {
-		// For imported certificates, send a notification if the cert has expired
+		newCertId := u.String()
 
-		// Check if we sent a notification for expiring certificates already
-		sent, found := w.certMonitorNotifications[domains[0]]
-		if !found {
-			sent = len(w.certMonitorChecks)
+		// Store the certificate
+		certObj := &pb.TLSCertificate{
+			Type: pb.TLSCertificate_SELF_SIGNED,
+		}
+		err = w.certMonitorStoreGenerated(keyPem, certPem, certObj, newCertId, domains[0])
+		if err != nil {
+			// Error was already logged
+			return err
 		}
 
-		// Go through all checks
-		for i := 0; i < len(w.certMonitorChecks); i++ {
-			// If the certificate has expired
-			// Note: we are assuming 24-hour days, which isn't always correct but it's fine in this case
-			expired := cert.NotAfter.Before(now.Add(time.Duration((w.certMonitorChecks[i] * 24)) * time.Hour))
-			if expired {
-				// If we haven't already sent this notification
-				if i < sent {
-					message := "Certificate for " + domains[0] + " "
-					switch w.certMonitorChecks[i] {
-					case -2:
-						message += "has expired over 2 days ago"
-					case -1:
-						message += "has expired 1 day ago"
-					case 0:
-						message += "has expired today"
-					case 1:
-						message += "is expiring today"
-					default:
-						message += fmt.Sprintf("expires in %d days", w.certMonitorChecks[i])
-					}
-					w.certMonitorNotifications[domains[0]] = i
-					go w.Notifier.SendNotification(message)
-					break
+		// Replace the certificate for all sites using it
+		err = w.State.ReplaceCertificate(certId, newCertId)
+		if err != nil {
+			w.certMonitorLogger.Printf("Could not replace the certificate for site %s: %s", domains[0], err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Inspect a certificate from ACME, and if it's about to expire, request a new one
+// If the current certificate is self-signed (and not from ACME), always request a new one
+func (w *Worker) certMonitorInspectACME(certId string, domains []string) error {
+	// Check if the certificate has expired or if it's self-signed
+	expired, selfSigned, err := w.certMonitorCheck(certId, certificates.ACMEMinDays)
+	if err != nil {
+		// Error was already logged
+		return err
+	}
+
+	// If the certificate has expired, or if it's self-signed but we want to use ACME, request a new certificate
+	if expired || selfSigned {
+		w.certMonitorLogger.Printf("Requesting a new certificate for site %s from ACME\n", domains[0])
+
+		// Get the certificate from ACME (this can be a blocking call)
+		keyPem, certPem, err := w.Certificates.GenerateACMECertificate(domains...)
+		if err != nil {
+			w.certMonitorLogger.Printf("Error while requesting certificate from ACME for site %s: %s\n", domains[0], err)
+			return err
+		}
+
+		// Generate a new ID for the certificate
+		u, err := uuid.NewRandom()
+		if err != nil {
+			w.certMonitorLogger.Println("Error while generating a UUID:", err)
+			return err
+		}
+		newCertId := u.String()
+
+		// Store the certificate
+		certObj := &pb.TLSCertificate{
+			Type: pb.TLSCertificate_ACME,
+		}
+		err = w.certMonitorStoreGenerated(keyPem, certPem, certObj, newCertId, domains[0])
+		if err != nil {
+			// Error was already logged
+			return err
+		}
+
+		// Replace the certificate for all sites using it
+		err = w.State.ReplaceCertificate(certId, newCertId)
+		if err != nil {
+			w.certMonitorLogger.Printf("Could not replace the certificate for site %s: %s", domains[0], err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// For imported certificates, send a notification if the cert has expired
+func (w *Worker) certMonitorInspectImported(certId string, domains []string) error {
+	now := time.Now()
+
+	// Load the certificate
+	cert, err := w.certMonitorLoadCert(certId)
+	if err != nil {
+		// Error was already logged
+		return err
+	}
+
+	// Check if we sent a notification for expiring certificates already
+	sent, found := w.certMonitorNotifications[domains[0]]
+	if !found {
+		sent = len(w.certMonitorChecks)
+	}
+
+	// Go through all checks
+	for i := 0; i < len(w.certMonitorChecks); i++ {
+		// If the certificate has expired
+		// Note: we are assuming 24-hour days, which isn't always correct but it's fine in this case
+		expired := cert.NotAfter.Before(now.Add(time.Duration((w.certMonitorChecks[i] * 24)) * time.Hour))
+		if expired {
+			// If we haven't already sent this notification
+			if i < sent {
+				message := "Certificate for " + domains[0] + " "
+				switch w.certMonitorChecks[i] {
+				case -2:
+					message += "has expired over 2 days ago"
+				case -1:
+					message += "has expired 1 day ago"
+				case 0:
+					message += "has expired today"
+				case 1:
+					message += "is expiring today"
+				default:
+					message += fmt.Sprintf("expires in %d days", w.certMonitorChecks[i])
 				}
+				w.certMonitorNotifications[domains[0]] = i
+
+				// Send the notification in background
+				go w.Notifier.SendNotification(message)
+				break
 			}
 		}
 	}
