@@ -142,7 +142,7 @@ func (c *Certificates) acmePrivateKey(email string) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = c.State.SetSecret(storePath, data)
+	err = c.State.SetSecret(storePath, data, false)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (c *Certificates) acmeNewRegistration(email string, client *lego.Client) (*
 		return nil, err
 	}
 	storePath := "acme/registrations/" + utils.SHA256String(email)[:15] + ".pem"
-	err = c.State.SetSecret(storePath, data)
+	err = c.State.SetSecret(storePath, data, false)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
 	message := domain + "|" + keyAuth
 
 	// Set the token as a secret
-	err := w.State.SetSecret("acme/challenges/"+token, []byte(message))
+	err := w.State.SetSecret(("acme/challenges/" + token), []byte(message), true)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
 // CleanUp removes the key created for the challenge
 func (w *StatikoProvider) CleanUp(domain, token, keyAuth string) error {
 	// Delete the secret
-	err := w.State.DeleteSecret("acme/challenges/" + token)
+	err := w.State.DeleteSecret(("acme/challenges/" + token), false)
 	if err != nil {
 		return err
 	}

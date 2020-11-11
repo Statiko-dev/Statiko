@@ -45,7 +45,8 @@ func (m *Manager) GetSecret(key string) ([]byte, error) {
 }
 
 // SetSecret sets the value for a secret (encrypted in the state)
-func (m *Manager) SetSecret(key string, value []byte) error {
+// If updates if true, the state's version will be increased after the secret is stored, which will trigger a sync
+func (m *Manager) SetSecret(key string, value []byte, updates bool) error {
 	// Encrypt the secret
 	encValue, err := encryptData(value)
 	if err != nil {
@@ -66,7 +67,7 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Store the value and increase the version
+	// Store the value
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
@@ -75,9 +76,12 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 		state.Secrets = make(map[string][]byte)
 	}
 	state.Secrets[key] = encValue
-	state.Version++
 
-	m.setUpdated()
+	// If "updates" is true, increase the version and trigger a resync
+	if updates {
+		state.Version++
+		m.setUpdated()
+	}
 
 	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
@@ -88,7 +92,8 @@ func (m *Manager) SetSecret(key string, value []byte) error {
 }
 
 // DeleteSecret deletes a secret
-func (m *Manager) DeleteSecret(key string) error {
+// If updates if true, the state's version will be increased after the secret is stored, which will trigger a sync
+func (m *Manager) DeleteSecret(key string, updates bool) error {
 	// Check if the store is healthy
 	// Note: this won't guarantee that the store will be healthy when we try to write in it
 	healthy, err := m.StoreHealth()
@@ -103,16 +108,19 @@ func (m *Manager) DeleteSecret(key string) error {
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Delete the key and increase the version
+	// Delete the secret
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
 	}
 	if state.Secrets != nil {
-		state.Version++
 		delete(state.Secrets, key)
 
-		m.setUpdated()
+		// If "updates" is true, increase the version and trigger a resync
+		if updates {
+			state.Version++
+			m.setUpdated()
+		}
 
 		// Commit the state to the store
 		if err := m.store.WriteState(); err != nil {

@@ -34,9 +34,9 @@ type secretProvider interface {
 	// GetSecret returns a secret's data
 	GetSecret(key string) ([]byte, error)
 	// SetSecret stores a secret
-	SetSecret(key string, value []byte) error
+	SetSecret(key string, value []byte, updates bool) error
 	// DeleteSecret deletes a secret
-	DeleteSecret(key string) error
+	DeleteSecret(key string, updates bool) error
 }
 
 // Interface of a class that implements secretProvider and certutils.stateStoreCert

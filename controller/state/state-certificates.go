@@ -109,7 +109,7 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 	}
 	defer m.store.ReleaseLock(leaseID)
 
-	// Update the state and increase the version
+	// Update the state
 	state := m.store.GetState()
 	if state == nil {
 		return errors.New("state not loaded")
@@ -118,9 +118,9 @@ func (m *Manager) SetCertificate(obj *pb.TLSCertificate, certId string, key []by
 		state.Certificates = make(map[string]*pb.TLSCertificate)
 	}
 	state.Certificates[certId] = obj
-	state.Version++
 
-	// Do not set the updated flag because no site has been modified at this point
+	// Do not increase the version or set the updated flag because no site has been modified at this point
+	//state.Version++
 	//m.setUpdated()
 
 	// Commit the state to the store
@@ -159,13 +159,13 @@ func (m *Manager) DeleteCertificate(certId string) (err error) {
 		}
 	}
 
-	// Delete the certificate and increase the version
+	// Delete the certificate
 	if state.Certificates != nil {
 		delete(state.Certificates, certId)
-		state.Version++
 	}
 
-	// Do not set the updated flag because no site has been modified at this point
+	// Do not increase the version or set the updated flag because no site has been modified at this point
+	//state.Version++
 	//m.setUpdated()
 
 	// Commit the state to the store
@@ -225,17 +225,23 @@ func (m *Manager) ReplaceCertificate(oldCertId, newCertId string) error {
 	}
 
 	// Iterate through the sites that are using the old certificate
+	updated := false
 	for _, s := range state.Sites {
 		if s.GeneratedTlsId == oldCertId {
 			s.GeneratedTlsId = newCertId
+			updated = true
 		}
 	}
 
 	// Delete the old certificate
 	delete(state.Certificates, oldCertId)
-	state.Version++
 
-	m.setUpdated()
+	// If we updated a site, update the version send the "setUpdated" notification
+	// Only if we updated a site, however, to avoid unnecessary re-syncs
+	if updated {
+		state.Version++
+		m.setUpdated()
+	}
 
 	// Commit the state to the store
 	if err := m.store.WriteState(); err != nil {
