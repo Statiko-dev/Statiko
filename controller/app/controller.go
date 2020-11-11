@@ -151,15 +151,10 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 		return err
 	}
 
-	// Start all background workers
-	// In testing mode, we can disable that
-	if !c.NoWorker {
-		c.Worker = &worker.Worker{
-			State:        c.State,
-			Certificates: c.Certs,
-			Notifier:     c.Notifier,
-		}
-		c.Worker.Start()
+	// Get the TLS certificate for the controller node
+	cert, err := c.GetControllerCertificate()
+	if err != nil {
+		return err
 	}
 
 	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
@@ -176,12 +171,10 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 		Cluster: c.Cluster,
 		Certs:   c.Certs,
 		Fs:      c.Store,
+		TLSCert: cert,
 	}
 	c.RPCSrv.Init()
 	go c.RPCSrv.Start()
-	if err != nil {
-		return err
-	}
 
 	// Init and start the API server
 	c.APISrv = &api.APIServer{
@@ -189,9 +182,21 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 		State:   c.State,
 		Cluster: c.Cluster,
 		AKV:     c.AKV,
+		TLSCert: cert,
 	}
 	c.APISrv.Init()
 	go c.APISrv.Start()
+
+	// Start all background workers
+	// In testing mode, we can disable that
+	if !c.NoWorker {
+		c.Worker = &worker.Worker{
+			State:        c.State,
+			Certificates: c.Certs,
+			Notifier:     c.Notifier,
+		}
+		c.Worker.Start()
+	}
 
 	// For testing
 	if c.StartedCb != nil {

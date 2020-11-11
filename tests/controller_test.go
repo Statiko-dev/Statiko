@@ -54,7 +54,6 @@ type ControllerTestSuite struct {
 	client     *http.Client
 	apiUrl     string
 	authHeader string
-	appRoot    string
 	configDir  string
 }
 
@@ -89,9 +88,6 @@ func (s *ControllerTestSuite) Run(t *testing.T) {
 // Configure the environment
 func (s *ControllerTestSuite) configureEnvironment(t *testing.T) {
 	t.Helper()
-
-	// Create a temporary folder for the app root
-	s.appRoot = t.TempDir()
 
 	// Create a temporary dir for the state
 	stateDir := t.TempDir()

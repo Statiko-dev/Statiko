@@ -75,13 +75,16 @@ func GetCertificate(certificateId string, state StateStoreCert, akv *azurekeyvau
 
 // GetAKVCertificate returns a certificate from Azure Key Vault
 func GetAKVCertificate(certificateId string, akv *azurekeyvault.Client) (key []byte, cert []byte, err error) {
+	// Remove the akv: prefix if present
+	certificateId = strings.TrimPrefix(certificateId, "akv:")
+
 	// Get the name and version
 	pos := strings.Index(certificateId, "/")
 	var name, version string
 	if pos == -1 {
-		name = certificateId[4:]
+		name = certificateId[0:]
 	} else {
-		name = certificateId[4:pos]
+		name = certificateId[0:pos]
 		version = certificateId[(pos + 1):]
 	}
 

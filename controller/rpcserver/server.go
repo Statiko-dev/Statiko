@@ -18,6 +18,7 @@ package rpcserver
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -43,6 +44,7 @@ type RPCServer struct {
 	Cluster *cluster.Cluster
 	Certs   *certificates.Certificates
 	Fs      fs.Fs
+	TLSCert *tls.Certificate
 
 	logger        *log.Logger
 	stopCh        chan int
@@ -77,19 +79,9 @@ func (s *RPCServer) Start() {
 		// Create the context
 		s.runningCtx, s.runningCancel = context.WithCancel(context.Background())
 
-		// TLS configuration
-		creds, err := credentials.NewServerTLSFromFile(
-			viper.GetString("controller.tls.certificate"),
-			viper.GetString("controller.tls.key"),
-		)
-		if err != nil {
-			s.runningCancel()
-			s.logger.Fatal(err)
-		}
-
 		// Create the server
 		s.grpcServer = grpc.NewServer(
-			grpc.Creds(creds),
+			grpc.Creds(credentials.NewServerTLSFromCert(s.TLSCert)),
 			grpc.UnaryInterceptor(controllerutils.AuthGRPCUnaryInterceptor),
 			grpc.StreamInterceptor(controllerutils.AuthGRPCStreamInterceptor),
 		)

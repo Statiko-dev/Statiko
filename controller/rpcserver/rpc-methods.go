@@ -170,9 +170,10 @@ forloop:
 // GetTLSCertificate is a simple RPC that returns a TLS certificate
 func (s *RPCServer) GetTLSCertificate(ctx context.Context, in *pb.TLSCertificateRequest) (*pb.TLSCertificateMessage, error) {
 	// Get the certificate ID
+	// Forbid retrieving certificates that belong to the controller or that are from Azure Key Vaut
 	certId := in.CertificateId
-	if certId == "" {
-		return nil, errors.New("empty certificate ID")
+	if certId == "" || strings.HasPrefix(certId, "akv:") || strings.HasPrefix(certId, "controller_") {
+		return nil, errors.New("empty or invalid certificate ID")
 	}
 
 	// Get the certificate

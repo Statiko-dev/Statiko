@@ -2,10 +2,11 @@ controller:
   apiPort: 2265
   grpcPort: 2300
   tls:
-    certificate: "/etc/statiko/ca/controller.pem"
-    key: "/etc/statiko/ca/controller-key.pem"
-
-appRoot: "/data"
+    #azureKeyVault: "controller-statiko-test"
+    #certificate: "/etc/statiko/ca/controller.pem"
+    #key: "/etc/statiko/ca/controller-key.pem"
+    certificate: ""
+    acme: false
 
 state:
   store: "file"
@@ -39,14 +40,14 @@ repo:
     account: "statikocistorage"
     container: "apps"
 
-nodeName: "statiko-dev"
+nodeName: "controller.statiko.test"
 
 acme:
   email: someone@example.com
   endpoint: https://pebble:14000/dir
 
 temporarySites:
-  domain: "example.com"
+  domain: "sites.test"
 
 codesign:
   required: false

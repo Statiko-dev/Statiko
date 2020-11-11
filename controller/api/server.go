@@ -42,6 +42,7 @@ type APIServer struct {
 	State   *state.Manager
 	Cluster *cluster.Cluster
 	AKV     *azurekeyvault.Client
+	TLSCert *tls.Certificate
 
 	logger    *log.Logger
 	router    *gin.Engine
@@ -101,17 +102,17 @@ func (s *APIServer) Start() {
 			}
 
 			// TLS certificate and key
-			tlsCertFile := viper.GetString("controller.tls.certificate")
-			tlsKeyFile := viper.GetString("controller.tls.key")
 			tlsConfig := &tls.Config{
-				MinVersion: tls.VersionTLS12,
+				MinVersion:   tls.VersionTLS12,
+				Certificates: []tls.Certificate{*s.TLSCert},
 			}
 			s.srv.TLSConfig = tlsConfig
 
 			// Start the server
+			// Pass empty strings for the TLS certificate because it's already set in the tls.Config object
 			s.running = true
 			s.logger.Printf("Starting API server on https://%s\n", s.srv.Addr)
-			if err := s.srv.ListenAndServeTLS(tlsCertFile, tlsKeyFile); err != http.ErrServerClosed {
+			if err := s.srv.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 				s.logger.Fatal(err)
 			}
 		}()

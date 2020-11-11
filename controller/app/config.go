@@ -35,16 +35,16 @@ func (c *Controller) loadConfig() error {
 	// List of config options for controller nodes
 	// This excludes all `repo.*` options that are returned by `utils.RepoConfigEntries`
 	entries := map[string]utils.ConfigEntry{
+		// Email address used to register with the ACME (e.g. Let's Encrypt) service
 		"acme.email": {
 			EnvVar: "ACME_EMAIL",
 		},
+		// Endpoint of the ACME service
+		// The defaullt value is to use the public Let's Encrypt service
+		// This can be overridden if using a private ACME certificate authority (e.g. using Boulder) or for testing
 		"acme.endpoint": {
 			EnvVar:       "ACME_ENDPOINT",
 			DefaultValue: "https://acme-v02.api.letsencrypt.org/directory",
-		},
-		"appRoot": {
-			EnvVar:       "APP_ROOT",
-			DefaultValue: "/var/statiko/",
 		},
 		"auth.auth0.clientId": {
 			EnvVar: "AUTH_AUTH0_CLIENT_ID",
@@ -97,6 +97,13 @@ func (c *Controller) loadConfig() error {
 			EnvVar:       "CONTROLLER_GRPC_PORT",
 			DefaultValue: 2300,
 		},
+		"controller.tls.acme": {
+			EnvVar:       "CONTROLLER_TLS_ACME",
+			DefaultValue: false,
+		},
+		"controller.tls.azureKeyVault": {
+			EnvVar: "CONTROLLER_TLS_AZURE_KEY_VAULT",
+		},
 		"controller.tls.certificate": {
 			EnvVar:       "CONTROLLER_TLS_CERTIFICATE",
 			DefaultValue: "/etc/statiko/controller.pem",
@@ -117,6 +124,8 @@ func (c *Controller) loadConfig() error {
 			EnvVar:       "MANIFEST_FILE",
 			DefaultValue: "_statiko.yaml",
 		},
+		// Hostname of the controller node
+		// This should be a Fully-Qualified Domain Name (FQDN) as it's used to generate TLS certificates for the node if needed
 		"nodeName": {
 			EnvVar:       "NODE_NAME",
 			DefaultValue: hostname,
