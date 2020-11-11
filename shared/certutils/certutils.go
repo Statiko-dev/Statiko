@@ -34,12 +34,12 @@ func init() {
 }
 
 // Interface for both State (for the controller) and AgentState (for the agent)
-type stateStoreCert interface {
+type StateStoreCert interface {
 	GetCertificate(certId string) (key []byte, cert []byte, err error)
 }
 
 // GetCertificate returns a certificate key and cert by ID from the certificate cache
-func GetCertificate(certificateId string, state stateStoreCert, akv *azurekeyvault.Client) (key []byte, cert []byte, err error) {
+func GetCertificate(certificateId string, state StateStoreCert, akv *azurekeyvault.Client) (key []byte, cert []byte, err error) {
 	// Check if the certificate type
 	switch {
 

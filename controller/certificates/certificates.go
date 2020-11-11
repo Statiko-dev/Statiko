@@ -17,28 +17,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package certificates
 
 import (
-	"log"
-
-	"github.com/statiko-dev/statiko/buildinfo"
-	"github.com/statiko-dev/statiko/controller/cluster"
-	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/shared/azurekeyvault"
 	"github.com/statiko-dev/statiko/shared/certutils"
 )
 
 // Certificates is the class that manages TLS certificates
 type Certificates struct {
-	State   *state.Manager
-	Cluster *cluster.Cluster
-	AKV     *azurekeyvault.Client
-	logger  *log.Logger
+	State          stateObj
+	ACMETokenReady ACMETokenReadyFunc
+	AKV            *azurekeyvault.Client
 }
 
 // Init the object
 func (c *Certificates) Init() error {
-	// Initialize the logger
-	c.logger = log.New(buildinfo.LogDestination, "certificates: ", log.Ldate|log.Ltime|log.LUTC)
-
 	return nil
 }
 

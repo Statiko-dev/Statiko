@@ -35,8 +35,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/statiko-dev/statiko/buildinfo"
-	"github.com/statiko-dev/statiko/controller/cluster"
-	"github.com/statiko-dev/statiko/controller/state"
 	"github.com/statiko-dev/statiko/shared/utils"
 )
 
@@ -66,7 +64,7 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 	// Client configuration
 	user := ACMEUser{
 		Email: email,
-		key:   privateKey,
+		Key:   privateKey,
 	}
 	config := lego.NewConfig(&user)
 	config.Certificate.KeyType = certcrypto.RSA4096
@@ -94,8 +92,8 @@ func (c *Certificates) GenerateACMECertificate(domains ...string) (keyPEM []byte
 
 	// Enable the HTTP-01 challenge
 	err = client.Challenge.SetHTTP01Provider(&StatikoProvider{
-		State:   c.State,
-		Cluster: c.Cluster,
+		State:          c.State,
+		ACMETokenReady: c.ACMETokenReady,
 	})
 	if err != nil {
 		return nil, nil, err
@@ -207,7 +205,7 @@ func (c *Certificates) acmeNewRegistration(email string, client *lego.Client) (*
 type ACMEUser struct {
 	Email        string
 	Registration *registration.Resource
-	key          crypto.PrivateKey
+	Key          crypto.PrivateKey
 }
 
 func (u *ACMEUser) GetEmail() string {
@@ -217,13 +215,17 @@ func (u *ACMEUser) GetRegistration() *registration.Resource {
 	return u.Registration
 }
 func (u *ACMEUser) GetPrivateKey() crypto.PrivateKey {
-	return u.key
+	return u.Key
 }
+
+// This function blocks until the node is ready to present the ACME token
+// In the cluster, this waits until all nodes in the cluster are in sync and on the right version
+type ACMETokenReadyFunc func() error
 
 // StatikoProvider implements ChallengeProvider for `http-01` challenge.
 type StatikoProvider struct {
-	State   *state.Manager
-	Cluster *cluster.Cluster
+	State          secretProvider
+	ACMETokenReady ACMETokenReadyFunc
 }
 
 // Present makes the token available
@@ -237,12 +239,13 @@ func (w *StatikoProvider) Present(domain, token, keyAuth string) error {
 		return err
 	}
 
-	// Wait until the cluster has synced
-	// This is a blocking call
-	ver := w.State.GetVersion()
-	err = w.Cluster.WaitForVersion(ver)
-	if err != nil {
-		return err
+	// Wait for when the node/cluster is ready to present the token
+	if w.ACMETokenReady != nil {
+		// This is a blocking call
+		err = w.ACMETokenReady()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

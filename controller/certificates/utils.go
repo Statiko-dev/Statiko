@@ -25,8 +25,25 @@ import (
 	"sort"
 	"time"
 
+	"github.com/statiko-dev/statiko/shared/certutils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
+
+// Interface of a class that provides methods to work with secrets, such as state.Manager
+type secretProvider interface {
+	// GetSecret returns a secret's data
+	GetSecret(key string) ([]byte, error)
+	// SetSecret stores a secret
+	SetSecret(key string, value []byte) error
+	// DeleteSecret deletes a secret
+	DeleteSecret(key string) error
+}
+
+// Interface of a class that implements secretProvider and certutils.stateStoreCert
+type stateObj interface {
+	secretProvider
+	certutils.StateStoreCert
+}
 
 // GetX509 returns a X509 object for a PEM-encoded certificate
 func GetX509(cert []byte) (certX509 *x509.Certificate, err error) {

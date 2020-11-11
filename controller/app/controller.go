@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -56,6 +57,7 @@ type Controller struct {
 	// For testing
 	StartedCb func()
 	NoWorker  bool
+	ACMEDelay time.Duration
 }
 
 // Run the controller app
@@ -126,10 +128,23 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 	}
 
 	// Init the certs object
+	tokenReady := func() error {
+		// Wait until the cluster has synced
+		ver := c.State.GetVersion()
+		// This is a blocking call
+		err := c.Cluster.WaitForVersion(ver)
+
+		// In testing, we can add a delay here
+		if c.ACMEDelay > 0 {
+			time.Sleep(c.ACMEDelay)
+		}
+
+		return err
+	}
 	c.Certs = &certificates.Certificates{
-		State:   c.State,
-		Cluster: c.Cluster,
-		AKV:     c.AKV,
+		State:          c.State,
+		ACMETokenReady: tokenReady,
+		AKV:            c.AKV,
 	}
 	err = c.Certs.Init()
 	if err != nil {
