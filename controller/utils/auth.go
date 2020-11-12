@@ -30,6 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/statiko-dev/statiko/buildinfo"
@@ -199,18 +200,17 @@ func authGRPCCheckMetadata(ctx context.Context) error {
 	// Note that the keys in the metadata object are always lowercased
 	m, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return errors.New("missing metadata")
+		return grpc.Errorf(codes.Unauthenticated, "missing metadata")
 	}
 	if len(m["authorization"]) != 1 {
-		return errors.New("invalid authorization")
+		return grpc.Errorf(codes.Unauthenticated, "invalid authorization")
 	}
 
-	// Remove the optional "Bearer " prefix
-	if strings.TrimPrefix(m["authorization"][0], "Bearer ") != "hello world" {
-		return errors.New("invalid authorization")
+	// Validate the authorization field
+	err := authValidate(m["authorization"][0])
+	if err != nil {
+		return grpc.Errorf(codes.Unauthenticated, err.Error())
 	}
-
-	// All good
 	return nil
 }
 

@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package client
 
 import (
-	"context"
 	"io"
 
 	pb "github.com/statiko-dev/statiko/shared/proto"
@@ -59,21 +58,4 @@ func serverStreamToChan(stream pb.Controller_ChannelClient) <-chan *serverStream
 		}
 	}()
 	return ch
-}
-
-// rpcAuth is the object implementing credentials.PerRPCCredentials that provides the auth info
-type rpcAuth struct {
-	Token string
-}
-
-// GetRequestMetadata returns the metadata containing the authorization key
-func (a *rpcAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
-	return map[string]string{
-		"authorization": "Bearer " + a.Token,
-	}, nil
-}
-
-// RequireTransportSecurity returns true because this kind of auth requires TLS
-func (a *rpcAuth) RequireTransportSecurity() bool {
-	return true
 }

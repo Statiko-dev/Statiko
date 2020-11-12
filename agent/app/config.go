@@ -39,6 +39,18 @@ func (a *Agent) loadConfig() error {
 			EnvVar:   "CONTROLLER_ADDRESS",
 			Required: true,
 		},
+		// Tenant ID for authenticating with Azure AD
+		"controller.auth.azure.tenantId": {
+			EnvVar: "CONTROLLER_AUTH_AZURE_TENANT_ID",
+		},
+		// Client ID for authenticating with Azure AD
+		"controller.auth.azure.clientId": {
+			EnvVar: "CONTROLLER_AUTH_AZURE_CLIENT_ID",
+		},
+		// Client secret for authenticating with Azure AD
+		"controller.auth.azure.clientSecret": {
+			EnvVar: "CONTROLLER_AUTH_AZURE_CLIENT_SECRET",
+		},
 		// PSK for authenticating with the controler gRPC server
 		"controller.auth.psk": {
 			EnvVar: "CONTROLLER_AUTH_PSK",

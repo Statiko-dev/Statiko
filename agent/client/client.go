@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"io/ioutil"
 	"log"
 	"time"
@@ -71,9 +70,10 @@ func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 	c.logger.Println("Connecting to gRPC server at", viper.GetString("controller.address"))
 
 	// Authentication info
-	psk := viper.GetString("controller.auth.psk")
-	if psk == "" {
-		return nil, errors.New("configuration option `controller.auth.psk` must be set")
+	rpcCreds := &rpcAuth{}
+	err = rpcCreds.Init()
+	if err != nil {
+		return nil, err
 	}
 
 	// TLS configuration
@@ -107,9 +107,7 @@ func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 	connOpts := []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
-		grpc.WithPerRPCCredentials(&rpcAuth{
-			Token: psk,
-		}),
+		grpc.WithPerRPCCredentials(rpcCreds),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoff.DefaultConfig,
 			MinConnectTimeout: time.Duration(requestTimeout) * time.Second,
@@ -260,6 +258,8 @@ forloop:
 			if in.Error != nil {
 				// Abort
 				c.logger.Println("Error while reading message:", in.Error)
+				// Pause for a few seconds to avoid DoS'ing the server, e.g. if there's an auth error
+				time.Sleep(5 * time.Second)
 				return
 			}
 			if in.Done {
