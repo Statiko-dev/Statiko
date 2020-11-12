@@ -112,7 +112,7 @@ func (c *Controller) certificateFromAzureKeyVault() (cert *tls.Certificate, err 
 // Loading a certificate from the state store (for both ACME and self-signed)
 // If there's no certificate in the store, generate a new self-signed one
 func (c *Controller) certificateFromState() (cert *tls.Certificate, err error) {
-	// Convention is that controller certs start with controller_
+	// Convention is that controller certs start with "controller_"
 	nodeName := viper.GetString("nodeName")
 	certId := "controller_" + nodeName
 

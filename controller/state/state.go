@@ -166,6 +166,7 @@ func (m *Manager) setUpdated() {
 	m.updated = &now
 
 	// Broadcast the signal
+	m.logger.Println("Broadcasting new state message")
 	_ = m.signaler.Broadcast()
 }
 

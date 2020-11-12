@@ -30,6 +30,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 // RequestJSON fetches a JSON document from the web
@@ -163,4 +165,31 @@ func GetFreePort() (int, error) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	err = listener.Close()
 	return port, err
+}
+
+// GetRequestHost gets the Host a request was made for
+func GetRequestHost(c *gin.Context) string {
+	// Check X-Forwarded-Host first, then Host
+	host := ""
+	if h := c.GetHeader("X-Forwarded-Host"); h != "" {
+		host = h
+	} else if h := c.GetHeader("Host"); h != "" {
+		host = h
+	} else {
+		// Fallback to the Host property
+		host = c.Request.Host
+	}
+
+	// Empty string
+	if host == "" {
+		return ""
+	}
+
+	// If there's a port in the value, remove it
+	pos := strings.Index(host, ":")
+	if pos >= 0 {
+		host = host[0:pos]
+	}
+
+	return host
 }

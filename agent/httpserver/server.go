@@ -17,148 +17,54 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package httpserver
 
 import (
-	"context"
 	"log"
-	"net/http"
-	"strconv"
-	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 
 	"github.com/statiko-dev/statiko/agent/client"
 	"github.com/statiko-dev/statiko/agent/state"
 	"github.com/statiko-dev/statiko/buildinfo"
+	"github.com/statiko-dev/statiko/shared/httpsrvcore"
 	"github.com/statiko-dev/statiko/shared/utils"
 )
 
 // HTTPServer is the HTTP server
 type HTTPServer struct {
+	httpsrvcore.Core
+
 	State *state.AgentState
 	RPC   *client.RPCClient
-
-	logger    *log.Logger
-	router    *gin.Engine
-	srv       *http.Server
-	stopCh    chan int
-	restartCh chan int
-	doneCh    chan int
-	running   bool
 }
 
 // Init the object
 func (s *HTTPServer) Init() {
-	s.running = false
+	// Init the logger
+	s.Core.Logger = log.New(buildinfo.LogDestination, "httpserver: ", log.Ldate|log.Ltime|log.LUTC)
 
-	// Initialize the logger
-	s.logger = log.New(buildinfo.LogDestination, "httpserver: ", log.Ldate|log.Ltime|log.LUTC)
+	// Get the port to bind to
+	// If the port is 0, then automatically select one that's available
+	var err error
+	port := viper.GetInt("serverPort")
+	if port == 0 {
+		port, err = utils.GetFreePort()
+		if err != nil {
+			s.Core.Logger.Fatal(err)
+		}
 
-	// Channel used to stop and restart the server
-	s.stopCh = make(chan int)
-	s.restartCh = make(chan int)
-	s.doneCh = make(chan int)
-
-	// Create the router object
-	// If we're in production mode, set Gin to "release" mode
-	if buildinfo.ENV == "production" {
-		gin.SetMode(gin.ReleaseMode)
+		// Set the updated port in viper (the value is kept in memory anyways)
+		viper.Set("serverPort", port)
 	}
 
-	// Start gin
-	s.router = gin.Default()
+	// Init the core object
+	s.Core.Port = port
+	s.Core.InitCore()
 
 	// Add routes and middlewares
 	s.setupRoutes()
 }
 
-// IsRunning returns true if the HTTP server is running
-func (s *HTTPServer) IsRunning() bool {
-	return s.running
-}
-
-// Start the HTTP server; must be run in a goroutine with `go s.Start()`
-func (s *HTTPServer) Start() {
-	for {
-		// Start the server in another channel
-		go func() {
-			var err error
-
-			// Get the port to bind to
-			// If the port is 0, then automatically select one that's available
-			port := viper.GetInt("serverPort")
-			if port == 0 {
-				port, err = utils.GetFreePort()
-				if err != nil {
-					s.logger.Fatal(err)
-				}
-
-				// Set the updated port in viper (the value is kept in memory anyways)
-				viper.Set("serverPort", port)
-			}
-
-			// HTTP Server
-			s.srv = &http.Server{
-				Addr:              "0.0.0.0:" + strconv.Itoa(port),
-				Handler:           s.router,
-				ReadTimeout:       2 * time.Hour,
-				ReadHeaderTimeout: 30 * time.Second,
-				WriteTimeout:      2 * time.Hour,
-				MaxHeaderBytes:    1 << 20,
-			}
-
-			s.running = true
-			s.logger.Printf("Starting HTTP server on http://%s\n", s.srv.Addr)
-			err = s.srv.ListenAndServe()
-			if err != http.ErrServerClosed {
-				s.logger.Fatal(err)
-			}
-		}()
-
-		select {
-		case <-s.stopCh:
-			// We received an interrupt signal, shut down for good
-			s.logger.Println("Shutting down the HTTP server")
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := s.srv.Shutdown(ctx); err != nil {
-				s.logger.Printf("HTTP server shutdown error: %v\n", err)
-			}
-			s.logger.Println("HTTP server shut down")
-			s.running = false
-			s.doneCh <- 1
-			return
-		case <-s.restartCh:
-			// We received a signal to restart the server
-			s.logger.Println("Restarting the HTTP server")
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			if err := s.srv.Shutdown(ctx); err != nil {
-				s.logger.Fatal(err)
-			}
-			s.doneCh <- 1
-			// Do not return, let the for loop repeat
-		}
-	}
-}
-
-// Restart the server
-func (s *HTTPServer) Restart() {
-	if s.running {
-		s.restartCh <- 1
-		<-s.doneCh
-	}
-}
-
-// Stop the server
-func (s *HTTPServer) Stop() {
-	if s.running {
-		s.stopCh <- 1
-		<-s.doneCh
-	}
-}
-
 // Sets up the routes
 func (s *HTTPServer) setupRoutes() {
 	// ACME challenge
-	s.router.GET("/.well-known/acme-challenge/:token", s.ACMEChallengeHandler)
+	s.Core.Router.GET("/.well-known/acme-challenge/:token", s.ACMEChallengeHandler)
 }

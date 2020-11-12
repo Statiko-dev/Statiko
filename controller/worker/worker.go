@@ -28,9 +28,11 @@ import (
 
 // Worker manages background workers
 type Worker struct {
-	State        *state.Manager
-	Certificates *certificates.Certificates
-	Notifier     *notifications.Notifications
+	State          *state.Manager
+	Certificates   *certificates.Certificates
+	NodeCerts      *certificates.Certificates
+	Notifier       *notifications.Notifications
+	RestartServers func() error
 
 	ctx    context.Context
 	cancel context.CancelFunc

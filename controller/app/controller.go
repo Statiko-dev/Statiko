@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -42,15 +43,17 @@ import (
 
 // Controller is the class that manages the controller app
 type Controller struct {
-	Store    fs.Fs
-	State    *state.Manager
-	Notifier *notifications.Notifications
-	Cluster  *cluster.Cluster
-	Certs    *certificates.Certificates
-	APISrv   *api.APIServer
-	RPCSrv   *rpcserver.RPCServer
-	AKV      *azurekeyvault.Client
-	Worker   *worker.Worker
+	Store       fs.Fs
+	State       *state.Manager
+	Notifier    *notifications.Notifications
+	Cluster     *cluster.Cluster
+	Certs       *certificates.Certificates
+	APISrv      *api.APIServer
+	RPCSrv      *rpcserver.RPCServer
+	AKV         *azurekeyvault.Client
+	Worker      *worker.Worker
+	NodeCerts   *certificates.Certificates
+	NodeCertSrv *certificates.ACMEServer
 
 	logger *log.Logger
 
@@ -151,19 +154,71 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 		return err
 	}
 
+	// Init and start the API and gRPC servers, in background goroutines
+	err = c.startServer()
+	if err != nil {
+		return err
+	}
+
+	// Start all background workers
+	// In testing mode, we can disable that
+	if !c.NoWorker {
+		// If we're using ACME, init another web server that is used to present ACME challenges
+		// This is separate from the API server because it has to be on port 80
+		// Also, this is disabled when the worker is disabled because only the worker can trigger new ACME cert generations
+		if viper.GetBool("controller.tls.acme") {
+			semaphore := &sync.Mutex{}
+			nodeTokenReady := func() error {
+				semaphore.Lock()
+				// Init and start the server if it hasn't been started yet
+				// Note that this server is not stopped when the API server is, so we only initialize it once
+				if c.NodeCertSrv == nil {
+					c.NodeCertSrv = &certificates.ACMEServer{
+						State: c.State,
+					}
+					c.NodeCertSrv.Init()
+					go c.NodeCertSrv.Start()
+				}
+				semaphore.Unlock()
+				return nil
+			}
+			// This is separate from c.Certificates because this is specific for the controller
+			c.NodeCerts = &certificates.Certificates{
+				State:          c.State,
+				ACMETokenReady: nodeTokenReady,
+				AKV:            c.AKV,
+			}
+		}
+
+		// Init the worker
+		c.Worker = &worker.Worker{
+			State:          c.State,
+			Certificates:   c.Certs,
+			NodeCerts:      c.NodeCerts,
+			Notifier:       c.Notifier,
+			RestartServers: c.restartServer,
+		}
+		c.Worker.Start()
+	}
+
+	// For testing
+	if c.StartedCb != nil {
+		c.StartedCb()
+	}
+
+	// Wait for the shutdown signal or context canceled then stop the servers and the worker
+	c.waitForShutdown(ctx)
+
+	return nil
+}
+
+// Starts the servers, in background goroutines
+func (c *Controller) startServer() error {
 	// Get the TLS certificate for the controller node
 	cert, err := c.GetControllerCertificate()
 	if err != nil {
 		return err
 	}
-
-	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
 
 	// Init and start the gRPC server
 	c.RPCSrv = &rpcserver.RPCServer{
@@ -187,23 +242,23 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 	c.APISrv.Init()
 	go c.APISrv.Start()
 
-	// Start all background workers
-	// In testing mode, we can disable that
-	if !c.NoWorker {
-		c.Worker = &worker.Worker{
-			State:        c.State,
-			Certificates: c.Certs,
-			Notifier:     c.Notifier,
-		}
-		c.Worker.Start()
-	}
+	return nil
+}
 
-	// For testing
-	if c.StartedCb != nil {
-		c.StartedCb()
-	}
+// Blocking call that returns only after the servers are shut down
+// It shuts down servers when the context is canceled
+// This also handles graceful shutdowns on SIGINT, SIGTERM, SIGQUIT
+func (c *Controller) waitForShutdown(ctx context.Context) {
+	// Handle graceful shutdown on SIGINT, SIGTERM and SIGQUIT
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 
 	// Wait for the shutdown signal or context canceled then stop the servers and the worker
+	// This is blocking
 	select {
 	case <-sigCh:
 		c.logger.Println("Received signal to terminate the app")
@@ -217,6 +272,22 @@ func (c *Controller) Run(ctx context.Context) (err error) {
 	if c.Worker != nil {
 		c.Worker.Stop()
 	}
+}
+
+// Triggers a restart of the servers (and updates the TLS certificate they're using)
+func (c *Controller) restartServer() error {
+	// Get the TLS certificate for the controller node and update it in the objects
+	cert, err := c.GetControllerCertificate()
+	if err != nil {
+		return err
+	}
+	c.RPCSrv.TLSCert = cert
+	c.APISrv.TLSCert = cert
+
+	// Restart the servers
+	// These calls block until the servers have restarted
+	c.RPCSrv.Restart()
+	c.APISrv.Restart()
 
 	return nil
 }
