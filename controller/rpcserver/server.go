@@ -79,10 +79,15 @@ func (s *RPCServer) Start() {
 		// Create the context
 		s.runningCtx, s.runningCancel = context.WithCancel(context.Background())
 
+		// Methods that don't require auth
+		noAuth := []string{
+			"/statiko.Controller/GetClusterOptions",
+		}
+
 		// Create the server
 		s.grpcServer = grpc.NewServer(
 			grpc.Creds(credentials.NewServerTLSFromCert(s.TLSCert)),
-			grpc.UnaryInterceptor(controllerutils.AuthGRPCUnaryInterceptor),
+			grpc.UnaryInterceptor(controllerutils.AuthGRPCUnaryInterceptor(noAuth)),
 			grpc.StreamInterceptor(controllerutils.AuthGRPCStreamInterceptor),
 		)
 		pb.RegisterControllerServer(s.grpcServer, s)

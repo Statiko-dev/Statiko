@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/statiko-dev/statiko/buildinfo"
+	"github.com/statiko-dev/statiko/shared/utils"
 	sharedutils "github.com/statiko-dev/statiko/shared/utils"
 )
 
@@ -170,16 +171,29 @@ func AuthGinMiddleware(required bool) gin.HandlerFunc {
 	}
 }
 
-// AuthGRPCUnaryInterceptor is an interceptor for unary ("simple") gRPC requests that checks the authorization field in the metadata
-func AuthGRPCUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	// Check if the call is authorized
-	err = authGRPCCheckMetadata(ctx)
-	if err != nil {
-		return
-	}
+// AuthGRPCUnaryInterceptor returns an interceptor for unary ("simple") gRPC requests that checks the authorization field in the metadata
+// The "excludeMethods" slice contains an optional list of full method names that don't require authentication
+func AuthGRPCUnaryInterceptor(excludeMethods []string) grpc.UnaryServerInterceptor {
+	// Load the auth callbacks if not already done
+	// Also, this ensures that we have at most one authentication provider (in addition to the optional PSK)
+	authLoadCallbacks()
 
-	// Call is authorized, so continue the execution
-	return handler(ctx, req)
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		// Check if this method is always allowed, even without authorization
+		if len(excludeMethods) > 0 && utils.StringInSlice(excludeMethods, info.FullMethod) {
+			// Skip checking authorization and just continue the execution
+			return handler(ctx, req)
+		}
+
+		// Check if the call is authorized
+		err = authGRPCCheckMetadata(ctx)
+		if err != nil {
+			return
+		}
+
+		// Call is authorized, so continue the execution
+		return handler(ctx, req)
+	}
 }
 
 // AuthGRPCStreamInterceptor is an interceptor for stream gRPC requests that checks the authorization field in the metadata

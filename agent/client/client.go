@@ -54,6 +54,7 @@ type RPCClient struct {
 	client       pb.ControllerClient
 	connection   *grpc.ClientConn
 	logger       *log.Logger
+	rpcCreds     *rpcAuth
 	connectedCh  chan bool
 	sendHealthCh chan bool
 }
@@ -69,12 +70,9 @@ func (c *RPCClient) Init() {
 func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 	c.logger.Println("Connecting to gRPC server at", viper.GetString("controller.address"))
 
-	// Authentication info
-	rpcCreds := &rpcAuth{}
-	err = rpcCreds.Init()
-	if err != nil {
-		return nil, err
-	}
+	// Authentication info - for now, it's empty
+	c.rpcCreds = &rpcAuth{}
+	c.rpcCreds.Init(nil)
 
 	// TLS configuration
 	tlsConf := &tls.Config{}
@@ -107,7 +105,7 @@ func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 	connOpts := []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
-		grpc.WithPerRPCCredentials(rpcCreds),
+		grpc.WithPerRPCCredentials(c.rpcCreds),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoff.DefaultConfig,
 			MinConnectTimeout: time.Duration(requestTimeout) * time.Second,
@@ -192,13 +190,26 @@ func (c *RPCClient) GetTLSCertificate(certificateId string) (*pb.TLSCertificateM
 }
 
 // GetClusterOptions requests the cluster options object
-func (c *RPCClient) GetClusterOptions() (*pb.ClusterOptions, error) {
+func (c *RPCClient) GetClusterOptions() (clusterOpts *pb.ClusterOptions, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(requestTimeout)*time.Second)
 	defer cancel()
 
 	// Make the request
 	in := &pb.ClusterOptionsRequest{}
-	return c.client.GetClusterOptions(ctx, in, grpc.WaitForReady(true))
+	clusterOpts, err = c.client.GetClusterOptions(ctx, in, grpc.WaitForReady(true))
+	if err != nil {
+		return nil, err
+	}
+
+	// Immediately update the auth object for future RPC calls
+	if clusterOpts != nil {
+		c.rpcCreds.Init(clusterOpts.Auth)
+	} else {
+		// Reset
+		c.rpcCreds.Init(nil)
+	}
+
+	return
 }
 
 // GetACMEChallengeResponse requests the response to an ACME challenge

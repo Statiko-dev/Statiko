@@ -28,6 +28,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/statiko-dev/statiko/buildinfo"
 	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 	"github.com/statiko-dev/statiko/shared/utils"
@@ -195,7 +196,44 @@ func (s *RPCServer) GetTLSCertificate(ctx context.Context, in *pb.TLSCertificate
 // GetClusterOptions is a simple RPC that returns the cluster options
 func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptionsRequest) (msg *pb.ClusterOptions, err error) {
 	msg = &pb.ClusterOptions{
+		Version:      buildinfo.VersionString(),
 		ManifestFile: viper.GetString("manifestFile"),
+	}
+
+	// Auth
+	{
+		msg.Auth = &pb.ClusterOptions_Auth{
+			// If PSK is enabled
+			Psk: viper.GetBool("auth.psk.enabled"),
+		}
+
+		// Azure AD
+		azureADEnabled := viper.GetBool("auth.azureAD.enabled")
+		auth0Enabled := viper.GetBool("auth.auth0.enabled")
+		if azureADEnabled && !auth0Enabled {
+			// Get the URL where users can authenticate
+			tenantId := viper.GetString("auth.azureAD.tenantId")
+			clientId := viper.GetString("auth.azureAD.clientId")
+			if tenantId != "" && clientId != "" {
+				msg.Auth.AzureAd = &pb.ClusterOptions_Auth_OAuthInfo{
+					AuthorizeUrl: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantId),
+					TokenUrl:     fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantId),
+					ClientId:     clientId,
+				}
+			}
+		}
+		if auth0Enabled && !azureADEnabled {
+			// Get the URL where users can authenticate
+			clientId := viper.GetString("auth.auth0.clientId")
+			domain := viper.GetString("auth.auth0.domain")
+			if clientId != "" && domain != "" {
+				msg.Auth.Auth0 = &pb.ClusterOptions_Auth_OAuthInfo{
+					AuthorizeUrl: fmt.Sprintf("https://%s/authorize", domain),
+					TokenUrl:     fmt.Sprintf("https://%s/oauth/token", domain),
+					ClientId:     clientId,
+				}
+			}
+		}
 	}
 
 	// Store
