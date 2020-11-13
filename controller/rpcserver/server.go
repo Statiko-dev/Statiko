@@ -33,7 +33,6 @@ import (
 	"github.com/statiko-dev/statiko/controller/certificates"
 	"github.com/statiko-dev/statiko/controller/cluster"
 	"github.com/statiko-dev/statiko/controller/state"
-	controllerutils "github.com/statiko-dev/statiko/controller/utils"
 	"github.com/statiko-dev/statiko/shared/fs"
 	pb "github.com/statiko-dev/statiko/shared/proto"
 )
@@ -87,8 +86,8 @@ func (s *RPCServer) Start() {
 		// Create the server
 		s.grpcServer = grpc.NewServer(
 			grpc.Creds(credentials.NewServerTLSFromCert(s.TLSCert)),
-			grpc.UnaryInterceptor(controllerutils.AuthGRPCUnaryInterceptor(noAuth)),
-			grpc.StreamInterceptor(controllerutils.AuthGRPCStreamInterceptor),
+			grpc.UnaryInterceptor(AuthGRPCUnaryInterceptor(noAuth)),
+			grpc.StreamInterceptor(AuthGRPCStreamInterceptor),
 		)
 		pb.RegisterControllerServer(s.grpcServer, s)
 

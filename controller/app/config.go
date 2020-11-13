@@ -112,6 +112,11 @@ func (c *Controller) loadConfig() error {
 			EnvVar:       "CONTROLLER_TLS_KEY",
 			DefaultValue: "/etc/statiko/controller-key.pem",
 		},
+		// Auth token used by agents to communicate with the controlller
+		"controller.token": {
+			EnvVar:   "CONTROLLER_TOKEN",
+			Required: true,
+		},
 		"dhparams.bits": {
 			EnvVar:       "DHPARAMS_BITS",
 			DefaultValue: 4096,

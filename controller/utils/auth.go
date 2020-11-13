@@ -17,7 +17,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package utils
 
 import (
-	"context"
 	"crypto/rsa"
 	"errors"
 	"fmt"
@@ -29,12 +28,8 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 
 	"github.com/statiko-dev/statiko/buildinfo"
-	"github.com/statiko-dev/statiko/shared/utils"
 	sharedutils "github.com/statiko-dev/statiko/shared/utils"
 )
 
@@ -169,63 +164,6 @@ func AuthGinMiddleware(required bool) gin.HandlerFunc {
 		c.Set("authenticated", true)
 		return
 	}
-}
-
-// AuthGRPCUnaryInterceptor returns an interceptor for unary ("simple") gRPC requests that checks the authorization field in the metadata
-// The "excludeMethods" slice contains an optional list of full method names that don't require authentication
-func AuthGRPCUnaryInterceptor(excludeMethods []string) grpc.UnaryServerInterceptor {
-	// Load the auth callbacks if not already done
-	// Also, this ensures that we have at most one authentication provider (in addition to the optional PSK)
-	authLoadCallbacks()
-
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		// Check if this method is always allowed, even without authorization
-		if len(excludeMethods) > 0 && utils.StringInSlice(excludeMethods, info.FullMethod) {
-			// Skip checking authorization and just continue the execution
-			return handler(ctx, req)
-		}
-
-		// Check if the call is authorized
-		err = authGRPCCheckMetadata(ctx)
-		if err != nil {
-			return
-		}
-
-		// Call is authorized, so continue the execution
-		return handler(ctx, req)
-	}
-}
-
-// AuthGRPCStreamInterceptor is an interceptor for stream gRPC requests that checks the authorization field in the metadata
-func AuthGRPCStreamInterceptor(srv interface{}, srvStream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
-	// Check if the call is authorized
-	err = authGRPCCheckMetadata(srvStream.Context())
-	if err != nil {
-		return
-	}
-
-	// Call is authorized, so continue the execution
-	return handler(srv, srvStream)
-}
-
-// Used by the gRPC auth interceptors, this checks the authorization metadata
-func authGRPCCheckMetadata(ctx context.Context) error {
-	// Ensure we have an authorization metadata
-	// Note that the keys in the metadata object are always lowercased
-	m, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return grpc.Errorf(codes.Unauthenticated, "missing metadata")
-	}
-	if len(m["authorization"]) != 1 {
-		return grpc.Errorf(codes.Unauthenticated, "invalid authorization")
-	}
-
-	// Validate the authorization field
-	err := authValidate(m["authorization"][0])
-	if err != nil {
-		return grpc.Errorf(codes.Unauthenticated, err.Error())
-	}
-	return nil
 }
 
 // Validate claims for a specific provider

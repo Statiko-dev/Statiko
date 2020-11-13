@@ -1,6 +1,7 @@
 controller:
   apiPort: 2265
   grpcPort: 2300
+  token: "foo-bar-foo-bar"
   tls:
     #azureKeyVault: "controller-statiko-test"
     #certificate: "/etc/statiko/ca/controller.pem"

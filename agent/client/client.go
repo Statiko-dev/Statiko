@@ -70,9 +70,10 @@ func (c *RPCClient) Init() {
 func (c *RPCClient) Connect() (connectedCh chan bool, err error) {
 	c.logger.Println("Connecting to gRPC server at", viper.GetString("controller.address"))
 
-	// Authentication info - for now, it's empty
-	c.rpcCreds = &rpcAuth{}
-	c.rpcCreds.Init(nil)
+	// Authentication info
+	c.rpcCreds = &rpcAuth{
+		Token: viper.GetString("controller.token"),
+	}
 
 	// TLS configuration
 	tlsConf := &tls.Config{}
@@ -196,20 +197,7 @@ func (c *RPCClient) GetClusterOptions() (clusterOpts *pb.ClusterOptions, err err
 
 	// Make the request
 	in := &pb.ClusterOptionsRequest{}
-	clusterOpts, err = c.client.GetClusterOptions(ctx, in, grpc.WaitForReady(true))
-	if err != nil {
-		return nil, err
-	}
-
-	// Immediately update the auth object for future RPC calls
-	if clusterOpts != nil {
-		c.rpcCreds.Init(clusterOpts.Auth)
-	} else {
-		// Reset
-		c.rpcCreds.Init(nil)
-	}
-
-	return
+	return c.client.GetClusterOptions(ctx, in, grpc.WaitForReady(true))
 }
 
 // GetACMEChallengeResponse requests the response to an ACME challenge

@@ -1,9 +1,6 @@
 controller:
   address: "localhost:2300"
-  auth:
-    #psk: "hello world"
-    # DEV NOTE: passed as environmental variable
-    azureClientSecret: ""
+  token: "foo-bar-foo-bar"
   tls:
     # Enabling this is unsafe - use for testing with self-signed certs only
     insecure: true

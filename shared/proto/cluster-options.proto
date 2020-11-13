@@ -25,28 +25,6 @@ message ClusterOptions {
   // Controller version
   string version = 1;
 
-  // Auth options message
-  message Auth {
-    // If PSK is enabled
-    bool psk = 1;
-
-    // OAuth info message
-    message OAuthInfo {
-      string authorize_url = 1;
-      string token_url = 2;
-      string client_id = 3;
-    }
-    
-    // Azure AD options if enabled
-    OAuthInfo azure_ad = 2;
-
-    // Auth0 options if enabled
-    OAuthInfo auth0 = 3;
-  }
-
-  // Auth options
-  Auth auth = 2;
-
   // Codesign options message
   message Codesign {
     // Requires code signing

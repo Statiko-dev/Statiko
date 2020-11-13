@@ -39,14 +39,6 @@ func (a *Agent) loadConfig() error {
 			EnvVar:   "CONTROLLER_ADDRESS",
 			Required: true,
 		},
-		// Client secret for authenticating with the controller gRPC server using Azure AD, if supported
-		"controller.auth.azureClientSecret": {
-			EnvVar: "CONTROLLER_AUTH_AZURE_CLIENT_SECRET",
-		},
-		// PSK for authenticating with the controller gRPC server, if supported
-		"controller.auth.psk": {
-			EnvVar: "CONTROLLER_AUTH_PSK",
-		},
 		// Skip verifying TLS certificates presented by the gRPC server
 		// This is a potentially insecure flag that should only be used for testing
 		"controller.tls.insecure": {
@@ -57,6 +49,11 @@ func (a *Agent) loadConfig() error {
 		// If not set, it uses all certificates in the system's certificate store
 		"controller.tls.ca": {
 			EnvVar: "CONTROLLER_TLS_CA",
+		},
+		// Auth token used by agents to communicate with the controlller
+		"controller.token": {
+			EnvVar:   "CONTROLLER_TOKEN",
+			Required: true,
 		},
 		// Name of the agent node (by default, the hostname)
 		"nodeName": {
