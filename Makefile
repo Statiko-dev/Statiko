@@ -10,8 +10,14 @@ GO_ACC_VERSION ?= 0.2.6
 # Define LD flags for Go
 LDFLAGS := "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=$(BUILD_ID) -X github.com/statiko-dev/statiko/buildinfo.BuildTime=$(BUILD_TIME) -X github.com/statiko-dev/statiko/buildinfo.CommitHash=$(COMMIT_HASH)"
 
-# Performs a builld
-all: get-tools build-all
+# Performs a builld for all archs
+all: get-tools build build-arm64 build-arm
+
+# Build the app
+build: fetch-deps build-default-app pkger build-amd64
+
+# Runs the build step for all archs, but no preparation steps
+build-all-archs: build-amd64 build-arm64 build-arm
 
 # Fetches the tools that are required to build the app
 get-tools:
@@ -30,12 +36,6 @@ clean:
 	rm -rfv .bin/controller* bin || true
 	rm -v agent/pkged.go || true
 	rm -v controller/pkged.go || true
-
-# Build the entire app
-build: fetch-deps build-default-app pkger build-amd64
-
-# Build the app for all architectures
-build-all: build build-arm64 build-arm
 
 # Fetch all dependencies
 fetch-deps:
@@ -65,8 +65,9 @@ build-default-app:
 
 # Run tests
 test:
+	mkdir -p tests/results
 	GO_ENV=test \
-	  .bin/go-acc $(shell go list ./...) -- -v
+	  .bin/go-acc -o tests/results/coverage.txt $(shell go list ./...) -- -v
 
 # Function that runs the compilation steps
 define compile

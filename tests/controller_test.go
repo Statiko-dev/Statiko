@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -123,16 +124,19 @@ func (s *ControllerTestSuite) configureEnvironment(t *testing.T) {
 
 	// API server
 	os.Setenv("STATIKO_CONTROLLER_API_PORT", strconv.Itoa(apiPort))
-	os.Setenv("STATIKO_CONTROLLER_TLS_ENABLED", "0")
-	s.apiUrl = fmt.Sprintf("%s://localhost:%d", "http", apiPort)
+	s.apiUrl = fmt.Sprintf("https://localhost:%d", apiPort)
 
 	// gRPC server
 	os.Setenv("STATIKO_CONTROLLER_GRPC_PORT", strconv.Itoa(grpcPort))
 
 	// Init the HTTP client
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	// Disable certificate validation
+	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	s.client = &http.Client{
 		// Request timeout = 15 seconds
-		Timeout: 15 * time.Second,
+		Timeout:   15 * time.Second,
+		Transport: tr,
 	}
 }
 
@@ -225,8 +229,8 @@ func (s *ControllerTestSuite) testSequence() (seq map[string]func(t *testing.T))
 
 // Creates a new request with the authorization header set and with an optional body (for POST/PUT requests) that will be encoded as JSON
 func (s *ControllerTestSuite) newRequest(method string, url string, body interface{}) (*http.Request, error) {
-	// If the url doesn't start with http:// or https:// add the apiUrl prefix
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+	// If the url doesn't start with https://, add the apiUrl prefix
+	if !strings.HasPrefix(url, "https://") {
 		url = s.apiUrl + url
 	}
 

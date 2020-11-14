@@ -1,8 +1,7 @@
 # Development
 test.sh
-e2e-test/container_etc/state*
-.e2e-test/container_etc/state*
 tests/etc/statiko/state*
+tests/results
 .test
 
 # Compiled binaries
