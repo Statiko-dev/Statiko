@@ -227,7 +227,7 @@ func (s *RPCServer) GetClusterOptions(ctx context.Context, in *pb.ClusterOptions
 		}
 
 		// If we have a key, ensure the exponent is within the bounds we support (uint32)
-		if key.E < 1 || key.E > math.MaxUint32 {
+		if key.E < 1 || key.E > (math.MaxInt32-1) {
 			return nil, errors.New("codesign key's exponent is outside of bounds")
 		}
 

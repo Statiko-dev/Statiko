@@ -8,18 +8,7 @@ tests/etc/statiko/state*
 # Compiled binaries
 bin/
 .bin/
-e2e-test/bin/
-e2e-test/.bin/
-.e2e-test/bin/
-.e2e-test/.bin/
-.packr/
-packrd/
-*-packr.go
-
-# Test results
-e2e-test/results/
-.e2e-test/results/
-
+pkged.go
 
 
 

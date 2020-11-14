@@ -1,4 +1,4 @@
-FROM yobasystems/alpine-nginx:stable
+FROM nginx:1-alpine
 
 # Build args
 # TARGETARCH is set automatically when using BuildKit
@@ -10,12 +10,12 @@ ARG COMMIT_HASH
 # Labels
 LABEL maintainer="Alessandro Segala <italypaleale@gmail.com>" \
     build=$BUILD_ID \
-    org.opencontainers.image.title="statiko" \
-    org.opencontainers.image.description="Statiko is a platform for hosting, serving and managing static web apps in production" \
+    org.opencontainers.image.title="statiko-agent" \
+    org.opencontainers.image.description="Agent node for Statiko. Statiko is a platform for hosting, serving, and managing static web apps in production." \
     org.opencontainers.image.authors="Alessandro Segala <italypaleale@gmail.com>" \
     org.opencontainers.image.vendor="@ItalyPaleAle" \
     org.opencontainers.image.version=$BUILD_ID \
-    org.opencontainers.image.url="https://hub.docker.com/r/statiko/statiko/" \
+    org.opencontainers.image.url="https://hub.docker.com/r/statiko/statiko-agent/" \
     org.opencontainers.image.source="https://github.com/statiko-dev/statiko" \
     org.opencontainers.image.revision=$COMMIT_HASH \
     org.opencontainers.image.created=$BUILD_TIME \
@@ -36,14 +36,14 @@ RUN set -x \
     && sed -i 's/^daemon off\;//' /etc/nginx/nginx.conf
 
 # Supervisord configuration
-COPY .container/agent/supervisord.conf /etc/supervisord.conf
+COPY supervisord.conf /etc/supervisord.conf
 
 # Copy app
 COPY .bin/statiko_linux_${TARGETARCH} /usr/local/bin/statiko
 RUN chmod +x /usr/local/bin/statiko
 
 # Configuration for the statiko app
-ENV GO_ENV=production PORT=2265
+ENV PORT=2265
 
 # Expose ports
 EXPOSE 80 443 2265
