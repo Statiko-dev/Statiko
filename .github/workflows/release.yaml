@@ -15,226 +15,243 @@ on:
       - 'v*'
 
 env:
-  GO_BUILDER_IMAGE: 'golang:1.14-alpine'
-  NODE_BUILDER_IMAGE: 'node:12-alpine'
+  GO_VERSION: '1.15'
+  NODE_BUILDER_IMAGE: 'node:14-alpine'
   DOCKER_USERNAME: 'italypaleale'
-  DOCKER_REPO: 'statiko/statiko'
-  PACKR_VERSION: 2.7.1
+  DOCKER_REPO_AGENT: 'docker.io/statiko/statiko-agent'
+  DOCKER_REPO_CONTROLLER: 'docker.io/statiko/statiko-controller'
   
 jobs:
 
   release:
     name: Release
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
+      - name: Check out code
+        uses: actions/checkout@v2
 
-    - name: Check out code
-      uses: actions/checkout@v2
-    
-    # Setup Docker buildx
-    - name: Set up Docker buildx
-      id: buildx
-      uses: crazy-max/ghaction-docker-buildx@v2
-      with:
-        buildx-version: latest
-        qemu-version: latest
-    
-    # Login to Docker Hub
-    - name: Login to Docker Hub
-      env:
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      run: |
-        echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
-    
-    # Set variables
-    - name: Set variables
-      run: |
-        # Fetch semver: https://github.com/fsaintjacques/semver-tool
-        curl https://raw.githubusercontent.com/fsaintjacques/semver-tool/3.0.0/src/semver > semver
-        chmod +x semver
-        # Trim the first 10 characters, which are "refs/tags/"
-        BUILD_ID="${GITHUB_REF:10}"
-        # Just like BUILD_ID, but without the "v" at the beginning
-        BUILD_VERSION="${GITHUB_REF:11}"
-        BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
-        COMMIT_HASH=$(echo $GITHUB_SHA | head -c 7)
-        echo ::set-env name=BUILD_ID::$BUILD_ID
-        echo ::set-env name=BUILD_VERSION::$BUILD_VERSION
-        echo ::set-env name=BUILD_TIME::$BUILD_TIME
-        echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
+      # Set up Go
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^${{env.GO_VERSION}}
 
-        # Branch
-        MAJOR_VERSION=$(./semver get major $BUILD_VERSION)
-        MINOR_VERSION=$(./semver get minor $BUILD_VERSION)
-        PRERELEASE=$(./semver get prerel $BUILD_VERSION)
-        BRANCH=""
-        if [ "$MAJOR_VERSION" = "0" ]; then
-          BRANCH="$MAJOR_VERSION.$MINOR_VERSION"
-        else
-          BRANCH="$MAJOR_VERSION"
-        fi
-        if [ "$PRERELEASE" != "" ]; then
-          BRANCH="${BRANCH}-pre"
-        fi
-        echo ::set-env name=BRANCH::$BRANCH
-        echo ::set-env name=PRERELEASE::$PRERELEASE
+      # Setup qemu for Docker buildx
+      - name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@v1
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: arm64,arm
 
-    # Build default web app
-    - name: Build default web app
-      run: |
-        # Build using Docker
-        docker run \
-          --rm \
-          -v "$PWD"/default-app:/usr/src/myapp \
-          -w /usr/src/myapp \
-          ${{env.NODE_BUILDER_IMAGE}} \
-            sh -c '
-              set -e
+      # Setup Docker buildx
+      - name: Set up Docker buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          version: latest
+      
+      # Login to Docker Hub
+      - name: Login to Docker Hub
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
+      
+      # Set variables
+      - name: Set variables
+        run: |
+          # Fetch semver: https://github.com/fsaintjacques/semver-tool
+          curl https://raw.githubusercontent.com/fsaintjacques/semver-tool/3.0.0/src/semver > semver
+          chmod +x semver
+          # Trim the first 10 characters, which are "refs/tags/"
+          BUILD_ID="${GITHUB_REF:10}"
+          # Just like BUILD_ID, but without the "v" at the beginning
+          BUILD_VERSION="${GITHUB_REF:11}"
+          BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+          COMMIT_HASH=$(echo $GITHUB_SHA | head -c 7)
+          echo ::set-env name=BUILD_ID::$BUILD_ID
+          echo ::set-env name=BUILD_VERSION::$BUILD_VERSION
+          echo ::set-env name=BUILD_TIME::$BUILD_TIME
+          echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
 
-              echo -e "###\nInstalling npm dependencies\n"
-              npm ci
+          # Branch
+          MAJOR_VERSION=$(./semver get major $BUILD_VERSION)
+          MINOR_VERSION=$(./semver get minor $BUILD_VERSION)
+          PRERELEASE=$(./semver get prerel $BUILD_VERSION)
+          BRANCH=""
+          if [ "$MAJOR_VERSION" = "0" ]; then
+            BRANCH="$MAJOR_VERSION.$MINOR_VERSION"
+          else
+            BRANCH="$MAJOR_VERSION"
+          fi
+          if [ "$PRERELEASE" != "" ]; then
+            BRANCH="${BRANCH}-pre"
+          fi
+          echo ::set-env name=BRANCH::$BRANCH
+          echo ::set-env name=PRERELEASE::$PRERELEASE
 
-              echo -e "\n###\nBuilding default web app\n"
-              APP_VERSION="${{env.BUILD_VERSION}}" ./build.sh
-              '
-        echo -e "\n###\nCompilation done\n"
-        ls -al default-app/dist
+      # Build default web app
+      - name: Build default web app
+        run: |
+          # Build using Docker
+          docker run \
+            --rm \
+            -v "$PWD"/default-app:/usr/src/myapp \
+            -w /usr/src/myapp \
+            ${{env.NODE_BUILDER_IMAGE}} \
+              sh -c '
+                set -e
 
-    # Build for all platforms
-    - name: Build Statiko for all archs
-      run: |
-        mkdir -p .bin
+                echo -e "###\nInstalling npm dependencies\n"
+                npm ci
 
-        # Build using Docker
-        docker run \
-          --rm \
-          -v "$PWD":/usr/src/myapp \
-          -w /usr/src/myapp \
-          ${{env.GO_BUILDER_IMAGE}} \
-            sh -c '
-              echo -e "###\nFetching packr2\n"
-              mkdir -p .packr
-              wget -O - https://github.com/gobuffalo/packr/releases/download/v${{env.PACKR_VERSION}}/packr_${{env.PACKR_VERSION}}_linux_amd64.tar.gz | tar xvz -C .packr
-              chmod +x .packr/packr2
+                echo -e "\n###\nBuilding default web app\n"
+                ./build.sh
+                '
+          echo -e "\n###\nCompilation done\n"
+          ls -al default-app/dist
 
-              echo -e "\n###\nRunning packr2\n"
-              .packr/packr2
+      # Fetch tools
+      - name: Fetch tools
+        run: |
+          # Install core tools
+          make get-tools
 
-              echo -e "\n###\nFetching modules\n"
-              GO111MODULE=on \
-                go get
+      # Get Go modules
+      - name: Get Go modules
+        run: |
+          make fetch-deps
 
-              echo -e "\n###\nBuilding amd64\n"
-              # Disable CGO so the binary is fully static
-              CGO_ENABLED=0 \
-              GOOS=linux \
-              GOARCH=amd64 \
-              GO111MODULE=on \
-                go build \
-                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
-                  -o .bin/statiko_linux_amd64
-              
-              echo -e "\n###\nBuilding arm64v8\n"
-              CGO_ENABLED=0 \
-              GOOS=linux \
-              GOARCH=arm64 \
-              GO111MODULE=on \
-                go build \
-                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
-                  -o .bin/statiko_linux_arm64v8
-              
-              echo -e "\n###\nBuilding arm32v7\n"
-              CGO_ENABLED=0 \
-              GOOS=linux \
-              GOARCH=arm \
-              GOARM=7 \
-              GO111MODULE=on \
-                go build \
-                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
-                  -o .bin/statiko_linux_arm32v7
-              '
-        echo -e "\n###\nCompilation done\n"
-        ls -al .bin
+      # Run pkger
+      - name: Run pkger
+        run: |
+          make pkger
 
-    # Publish artifacts
-    - name: Publish binaries as artifacts
-      uses: actions/upload-artifact@v1
-      with:
-        name: bin
-        path: .bin
-    
-    # Build Docker images
-    - name: Build and push Docker multi-arch image
-      run: |
-        # Create symbolic links
-        ( \
-          cd .bin && \
-          ln -s statiko_linux_arm64v8 statiko_linux_arm64 && \
-          ln -s statiko_linux_arm32v7 statiko_linux_arm \
-        )
-        ls -al .bin
+      # Build app for all archs
+      - name: Build app for all archs
+        run: |
+          echo -e "\n###\nBuilding binaries for all archs\n"
+          make build-all-archs
 
-        # Build and push Docker multi-arch image
-        docker buildx build \
-          -t ${{env.DOCKER_REPO}}:${{env.BUILD_VERSION}} \
-          --push \
-          --platform linux/amd64,linux/arm64,linux/arm \
-          --build-arg BUILD_ID=${{env.BUILD_ID}} \
-          --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
-          --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
-          -f .container/agent/Dockerfile \
-          .
-        # Repeat to add the $BRANCH tag (images are cached so they're not re-built)
-        # Do this only if this is not a pre-release
-        docker buildx build \
-          -t ${{env.DOCKER_REPO}}:${{env.BRANCH}} \
-          --push \
-          --platform linux/amd64,linux/arm64,linux/arm \
-          --build-arg BUILD_ID=${{env.BUILD_ID}} \
-          --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
-          --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
-          -f .container/agent/Dockerfile \
-          .
+          echo -e "\n###\nCopy readme and license\n"
+          for f in .bin/*; do
+            if [ -d "$f" ]; then
+              cp -v LICENSE README.md "$f/"
+            fi
+          done
 
-    # Create release and upload assets
-    - name: Create release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: ${{ github.ref }}
-        draft: true
-        prerelease: ${{ env.PRERELEASE != '' }}
+          echo -e "\n###\nMake all binaries executable\n"
+          chmod +x .bin/*/agent .bin/*/controller
 
-    - name: Upload release asset amd64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: .bin/statiko_linux_amd64
-        asset_name: statiko_linux_amd64
-        asset_content_type: application/octet-stream
+          echo -e "\n###\nCreate archives\n"
+          for f in .bin/*; do
+            if [ -d "$f" ]; then
+              VARIANT=$(basename "$f")
+              (cd .bin && tar -cvzf statiko_${VARIANT}.tar.gz $VARIANT)
+            fi
+          done
 
-    - name: Upload release asset arm64v8
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: .bin/statiko_linux_arm64v8
-        asset_name: statiko_linux_arm64v8
-        asset_content_type: application/octet-stream
+          echo -e "\n###\nCompilation done\n"
+          ls -al .bin .bin/*
 
-    - name: Upload release asset arm32v7
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: .bin/statiko_linux_arm32v7
-        asset_name: statiko_linux_arm32v7
-        asset_content_type: application/octet-stream
+      # Publish artifacts
+      - name: Publish binaries as artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: bin
+          path: .bin
+      
+      # Build Docker images
+      - name: Build and push Docker multi-arch images
+        run: |
+          # Create symbolic links
+          ( \
+            cd .bin && \
+            ln -s linux-arm linux-armhf \
+          )
+          ls -al .bin
+
+          # Build and push Docker multi-arch images
+          docker buildx build \
+            -t ${{env.DOCKER_REPO_AGENT}}:${{env.BUILD_VERSION}} \
+            --push \
+            --platform linux/amd64,linux/arm64,linux/arm \
+            --build-arg BUILD_ID=${{env.BUILD_ID}} \
+            --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
+            --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
+            -f container/agent/Dockerfile \
+            .
+          docker buildx build \
+            -t ${{env.DOCKER_REPO_CONTROLLER}}:${{env.BUILD_VERSION}} \
+            --push \
+            --platform linux/amd64,linux/arm64,linux/arm \
+            --build-arg BUILD_ID=${{env.BUILD_ID}} \
+            --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
+            --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
+            -f container/agent/Dockerfile \
+            .
+
+          # Repeat to add the $BRANCH tag (images are cached so they're not re-built)
+          # Do this only if this is not a pre-release
+          docker buildx build \
+            -t ${{env.DOCKER_REPO_AGENT}}:${{env.BRANCH}} \
+            --push \
+            --platform linux/amd64,linux/arm64,linux/arm \
+            --build-arg BUILD_ID=${{env.BUILD_ID}} \
+            --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
+            --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
+            -f container/agent/Dockerfile \
+            .
+          docker buildx build \
+            -t ${{env.DOCKER_REPO_CONTROLLER}}:${{env.BRANCH}} \
+            --push \
+            --platform linux/amd64,linux/arm64,linux/arm \
+            --build-arg BUILD_ID=${{env.BUILD_ID}} \
+            --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
+            --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
+            -f container/agent/Dockerfile \
+            .
+
+      # Create release and upload assets
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: true
+          prerelease: ${{ env.PRERELEASE != '' }}
+
+      - name: Upload release asset amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: .bin/statiko_linux-amd64.tar.gz
+          asset_name: statiko_linux-amd64.tar.gz
+          asset_content_type: application/tar+gzip
+
+      - name: Upload release asset arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: .bin/statiko_linux-arm64.tar.gz
+          asset_name: statiko_linux-arm64.tar.gz
+          asset_content_type: application/tar+gzip
+
+      - name: Upload release asset armhf
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: .bin/statiko_linux-armhf.tar.gz
+          asset_name: statiko_linux-armhf.tar.gz
+          asset_content_type: application/tar+gzip
 

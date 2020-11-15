@@ -3,9 +3,7 @@
 
 # Required secrets:
 # - DOCKER_PASSWORD password for Docker Hub
-# - AZURE_CLIENT_SECRET secret for the Azure Service principal
-# - REPO_S3_ACCESS_KEY_ID access key ID for AWS S3 for testing
-# - REPO_S3_SECRET_ACCESS_KEY secret access key for AWS S3 for testing
+# - STATIKO_AZURE_KEY_VAULT_AUTH_CLIENT_SECRET secret for the Azure Service principal with permission to access Azure Key Vault
 
 name: Continuous Integration
 
@@ -16,208 +14,200 @@ on:
     branches: [master]
 
 env:
-  GO_BUILDER_IMAGE: 'golang:1.14-alpine'
-  NODE_BUILDER_IMAGE: 'node:12-alpine'
+  GO_VERSION: '1.15'
+  NODE_BUILDER_IMAGE: 'node:14-alpine'
   DOCKER_USERNAME: 'italypaleale'
-  DOCKER_REPO: 'docker.io/statiko/statiko'
-  PACKR_VERSION: 2.7.1
+  DOCKER_REPO_AGENT: 'docker.io/statiko/statiko-agent'
+  DOCKER_REPO_CONTROLLER: 'docker.io/statiko/statiko-controller'
+  STATIKO_REPO_AZURE_ACCOUNT: 'devstoreaccount1'
+  STATIKO_REPO_AZURE_ACCESS_KEY: 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='
+  STATIKO_REPO_AZURE_CUSTOM_ENDPOINT: 'localhost:10000'
+  STATIKO_REPO_AZURE_NO_TLS: '1'
+  STATIKO_REPO_S3_ACCESS_KEY_ID: 'AKIAIOSFODNN7EXAMPLE'
+  STATIKO_REPO_S3_SECRET_ACCESS_KEY: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+  STATIKO_REPO_S3_ENDPOINT: 'localhost:9000'
+  STATIKO_REPO_S3_NO_TLS: '1'
+  # Needed for when testing against S3 (rather than minio): location where the bucket is created
+  #TESTING_S3_REGION: 'us-east-1'
   
 jobs:
 
   ci:
     name: Continuous Integration
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
+      - name: Check out code
+        uses: actions/checkout@v2
 
-    - name: Check out code
-      uses: actions/checkout@v2
+      # Set up Go
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^${{env.GO_VERSION}}
 
-    # Set variables
-    - name: Set variables
-      run: |
-        BUILD_ID="canary"
-        BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
-        COMMIT_HASH=$(echo $GITHUB_SHA | head -c 7)
-        TAG="ci-$(date -u +'%Y%m%d%H%M%S')"
-        echo ::set-env name=BUILD_ID::$BUILD_ID
-        echo ::set-env name=BUILD_TIME::$BUILD_TIME
-        echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
-        echo ::set-env name=TAG::$TAG
+      # Set variables
+      - name: Set variables
+        run: |
+          BUILD_ID="canary"
+          BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S')
+          COMMIT_HASH=$(echo $GITHUB_SHA | head -c 7)
+          TAG="ci-$(date -u +'%Y%m%d%H%M%S')"
+          echo ::set-env name=BUILD_ID::$BUILD_ID
+          echo ::set-env name=BUILD_TIME::$BUILD_TIME
+          echo ::set-env name=COMMIT_HASH::$COMMIT_HASH
+          echo ::set-env name=TAG::$TAG
 
-    # Build default web app
-    - name: Build default web app
-      run: |
-        # Build using Docker
-        docker run \
-          --rm \
-          -v "$PWD"/default-app:/usr/src/myapp \
-          -w /usr/src/myapp \
-          ${{env.NODE_BUILDER_IMAGE}} \
-            sh -c '
-              set -e
+      # Start minio
+      # Can't use a GitHub Action service because that doesn't allow overriding the container's command
+      - name: Start minio
+        run: |
+          docker run \
+            -d \
+            -p 9000:9000 \
+            -e "MINIO_ACCESS_KEY=${{env.STATIKO_REPO_S3_ACCESS_KEY_ID}}" \
+            -e "MINIO_SECRET_KEY=${{env.STATIKO_REPO_S3_SECRET_ACCESS_KEY}}" \
+            minio/minio \
+              server /data
 
-              echo -e "###\nInstalling npm dependencies\n"
-              npm ci
+      # Start Azurite
+      - name: Start Azurite
+        run: |
+          docker run \
+            -d \
+            -p 10000:10000 \
+            mcr.microsoft.com/azure-storage/azurite \
+              azurite-blob --blobHost 0.0.0.0 --blobPort 10000
 
-              echo -e "\n###\nBuilding default web app\n"
-              ./build.sh
-              '
-        echo -e "\n###\nCompilation done\n"
-        ls -al default-app/dist
+      # Build default web app
+      - name: Build default web app
+        run: |
+          # Build using Docker
+          docker run \
+            --rm \
+            -v "$PWD"/default-app:/usr/src/myapp \
+            -w /usr/src/myapp \
+            ${{env.NODE_BUILDER_IMAGE}} \
+              sh -c '
+                set -e
 
-    # Build and test Statiko
-    - name: Build and test Statiko
-      run: |
-        mkdir -p .bin
+                echo -e "###\nInstalling npm dependencies\n"
+                npm ci
 
-        # Build using Docker
-        # Disable CGO so the binary is fully static
-        docker run \
-          --rm \
-          -v "$PWD":/usr/src/myapp \
-          -v "$PWD"/.e2e-test/results:/results \
-          -v "$PWD"/.e2e-test/container_etc:/etc/statiko \
-          -w /usr/src/myapp \
-          -e GO111MODULE=on \
-          -e CGO_ENABLED=0 \
-          ${{env.GO_BUILDER_IMAGE}} \
-            sh -c '
-              set -e
+                echo -e "\n###\nBuilding default web app\n"
+                ./build.sh
+                '
+          echo -e "\n###\nCompilation done\n"
+          ls -al default-app/dist
 
-              echo -e "###\nFetching packr2\n"
-              mkdir -p .packr
-              wget -O - https://github.com/gobuffalo/packr/releases/download/v${{env.PACKR_VERSION}}/packr_${{env.PACKR_VERSION}}_linux_amd64.tar.gz | tar xvz -C .packr
-              chmod +x .packr/packr2
+      # Fetch tools
+      - name: Fetch tools
+        run: |
+          # Install core tools
+          make get-tools
 
-              echo -e "\n###\nRunning packr2\n"
-              .packr/packr2
+          # Install goveralls and go-acc
+          curl -sf https://gobinaries.com/github.com/mattn/goveralls@v0.0.6 | PREFIX=. sh
+          curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=. sh
 
-              echo -e "\n###\nFetching modules\n"
-              go get
+      # Get Go modules
+      - name: Get Go modules
+        run: |
+          make fetch-deps
 
-              echo -e "\n###\nRunning unit tests\n"
-              AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }} \
-              REPO_S3_ACCESS_KEY_ID=${{ secrets.REPO_S3_ACCESS_KEY_ID }} \
-              REPO_S3_SECRET_ACCESS_KEY=${{ secrets.REPO_S3_SECRET_ACCESS_KEY }} \
-              REPO_S3_BUCKET=statiko-test \
-              REPO_S3_ENDPOINT=s3.us-west-1.amazonaws.com \
-              REPO_AZURE_ACCOUNT=statikocistorage \
-                go test -v ./... -coverprofile=/results/unittests.out
+      # Run pkger
+      - name: Run pkger
+        run: |
+          make pkger
 
-              echo -e "\n###\nBuilding amd64\n"
-              GOOS=linux \
-              GOARCH=amd64 \
-                go build \
-                  -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
-                  -o .bin/statiko_linux_amd64
-              
-              echo -e "\n###\nBuilding amd64 test binary\n"
-              # Disable CGO so the binary is fully static
-              GOOS=linux \
-              GOARCH=amd64 \
-                go test \
-                -coverpkg=github.com/statiko-dev/statiko/... \
-                -c \
-                -tags e2etests \
-                -ldflags "-X github.com/statiko-dev/statiko/buildinfo.ENV=production -X github.com/statiko-dev/statiko/buildinfo.BuildID=${{env.BUILD_ID}} -X github.com/statiko-dev/statiko/buildinfo.BuildTime=${{env.BUILD_TIME}} -X github.com/statiko-dev/statiko/buildinfo.CommitHash=${{env.COMMIT_HASH}}" \
-                -o .bin/statiko_linux_amd64.test
-              '
-        echo -e "\n###\nCompilation done\n"
-        ls -al .bin
-    
-    # Build Docker images
-    - name: Build Docker image
-      run: |
-        # Use the "latest" tag here
-        docker build \
-          --tag "${{env.DOCKER_REPO}}:latest" \
-          --build-arg TARGETARCH=amd64 \
-          --build-arg BUILD_ID=${{env.BUILD_ID}} \
-          --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
-          --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
-          -f .container/agent/Dockerfile \
-          .
-    - name: Build Docker test image
-      run: |
-        mkdir -p .e2e-test/.bin
-        cp .bin/*.test .e2e-test/.bin
-        docker build \
-          --tag statiko-test \
-          --build-arg TARGETARCH=amd64 \
-          -f .container/e2e-test/Dockerfile \
-          .e2e-test
-    # Run tests
-    - name: Run end-to-end tests
-      run: |
-        docker run \
-          --rm \
-          -v "$PWD"/.e2e-test/container_etc:/etc/statiko \
-          -v "$PWD"/.e2e-test/results:/results \
-          -e "AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}" \
-          -e "NODE_URL=statiko.local:2265" \
-          -e "NGINX_URL=statiko.local" \
-          --add-host "statiko.local:127.0.0.1" \
-          statiko-test
-    - name: Print logs
-      # This step always runs, even if the tests failed
-      if: always()
-      run: |
-        echo "### Test stdout ###\n"
-        cat .e2e-test/results/stdout || echo "File does not exist"
-        echo "\n\n### Test stderr ###\n"
-        cat .e2e-test/results/stderr || echo "File does not exist"
-    - name: Convert coverage report
-      run: |
-        docker run \
-          --rm \
-          -v "$PWD":/usr/src/myapp \
-          -w /usr/src/myapp \
-          ${{env.GO_BUILDER_IMAGE}} \
-            sh -c '
-              echo -e "###\nFetching utilities\n"
-              go get github.com/wadey/gocovmerge
-              go get github.com/axw/gocov/gocov
-              go get github.com/axw/gocov/...
-              go get github.com/matm/gocov-html
-              go get github.com/AlekSi/gocov-xml
+      # Run tests
+      - name: Run tests
+        run: |
+          # Set up the environment
+          sudo ln -s /etc/statiko tests/etc/statiko
+          sudo mkdir -p /repo /data
+          sudo chmod 0777 /repo /data
+          mkdir -p tests/results
+          # Run tests
+          make test
+        env:
+          STATIKO_AZURE_KEY_VAULT_AUTH_CLIENT_SECRET: ${{ secrets.STATIKO_AZURE_KEY_VAULT_AUTH_CLIENT_SECRET }}
 
-              echo -e "###\nMerging coverage reports\n"
-              gocovmerge \
-                .e2e-test/results/unittests.out \
-                .e2e-test/results/e2e.out \
-                > .e2e-test/results/coverage.out
+      # Build app for amd64 only
+      - name: Build app for amd64 only
+        run: |
+          make build-amd64
+          chmod +x .bin/*/agent .bin/*/controller
+          ls -al .bin .bin/*
 
-              echo -e "###\nConverting coverage reports\n"
-              gocov convert .e2e-test/results/coverage.out | gocov-xml > .e2e-test/results/coverage.xml
-              gocov convert .e2e-test/results/coverage.out | gocov-html > .e2e-test/results/coverage.html
-              '
-    - name: Publish results and coverage
-      # This step always runs, even if the tests failed
-      if: always()
-      uses: actions/upload-artifact@v1
-      with:
-        name: tests
-        path: .e2e-test/results
+      # Build agent Docker image
+      - name: Build agent Docker image
+        run: |
+          # Use the "latest" tag here
+          docker build \
+            --tag "${{env.DOCKER_REPO_AGENT}}:latest" \
+            --build-arg TARGETARCH=amd64 \
+            --build-arg BUILD_ID=${{env.BUILD_ID}} \
+            --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
+            --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
+            -f container/agent/Dockerfile \
+            .
 
-    # Publish artifacts
-    - name: Publish binaries as artifacts
-      uses: actions/upload-artifact@v1
-      with:
-        name: bin
-        path: .bin
+      # Build controller Docker image
+      - name: Build controller Docker image
+        run: |
+          # Use the "latest" tag here
+          docker build \
+            --tag "${{env.DOCKER_REPO_CONTROLLER}}:latest" \
+            --build-arg TARGETARCH=amd64 \
+            --build-arg BUILD_ID=${{env.BUILD_ID}} \
+            --build-arg BUILD_TIME=${{env.BUILD_TIME}} \
+            --build-arg COMMIT_HASH=${{env.COMMIT_HASH}} \
+            -f container/controller/Dockerfile \
+            .
 
-    # Login to Docker Hub
-    - name: Login to Docker Hub
-      env:
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      run: |
-        echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
+      # Coverage report
+      - name: Convert coverage report
+        run: |
+          echo -e "###\nFetching utilities\n"
+          curl -sf https://gobinaries.com/github.com/axw/gocov/gocov | PREFIX=.bin/ sh
+          # Fork of github.com/matm/gocov-html but with tags so it works with gobinaries.com
+          curl -sf https://gobinaries.com/github.com/ItalyPaleAle/gocov-html | PREFIX=.bin/ sh 
+          #go get github.com/AlekSi/gocov-xml
 
-    # Publish Docker image
-    - name: Publish Docker CI image
-      run: |
-        # Add the tags before publishing, as we won't be publishing "latest"
-        docker tag ${{env.DOCKER_REPO}}:latest ${{env.DOCKER_REPO}}:canary
+          echo -e "###\nConverting coverage reports\n"
+          .bin/gocov convert tests/results/coverage.txt | .bin/gocov-html > tests/results/coverage.html
+          #.bin/gocov convert tests/results/coverage.txt | .bin/gocov-xml > tests/results/coverage.xml
 
-        # Publish the images
-        docker push ${{env.DOCKER_REPO}}:canary
+      # Publish test results and coverage
+      - name: Publish results and coverage
+        # This step always runs, even if the tests failed
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: tests
+          path: tests/results
+
+      # Publish artifacts
+      - name: Publish binaries as artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: bin
+          path: .bin
+
+      # Login to Docker Hub
+      - name: Login to Docker Hub
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "${DOCKER_PASSWORD}" | docker login --username "${{env.DOCKER_USERNAME}}" --password-stdin
+
+      # Publish Docker image
+      - name: Publish Docker CI image
+        run: |
+          # Add the tags before publishing, as we won't be publishing "latest"
+          docker tag ${{env.DOCKER_REPO_AGENT}}:latest ${{env.DOCKER_REPO_AGENT}}:canary
+          docker tag ${{env.DOCKER_REPO_CONTROLLER}}:latest ${{env.DOCKER_REPO_CONTROLLER}}:canary
+
+          # Publish the images
+          docker push ${{env.DOCKER_REPO_AGENT}}:canary
+          docker push ${{env.DOCKER_REPO_CONTROLLER}}:canary

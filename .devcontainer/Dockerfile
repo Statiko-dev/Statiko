@@ -1,7 +1,7 @@
 # Based on: https://github.com/microsoft/vscode-dev-containers/tree/v0.140.1/containers/go/.devcontainer/base.Dockerfile
 
 # Go version
-ARG VARIANT="1"
+ARG VARIANT="1.15"
 FROM golang:${VARIANT}
 
 # Install needed packages and setup non-root user

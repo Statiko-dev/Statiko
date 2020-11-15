@@ -39,8 +39,9 @@ clean:
 
 # Fetch all dependencies
 fetch-deps:
+	CGO_ENABLED=0 \
 	GO111MODULE=on \
-      go get
+      go get -v -t -d ./...
 
 # Build for amd64
 build-amd64:
@@ -66,11 +67,16 @@ build-default-app:
 # Run tests
 test:
 	mkdir -p tests/results
+	CGO_ENABLED=0 \
+	GO111MODULE=on \
 	GO_ENV=test \
 	  .bin/go-acc -o tests/results/coverage.txt $(shell go list ./...) -- -v
 
 # Function that runs the compilation steps
 define compile
+	# Ensure the directory exists
+	mkdir -p .bin/$(1)
+
     # Build the controller
 	# Disable CGO so the binary is fully static
 	CGO_ENABLED=0 \
@@ -78,7 +84,7 @@ define compile
 	$(2) \
 	  go build \
 	    -ldflags $(LDFLAGS) \
-	    -o .bin/controller_$(1) \
+	    -o .bin/$(1)/controller \
 	    controller/main.go
 
 	# Build the agent
@@ -88,6 +94,6 @@ define compile
 	$(2) \
 	  go build \
 	    -ldflags $(LDFLAGS) \
-	    -o .bin/agent_$(1) \
+	    -o .bin/$(1)/agent \
 	    agent/main.go
 endef

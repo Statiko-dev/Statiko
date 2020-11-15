@@ -36,17 +36,13 @@ RUN set -x \
     && sed -i 's/^daemon off\;//' /etc/nginx/nginx.conf
 
 # Supervisord configuration
-COPY supervisord.conf /etc/supervisord.conf
+COPY container/agent/supervisord.conf /etc/supervisord.conf
 
 # Copy app
-COPY .bin/statiko_linux_${TARGETARCH} /usr/local/bin/statiko
-RUN chmod +x /usr/local/bin/statiko
-
-# Configuration for the statiko app
-ENV PORT=2265
+COPY .bin/linux-${TARGETARCH}/agent /usr/local/bin/statiko-agent
 
 # Expose ports
-EXPOSE 80 443 2265
+EXPOSE 80 443
 
 # Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

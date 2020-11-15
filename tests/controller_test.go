@@ -154,6 +154,7 @@ func (s *ControllerTestSuite) startApp(t *testing.T) {
 		}
 		err := s.app.Run(s.ctx)
 		if !assert.NoError(t, err) {
+			wait <- 1
 			return
 		}
 	}()
