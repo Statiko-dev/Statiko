@@ -16,6 +16,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package buildinfo
 
+import (
+	"fmt"
+	"runtime"
+)
+
 // These variables will be set at build time
 var (
 	BuildID    string
@@ -23,3 +28,11 @@ var (
 	BuildTime  string
 	ENV        string
 )
+
+// VersionString returns the app's version formatted as string
+func VersionString() string {
+	if BuildID == "" {
+		return "canary " + runtime.Version()
+	}
+	return fmt.Sprintf("%s (%s; %s) %s", BuildID, CommitHash, BuildTime, runtime.Version())
+}

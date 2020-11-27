@@ -1,7 +1,7 @@
 # Based on: https://github.com/microsoft/vscode-dev-containers/tree/v0.140.1/containers/go/.devcontainer/base.Dockerfile
 
 # Go version
-ARG VARIANT="1"
+ARG VARIANT="1.15"
 FROM golang:${VARIANT}
 
 # Install needed packages and setup non-root user
@@ -36,8 +36,13 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/gobuffalo/packr/packr2@v2.8.0 | PREFIX=/usr/local/bin sh \
   && curl -sf https://gobinaries.com/github.com/markbates/pkger/cmd/pkger@v0.17.1 | PREFIX=/usr/local/bin sh \
-  && su dev -c "go get -x github.com/matm/gocov-html" 2>&1 \
-  && su dev -c "go get -x github.com/axw/gocov/gocov" 2>&1 \
+  && curl -sf https://gobinaries.com/github.com/fullstorydev/grpcurl/cmd/grpcurl | PREFIX=/usr/local/bin sh \
+  && curl -sf https://gobinaries.com/github.com/axw/gocov/gocov | PREFIX=/usr/local/bin sh \
+  # Fork of github.com/matm/gocov-html but with tags so it works with gobinaries.com
+  && curl -sf https://gobinaries.com/github.com/ItalyPaleAle/gocov-html | PREFIX=/usr/local/bin sh \
+  # Fork of github.com/mitchellh/protoc-gen-go-json but with tags so it works with gobinaries.com
+  && curl -sf https://gobinaries.com/github.com/ItalyPaleAle/protoc-gen-go-json | PREFIX=/usr/local/bin sh \
+  && curl -sf https://gobinaries.com/github.com/golang/protobuf/protoc-gen-go@v1.4.3 | PREFIX=/usr/local/bin sh \
   # Protobuf compiler
   && export PROTOC_VERSION="3.13.0" \
   && PB_REL="https://github.com/protocolbuffers/protobuf/releases" \
@@ -52,8 +57,16 @@ RUN curl -sf https://gobinaries.com/github.com/ory/go-acc@v0.2.6 | PREFIX=/usr/l
 # Install global packages from NPM
 RUN su dev -c "source /usr/local/share/nvm/nvm.sh && npm install -g eslint" 2>&1
 
-# Enable ZSH plugins
-RUN su dev -c "sed -i 's/plugins=(git)/plugins=(git dotenv)/g' /home/dev/.zshrc"
+# Add CA certificates
+COPY ca-certs/* /usr/local/share/ca-certificates/
+RUN chmod 644 /usr/local/share/ca-certificates/* \
+  && update-ca-certificates
 
-# Expose ports
-EXPOSE 80 443 2265
+# Configure ZSH
+RUN mkdir -p /shell-history \
+  && touch /shell-history/.zsh_history \
+  && chown -R dev /shell-history
+COPY .zshrc /home/dev/.zshrc
+
+# Workdir
+WORKDIR /workspace

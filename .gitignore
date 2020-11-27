@@ -1,24 +1,13 @@
 # Development
 test.sh
-e2e-test/container_etc/state.json
-.e2e-test/container_etc/state.json
-tests/etc/statiko/state.json
+tests/etc/statiko/state*
+tests/results
+.test
 
 # Compiled binaries
 bin/
 .bin/
-e2e-test/bin/
-e2e-test/.bin/
-.e2e-test/bin/
-.e2e-test/.bin/
-.packr/
-packrd/
-*-packr.go
-
-# Test results
-e2e-test/results/
-.e2e-test/results/
-
+pkged.go
 
 
 

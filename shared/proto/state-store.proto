@@ -1,0 +1,67 @@
+/*
+Copyright © 2020 Alessandro Segala (@ItalyPaleAle)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+syntax = "proto3";
+
+package statiko;
+
+option go_package = "github.com/statiko-dev/statiko/shared/proto";
+
+import "common.proto";
+
+// Represents the node's state
+message StateStore {
+  // State version
+  uint64 version = 1;
+
+  // List of sites
+  repeated Site sites = 2;
+
+  // List of TLS certificates, mapped by their ID
+  map<string,TLSCertificate> certificates = 3;
+
+  // Other secrets (encrypted)
+  map<string,bytes> secrets = 4;
+
+  // DH parameters
+  DHParams dh_params = 5;
+}
+
+// Configuration for a TLS certificate
+message TLSCertificate {
+  // Certificate type
+  enum Type {
+    // Null value (should not be used)
+    NULL = 0;
+    // Imported external certificate
+    IMPORTED = 0x1;
+    // Self-signed certificate
+    SELF_SIGNED = 0x2;
+    // ACME (Let's Encrypt)
+    ACME = 0x10;
+  }
+  Type type = 1;
+
+  // Certificate key, PEM-encoded and encrypted (used by certain types only)
+  bytes key = 5;
+  // Certificate, PEM-encoded (used by certain types only)
+  bytes certificate = 6;
+
+  // Auto-generated information
+  repeated string _domains = 2000;
+  int64 _nbf = 2001;
+  int64 _exp = 2002;
+}

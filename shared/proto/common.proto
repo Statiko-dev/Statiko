@@ -1,0 +1,53 @@
+/*
+Copyright © 2020 Alessandro Segala (@ItalyPaleAle)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+syntax = "proto3";
+
+package statiko;
+
+option go_package = "github.com/statiko-dev/statiko/shared/proto";
+
+// Site definition
+message Site {
+  // Domains: primary and aliases
+  string domain = 1;
+  repeated string aliases = 2;
+
+  // Temporary site (e.g. for testing)
+  bool temporary = 3;
+
+  // ID of the generated TLS certificate
+  string generated_tls_id = 10;
+  // Enable using ACME for requesting certificates instead of self-signed ones
+  bool enable_acme = 11;
+  // ID of an imported TLS certificate to use (optional)
+  string imported_tls_id = 12;
+
+  // App (optional)
+  message App {
+    // App name
+    string name = 1;
+  }
+  App app = 20;
+}
+
+// DH Parameters
+message DHParams {
+  // Generation date (UNIX timestamp)
+  int64 date = 1;
+  // PEM-encoded value
+  string pem = 2;
+}

@@ -16,71 +16,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 package main
 
-import (
-	"log"
-	"math/rand"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+import "fmt"
 
-	"github.com/statiko-dev/statiko/api"
-	"github.com/statiko-dev/statiko/fs"
-	"github.com/statiko-dev/statiko/notifications"
-	"github.com/statiko-dev/statiko/sync"
-	"github.com/statiko-dev/statiko/webserver"
-	"github.com/statiko-dev/statiko/worker"
-)
-
+// We need a main package here for pkger to work, but this main function doesn't do anything
 func main() {
-	// Seed rand
-	rand.Seed(time.Now().UnixNano())
-
-	// Store
-	if err := fs.Startup(); err != nil {
-		panic(err)
-	}
-
-	// Init notifications client
-	if err := notifications.InitNotifications(); err != nil {
-		panic(err)
-	}
-
-	// Start all background workers
-	worker.StartWorker()
-
-	// Sync the state
-	// Do this in a synchronous way to ensure the node starts up properly
-	if err := sync.Run(); err != nil {
-		panic(err)
-	}
-
-	// Ensure Nginx is running
-	if err := webserver.Instance.EnsureServerRunning(); err != nil {
-		panic(err)
-	}
-
-	// Handle SIGUSR1 signals
-	handleResyncSignal()
-
-	// Start the API server
-	api.Server.Start()
-}
-
-// Listens for SIGUSR1 signals and triggers a new sync
-func handleResyncSignal() {
-	sigc := make(chan os.Signal, 2)
-	signal.Notify(sigc, syscall.SIGUSR1)
-	go func() {
-		for {
-			<-sigc
-			log.Println("Received SIGUSR1, trigger a re-sync")
-
-			// Restart the API server
-			api.Server.Restart()
-
-			// Force a sync
-			go sync.QueueRun()
-		}
-	}()
+	fmt.Println("This package doesn't do anything - you probably want to run the agent or controller instead.")
 }

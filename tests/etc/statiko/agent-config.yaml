@@ -1,0 +1,19 @@
+controller:
+  address: "localhost:2300"
+  token: "foo-bar-foo-bar"
+  tls:
+    # Enabling this is unsafe - use for testing with self-signed certs only
+    insecure: true
+    ca: "/etc/statiko/ca/ca.pem"
+
+serverPort: 2424
+
+appRoot: "/data"
+
+nginx:
+  user: www-data
+  commands:
+    restart: sudo service nginx status && sudo service nginx reload || sudo service nginx restart
+    start: sudo service nginx start
+    status: sudo service nginx status > /dev/null && echo 1 || echo 0
+    test: sudo nginx -t -q

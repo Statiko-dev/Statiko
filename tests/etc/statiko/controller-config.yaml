@@ -1,0 +1,72 @@
+controller:
+  apiPort: 2265
+  grpcPort: 2300
+  token: "foo-bar-foo-bar"
+  tls:
+    #azureKeyVault: "controller-statiko-test"
+    #certificate: "/etc/statiko/ca/controller.pem"
+    #key: "/etc/statiko/ca/controller-key.pem"
+    certificate: ""
+    acme: false
+
+state:
+  store: "file"
+
+auth:
+  psk:
+    enabled: yes
+    key: "hello world"
+
+  azureAD:
+    enabled: yes
+    tenantId: "1ea3c9a2-b58b-48c7-b5ce-ca311c3c1196"    
+    # DEV NOTE: in development, we're using the same app for both Azure AD authentication and as an Azure Service Principal. Not recommended in production, however
+    clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
+
+secretsEncryptionKey: "aQZg30UrCUgu0TfdNvIeLg=="
+
+azureKeyVault:
+  name: "statiko-ci-akv"
+  auth:
+    tenantId: "1ea3c9a2-b58b-48c7-b5ce-ca311c3c1196"
+    clientId: "478f8d4c-d845-478d-bff9-63a0258ee5b1"
+    # DEV NOTE: passed as environmental variable
+    clientSecret: ""
+
+repo:
+  type: "local"
+  local:
+    path: "/repo/"
+  azure:
+    account: "statikocistorage"
+    container: "apps"
+
+nodeName: "controller.statiko.test"
+
+acme:
+  email: someone@example.com
+  endpoint: https://pebble:14000/dir
+
+temporarySites:
+  domain: "sites.test"
+
+codesign:
+  required: false
+  publicKey: |-
+    -----BEGIN RSA PUBLIC KEY-----
+    MIICCgKCAgEArq01IOnu8nFHAy8W0YuDu2L/zJUuJXh9TbAT0I49vOwSzAZr+pb0
+    6wcilGvqWZPFqAjgF6pvB3ukytQnXoiYNUxtihbW2P0hBGcmhZY66csJaH7+sdWy
+    1zieqBjUSHO7dqLKPsESWwid1cPRKBph5cpMUcFI/9P+aWZxKQHkk7jp0qOHN9en
+    zQzyK7HtIim+LnsTlqpyStoeW5aNj424l/CQ3tfWROJcUXEJO69xt0mC5RvjQFN+
+    8shnaU0QkwtIb+NzfFPFtxqCZuZu3zN7RL6joCWupf7Ll2S+gkl9+Mv6SPp9wJ6+
+    YT/1DJ8Ir+nPtHIKgWYs4x2Xru79AxjevyFqO5hXvsorP1lqWQQM8wmkX/Nvsbw+
+    G/KDZWuYyHfd2uieSsXIanWATdla+E2zq8rfkd9UAKTJfQANYaNOzcyoQDSKvMsg
+    bcm3E+ruUnynTCoDaho/pnMZX5mPcr396viiXh6QjZAnx5PAKf0D79m9Acthes2p
+    nuj2AYUjbjoQNghr1QvcWetDYhnZtGyLSnGQDhpkfG2RD643BwKA8iRURARfHQ/K
+    xuTVCHYKOsFKqF3xEnXIgnksGB2Je8jwM84s5FoJlQn886fgnfza7ZlcfdqY/0p7
+    QeH1YGHHDOvPu/d7Uxiur5+8qFz1/wd/cGnps4OsL7kkl8TWYy0ANQECAwEAAQ==
+    -----END RSA PUBLIC KEY-----
+
+dhparams:
+  # DEV NOTE: in development, use smaller DH parameters to test generation
+  bits: 1024
